@@ -1,11 +1,47 @@
+# ---- Personal data: never commit ------------------------------------
+# Local data store written by the Node backend (holdings, cash, loans).
+data/
+# Backups and exports produced by the app.
+backups/
+exports/
+*.backup.json
+exfolio-backup-*.json
+# Broker / exchange statements and CSV files to import.
+imports/
+statements/
+*.csv
+*.xlsx
+*.xls
+*.pdf
+# Fictional fixtures used by tests are the only spreadsheets allowed in.
+!tests/fixtures/**/*.csv
+# Private notes.
+private/
+*.private.md
+
+# ---- Secrets: never commit ------------------------------------------
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+credentials*.json
+service-account*.json
+token*.json
+# clasp links the repo to a personal Google account and Apps Script project.
+.clasp.json
+.clasprc.json
+gas/config.local.js
+
+# ---- Build output and tooling ---------------------------------------
+dist/
+node_modules/
+*.local
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ipynb_checkpoints/
 .cache/
 .venv/
-node_modules/
 .DS_Store

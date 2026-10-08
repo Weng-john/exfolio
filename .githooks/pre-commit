@@ -1,0 +1,3 @@
+#!/bin/sh
+# Block commits that would add personal data or secrets.
+exec node scripts/check-privacy.mjs --staged
