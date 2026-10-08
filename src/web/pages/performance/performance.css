@@ -1,0 +1,27 @@
+.performance-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.performance-sync-message {
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+
+.performance-missing {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.performance-chart {
+  height: 270px;
+}
+
+.performance-subline {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}

@@ -17,3 +17,5 @@ export * from './journal';
 export * from './strategies';
 export * from './journal';
 export * from './strategies';
+export * from './performance';
+export * from './xirr';
