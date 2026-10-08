@@ -7,7 +7,7 @@
 | 內容 | 位置 |
 |---|---|
 | 前端、計算引擎、本機後端程式碼 | `src/`、`server/` |
-| GAS 後端程式碼與部署說明 | `gas/`（不含部署網址與 token） |
+| GAS 後端程式碼與部署說明 | `gas/`（不含部署網址與任何帳號資料） |
 | 測試與虛構測試資料 | `tests/`、`tests/fixtures/` |
 | 公開商品、指數與常見金融機構的參考資料 | `src/core/seed.ts` |
 | 設定與文件 | `package.json`、`vite.config.ts`、`docs/`、`.env.example` |
@@ -19,7 +19,8 @@
 | 持倉、現金、交易、貸款等個人資料 | `data/exfolio.json` | `.gitignore`；可用 `EXFOLIO_DATA_DIR` 移到專案資料夾外 |
 | 備份與匯出檔 | `backups/`、`exports/`、`*backup*.json` | `.gitignore` |
 | 券商對帳單、要匯入的 CSV | `imports/`、`statements/`、`*.csv`、`*.xlsx`、`*.pdf` | `.gitignore` |
-| GAS 部署網址與存取 token | 瀏覽器 localStorage、GAS 指令碼屬性 | 不寫入任何檔案 |
+| 後端網址與登入 session | 瀏覽器 localStorage | 不寫入任何檔案 |
+| 會員帳號、密碼雜湊、稽核紀錄 | `data/auth.json`、`data/users/`，或 GAS 的控制試算表 | `.gitignore`；不在這個資料夾內 |
 | Google 帳號與指令碼連結 | `.clasp.json`、`.clasprc.json` | `.gitignore` |
 | 環境變數與金鑰檔 | `.env*`、`*.pem`、`*.key`、`credentials*.json` | `.gitignore` |
 | 產品規格與私人筆記 | `private/`、`*.private.md` | `.gitignore` |

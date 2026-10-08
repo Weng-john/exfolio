@@ -11,7 +11,7 @@ npm install
 npm run dev        # http://127.0.0.1:5173，前端與本機後端同一個程序
 ```
 
-資料存在 `data/exfolio.json`（已被 git 忽略）。
+第一次開啟會看到虛構的示範資料；按「登入 / 註冊」建立帳號，第一個帳號會成為管理員。資料存在 `data/`（已被 git 忽略），每位會員一個檔案。只在自己的電腦上單人使用時，可用 `EXFOLIO_AUTH=off npm run dev` 關閉登入。
 
 ```bash
 npm test               # 計算引擎單元測試

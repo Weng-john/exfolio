@@ -2,12 +2,19 @@
  * Exfolio backend for Google Apps Script, storing data in Google Sheets.
  *
  * Speaks the same protocol as the local Node backend (src/core/api.ts):
- * one POST with a JSON body { action, token, ... }.
+ * one POST with a JSON body { action, session, ... }. Access is per member:
+ * accounts, sessions and admin actions mirror server/auth.ts.
  *
- * Script properties (Project Settings → Script properties):
- *   EXFOLIO_TOKEN  required. Shared secret the frontend must send.
- *   SHEET_ID       optional. Spreadsheet to use when the script is not
- *                  bound to one.
+ * Storage layout
+ *   Control spreadsheet (the bound one, or SHEET_ID):
+ *     _users, _sessions, _config, _audit
+ *   One spreadsheet per member (created with SpreadsheetApp.create on first
+ *   save, its id recorded on the member's _users row): the data tables plus
+ *   `_meta` for the revision.
+ *
+ * Script properties (Project Settings -> Script properties):
+ *   SHEET_ID  optional. Control spreadsheet to use when the script is not
+ *             bound to one.
  *
  * Nothing secret belongs in this file: it is committed to the repository.
  */
@@ -19,8 +26,36 @@ var TABLES = [
 ];
 var META_SHEET = '_meta';
 var JSON_COLUMN = '_json';
-var MAX_FAILED_ATTEMPTS = 10;
+var USERS_SHEET = '_users';
+var SESSIONS_SHEET = '_sessions';
+var CONFIG_SHEET = '_config';
+var AUDIT_SHEET = '_audit';
+
+// Fields kept only inside the `_json` cell, never copied to a readable column.
+var USER_HIDDEN = ['passwordSalt', 'passwordHash', 'passwordRounds', 'googleSub'];
+var SESSION_HIDDEN = ['tokenHash'];
+
+var SESSION_DAYS = 30;
+var MAX_FAILURES = 8;
+var FAILURE_WINDOW_SECONDS = 15 * 60;
+var MAX_AUDIT = 1000;
+var LOCK_WAIT_MS = 20000;
 var QUOTE_TTL_SECONDS = 20;
+
+/**
+ * PBKDF2-HMAC-SHA-256 rounds applied to the browser's passwordKey. The
+ * expensive stretching (200,000 PBKDF2 iterations) already happened in the
+ * browser, so the key arriving here is a high-cost-to-guess 256-bit value.
+ * This step only adds a per-member salt and keeps a copy of the spreadsheet
+ * from being a list of directly replayable login keys. Every round is one
+ * Utilities service call, which is slow in Apps Script, so the count stays
+ * low to keep a login fast. The rounds used are stored per member, so the
+ * constant can be raised later without locking anyone out.
+ */
+var PASSWORD_ROUNDS = 1000;
+var DUMMY_SALT = '00000000000000000000000000000000';
+
+var lockDepth_ = 0;
 
 function doGet() {
   return json_({ ok: false, error: 'Use POST' });
@@ -30,10 +65,10 @@ function doPost(e) {
   var response;
   try {
     var request = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    var denied = authorize_(request.token);
-    response = denied ? { ok: false, error: denied } : dispatch_(request);
+    if (!request || typeof request !== 'object') request = {};
+    response = route_(request);
   } catch (err) {
-    response = { ok: false, error: String((err && err.message) || err) };
+    response = { ok: false, error: err instanceof ApiError_ ? err.code : String((err && err.message) || err) };
   }
   return json_(response);
 }
@@ -43,21 +78,146 @@ function json_(body) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/**
- * Returns an error message, or '' when the token is valid. Fails closed:
- * with no EXFOLIO_TOKEN configured every request is refused.
- */
-function authorize_(token) {
-  var expected = PropertiesService.getScriptProperties().getProperty('EXFOLIO_TOKEN');
-  if (!expected) return 'Backend is not configured: set the EXFOLIO_TOKEN script property';
-  var cache = CacheService.getScriptCache();
-  var failures = Number(cache.get('auth_failures') || 0);
-  if (failures >= MAX_FAILED_ATTEMPTS) return 'Too many failed attempts; try again later';
-  if (!safeEqual_(String(token || ''), expected)) {
-    cache.put('auth_failures', String(failures + 1), 600);
-    return 'Unauthorized';
+/** A failure the client reacts to (see ApiErrorCode in src/core/api.ts). */
+function ApiError_(code) {
+  this.code = code;
+  this.message = code;
+}
+
+// ---- Routing -----------------------------------------------------------
+// Same order as server/handler.ts: open actions, sign-in actions, then
+// everything else behind a valid session of an active member. With no valid
+// session nothing below the second switch runs: no member data, no quotes.
+
+function route_(request) {
+  switch (request.action) {
+    case 'ping':
+      return { ok: true, backend: 'gas' };
+    case 'config':
+      return { ok: true, config: publicConfig_(loadAuth_()) };
+    case 'register':
+      return withOk_(register_(request));
+    case 'login':
+      return withOk_(login_(request));
+    case 'loginGoogle':
+      return withOk_(loginGoogle_(request));
+    case 'logout':
+      logout_(request.session);
+      return { ok: true };
   }
-  return '';
+
+  var a = loadAuth_();
+  var user = authenticate_(a, request.session);
+  switch (request.action) {
+    case 'me':
+      return { ok: true, user: toPublic_(user) };
+    case 'updateProfile':
+      return { ok: true, user: updateProfile_(request) };
+    case 'changePassword':
+      return { ok: true, user: changePassword_(request) };
+    case 'linkGoogle':
+      return { ok: true, user: linkGoogle_(request) };
+    case 'adminUsers':
+      requireAdmin_(user);
+      return { ok: true, users: a.users.map(toPublic_) };
+    case 'adminUpdateUser':
+      return { ok: true, user: adminUpdateUser_(request) };
+    case 'adminDeleteUser':
+      adminDeleteUser_(request);
+      return { ok: true };
+    case 'adminSetConfig':
+      return { ok: true, config: adminSetConfig_(request) };
+    case 'adminAudit':
+      requireAdmin_(user);
+      return { ok: true, audit: a.audit.slice().reverse() };
+    case 'load':
+      return load_(request);
+    case 'save':
+      return save_(request);
+    case 'quotes':
+      return { ok: true, quotes: fetchQuotes_(request.items || []) };
+    case 'history':
+      return { ok: true, history: fetchHistory_(request.items || [], request.from) };
+    default:
+      return { ok: false, error: 'Unknown action: ' + request.action };
+  }
+}
+
+function withOk_(result) {
+  result.ok = true;
+  return result;
+}
+
+// ---- Locking -----------------------------------------------------------
+
+/**
+ * Runs `fn` while holding the script lock, so two requests never interleave
+ * their read-modify-write of the sheets. Re-entrant within one execution.
+ */
+function locked_(fn) {
+  if (lockDepth_ > 0) return fn();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  lockDepth_++;
+  try {
+    return fn();
+  } finally {
+    lockDepth_--;
+    lock.releaseLock();
+  }
+}
+
+/** Fresh state under the lock; saved only when `change` returns normally. */
+function mutate_(change) {
+  return locked_(function () {
+    var a = loadAuth_();
+    var result = change(a);
+    commitAuth_(a);
+    return result;
+  });
+}
+
+/** Like mutate_, but re-checks the session inside the lock. */
+function mutateAs_(session, change) {
+  return mutate_(function (a) {
+    return change(a, authenticate_(a, session));
+  });
+}
+
+// ---- Crypto helpers ----------------------------------------------------
+// Apps Script has no `crypto`: only Utilities. Byte arrays there are signed.
+
+function toSigned_(b) {
+  return b > 127 ? b - 256 : b;
+}
+
+function hexOf_(bytes) {
+  return bytes.map(function (b) { return ((b & 0xff) + 256).toString(16).slice(1); }).join('');
+}
+
+function hexToBytes_(hex) {
+  var out = [];
+  for (var i = 0; i + 1 < hex.length; i += 2) out.push(toSigned_(parseInt(hex.substr(i, 2), 16)));
+  return out;
+}
+
+function sha256Hex_(text) {
+  return hexOf_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text), Utilities.Charset.UTF_8));
+}
+
+/**
+ * PBKDF2-HMAC-SHA-256, one 32-byte block, built on the HMAC service so the
+ * result equals a standard PBKDF2 (the tests compare it with Node's).
+ */
+function hashKey_(passwordKey, saltHex, rounds) {
+  var password = hexToBytes_(passwordKey);
+  var u = Utilities.computeHmacSha256Signature(hexToBytes_(saltHex).concat([0, 0, 0, 1]), password);
+  var t = u.slice();
+  for (var i = 1; i < rounds; i++) {
+    u = Utilities.computeHmacSha256Signature(u, password);
+    for (var j = 0; j < t.length; j++) t[j] ^= u[j];
+  }
+  return hexOf_(t);
 }
 
 /** Compare without stopping at the first differing character. */
@@ -69,30 +229,529 @@ function safeEqual_(a, b) {
   return diff === 0;
 }
 
-function dispatch_(request) {
-  switch (request.action) {
-    case 'ping':
-      return { ok: true, backend: 'gas' };
-    case 'load':
-      return load_();
-    case 'save':
-      return save_(request.tables || {}, request.baseRevision);
-    case 'quotes':
-      return { ok: true, quotes: fetchQuotes_(request.items || []) };
-    case 'history':
-      return { ok: true, history: fetchHistory_(request.items || [], request.from) };
-    default:
-      return { ok: false, error: 'Unknown action: ' + request.action };
+function newSalt_() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 32);
+}
+
+function newId_(prefix) {
+  return prefix + '_' + Utilities.getUuid().replace(/-/g, '').slice(0, 20);
+}
+
+/**
+ * 256-bit session token: SHA-256 over four UUIDs plus the clock and
+ * Math.random. Utilities.getUuid() is a random (version 4) UUID; Google does
+ * not document its generator, so we rely on it being a secure random source
+ * (122 random bits each, 488 across four). Time and Math.random only stir
+ * the mix, they are not counted as entropy. Only the SHA-256 of the token is
+ * stored, so a copy of the sheet does not yield usable sessions.
+ */
+function newToken_() {
+  var parts = [];
+  for (var i = 0; i < 4; i++) parts.push(Utilities.getUuid());
+  parts.push(String(Date.now()), String(Math.random()));
+  return sha256Hex_(parts.join('|'));
+}
+
+// ---- Control sheets: users, sessions, config, audit ----------------------
+// Each is stored like a data table: full row as JSON in `_json`, readable
+// mirror columns beside it. Secret fields live only inside `_json`; anyone
+// who can open the control spreadsheet can still read them there.
+
+function loadAuth_() {
+  var ss = spreadsheet_();
+  var raw = readTable_(ss, CONFIG_SHEET)[0] || {};
+  var a = {
+    ss: ss,
+    users: readTable_(ss, USERS_SHEET),
+    sessions: readTable_(ss, SESSIONS_SHEET),
+    audit: readTable_(ss, AUDIT_SHEET),
+    config: { registration: raw.registration === 'open' ? 'open' : 'approval' }
+  };
+  if (raw.googleClientId) a.config.googleClientId = raw.googleClientId;
+  if (raw.legacyHandedOver) a.config.legacyHandedOver = raw.legacyHandedOver;
+  a.saved = snapshot_(a);
+  return a;
+}
+
+function snapshot_(a) {
+  return {
+    users: JSON.stringify(a.users),
+    sessions: JSON.stringify(a.sessions),
+    audit: JSON.stringify(a.audit),
+    config: JSON.stringify(a.config)
+  };
+}
+
+/** Writes back only the control sheets that changed. Prunes on every write. */
+function commitAuth_(a) {
+  var now = Date.now();
+  a.sessions = a.sessions.filter(function (s) { return new Date(s.expiresAt).getTime() > now; });
+  if (a.audit.length > MAX_AUDIT) a.audit = a.audit.slice(-MAX_AUDIT);
+  var after = snapshot_(a);
+  if (after.users !== a.saved.users) writeTable_(a.ss, USERS_SHEET, a.users, USER_HIDDEN);
+  if (after.sessions !== a.saved.sessions) writeTable_(a.ss, SESSIONS_SHEET, a.sessions, SESSION_HIDDEN);
+  if (after.audit !== a.saved.audit) writeTable_(a.ss, AUDIT_SHEET, a.audit, []);
+  if (after.config !== a.saved.config) writeTable_(a.ss, CONFIG_SHEET, [a.config], []);
+  a.saved = after;
+}
+
+function audit_(a, actor, action, target, detail) {
+  var entry = {
+    id: newId_('audit'),
+    at: new Date().toISOString(),
+    actorId: actor.id,
+    actorName: actor.username,
+    action: action
+  };
+  if (target) {
+    entry.targetId = target.id;
+    entry.targetName = target.username;
+  }
+  if (detail) entry.detail = detail;
+  a.audit.push(entry);
+}
+
+function publicConfig_(a) {
+  var config = {
+    authRequired: true,
+    registration: a.config.registration,
+    hasUsers: a.users.length > 0
+  };
+  if (a.config.googleClientId) config.googleClientId = a.config.googleClientId;
+  return config;
+}
+
+function toPublic_(u) {
+  var user = {
+    id: u.id,
+    username: u.username,
+    displayName: u.displayName,
+    role: u.role,
+    status: u.status,
+    allowAdminView: u.allowAdminView,
+    hasPassword: Boolean(u.passwordHash),
+    googleLinked: Boolean(u.googleSub),
+    createdAt: u.createdAt
+  };
+  if (u.lastLoginAt) user.lastLoginAt = u.lastLoginAt;
+  return user;
+}
+
+// ---- Validation ----------------------------------------------------------
+
+function normalizeUsername_(raw) {
+  var username = String(raw === undefined || raw === null ? '' : raw).trim().toLowerCase();
+  if (!/^[a-z0-9._@+-]{3,64}$/.test(username)) {
+    throw new ApiError_('帳號需為 3–64 個字元，只能使用英數字與 . _ @ + -');
+  }
+  return username;
+}
+
+function requireKey_(raw) {
+  var key = String(raw === undefined || raw === null ? '' : raw);
+  if (!/^[0-9a-f]{64}$/.test(key)) throw new ApiError_('密碼格式不正確');
+  return key;
+}
+
+function cleanName_(raw, fallback) {
+  var name = String(raw === undefined || raw === null ? '' : raw).trim().slice(0, 80);
+  return name || fallback;
+}
+
+function findUser_(a, userId) {
+  for (var i = 0; i < a.users.length; i++) {
+    if (a.users[i].id === userId) return a.users[i];
+  }
+  throw new ApiError_('找不到這個帳號');
+}
+
+function requireActive_(user) {
+  if (user.status === 'pending') throw new ApiError_('pending');
+  if (user.status === 'disabled') throw new ApiError_('disabled');
+}
+
+function requireAdmin_(user) {
+  if (user.role !== 'admin') throw new ApiError_('forbidden');
+}
+
+function activeAdmins_(a) {
+  return a.users.filter(function (u) { return u.role === 'admin' && u.status === 'active'; });
+}
+
+function setPassword_(user, passwordKey) {
+  user.passwordSalt = newSalt_();
+  user.passwordRounds = PASSWORD_ROUNDS;
+  user.passwordHash = hashKey_(passwordKey, user.passwordSalt, PASSWORD_ROUNDS);
+}
+
+function dropSessions_(a, userId, keepHash) {
+  a.sessions = a.sessions.filter(function (s) { return s.userId !== userId || s.tokenHash === keepHash; });
+}
+
+// ---- Sessions ---------------------------------------------------------------
+
+function openSession_(a, user) {
+  var token = newToken_();
+  a.sessions.push({
+    tokenHash: sha256Hex_(token),
+    userId: user.id,
+    expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString()
+  });
+  user.lastLoginAt = new Date().toISOString();
+  return token;
+}
+
+/** The active member behind a session token, or an error. */
+function authenticate_(a, session) {
+  if (typeof session !== 'string' || !session) throw new ApiError_('unauthenticated');
+  var tokenHash = sha256Hex_(session);
+  var record = null;
+  for (var i = 0; i < a.sessions.length; i++) {
+    if (a.sessions[i].tokenHash === tokenHash) record = a.sessions[i];
+  }
+  if (!record || new Date(record.expiresAt).getTime() <= Date.now()) throw new ApiError_('unauthenticated');
+  var user = null;
+  for (var j = 0; j < a.users.length; j++) {
+    if (a.users[j].id === record.userId) user = a.users[j];
+  }
+  if (!user) throw new ApiError_('unauthenticated');
+  requireActive_(user);
+  return user;
+}
+
+function logout_(session) {
+  var tokenHash = sha256Hex_(String(session === undefined || session === null ? '' : session));
+  mutate_(function (a) {
+    a.sessions = a.sessions.filter(function (s) { return s.tokenHash !== tokenHash; });
+  });
+}
+
+// ---- Login throttling ------------------------------------------------------
+// Per username, kept in CacheService. Best effort only: the cache may evict
+// entries early, so the limit can reset sooner than 15 minutes. Like the Node
+// backend it limits by account name, so someone who knows a username can
+// block that account's password login for a while.
+
+function throttleKey_(username) {
+  return 'login_fail:' + sha256Hex_(username);
+}
+
+function checkThrottle_(username) {
+  var raw = CacheService.getScriptCache().get(throttleKey_(username));
+  if (raw && JSON.parse(raw).count >= MAX_FAILURES) throw new ApiError_('rate_limited');
+}
+
+function recordFailure_(username) {
+  var cache = CacheService.getScriptCache();
+  var raw = cache.get(throttleKey_(username));
+  var now = Date.now();
+  var f = raw ? JSON.parse(raw) : { count: 0, since: now };
+  f.count += 1;
+  // Fixed window from the first failure: keep the original expiry.
+  var left = Math.ceil(FAILURE_WINDOW_SECONDS - (now - f.since) / 1000);
+  cache.put(throttleKey_(username), JSON.stringify(f), Math.max(1, left));
+}
+
+function clearFailures_(username) {
+  CacheService.getScriptCache().remove(throttleKey_(username));
+}
+
+// ---- Public operations -----------------------------------------------------
+
+/** Create a member. The first one becomes an active admin. */
+function createUser_(a, fields) {
+  var first = a.users.length === 0;
+  var user = {
+    id: newId_('u'),
+    username: fields.username,
+    displayName: fields.displayName || fields.username,
+    role: first ? 'admin' : 'member',
+    status: first || a.config.registration === 'open' ? 'active' : 'pending',
+    // On while the product is in testing; each member can turn it off.
+    allowAdminView: true,
+    createdAt: new Date().toISOString()
+  };
+  if (fields.passwordHash) {
+    user.passwordSalt = fields.passwordSalt;
+    user.passwordRounds = fields.passwordRounds;
+    user.passwordHash = fields.passwordHash;
+  }
+  if (fields.googleSub) user.googleSub = fields.googleSub;
+  a.users.push(user);
+  audit_(a, user, 'register', null, first ? 'first account: admin' : user.status);
+  if (first) handOverLegacy_(a, user);
+  return user;
+}
+
+function register_(request) {
+  var username = normalizeUsername_(request.username);
+  var key = requireKey_(request.passwordKey);
+  return mutate_(function (a) {
+    if (a.users.some(function (u) { return u.username === username; })) throw new ApiError_('username_taken');
+    var salt = newSalt_();
+    var user = createUser_(a, {
+      username: username,
+      displayName: cleanName_(request.displayName, username),
+      passwordSalt: salt,
+      passwordRounds: PASSWORD_ROUNDS,
+      passwordHash: hashKey_(key, salt, PASSWORD_ROUNDS)
+    });
+    var session = user.status === 'active' ? openSession_(a, user) : undefined;
+    var result = { user: toPublic_(user) };
+    if (session) result.session = session;
+    return result;
+  });
+}
+
+function login_(request) {
+  var username = String(request.username === undefined || request.username === null ? '' : request.username)
+    .trim().toLowerCase();
+  var key = requireKey_(request.passwordKey);
+  checkThrottle_(username);
+  return mutate_(function (a) {
+    var user = null;
+    for (var i = 0; i < a.users.length; i++) {
+      if (a.users[i].username === username) user = a.users[i];
+    }
+    // Hash even for an unknown account, so timing does not reveal which exist.
+    var salt = (user && user.passwordSalt) || DUMMY_SALT;
+    var rounds = (user && user.passwordRounds) || PASSWORD_ROUNDS;
+    var hash = hashKey_(key, salt, rounds);
+    if (!user || !user.passwordHash || !safeEqual_(hash, user.passwordHash)) {
+      recordFailure_(username);
+      throw new ApiError_('invalid_credentials');
+    }
+    requireActive_(user);
+    clearFailures_(username);
+    var session = openSession_(a, user);
+    return { user: toPublic_(user), session: session };
+  });
+}
+
+function loginGoogle_(request) {
+  var clientId = loadAuth_().config.googleClientId;
+  var identity = googleIdentity_(clientId, request.idToken);
+  return mutate_(function (a) {
+    if (a.config.googleClientId !== clientId) throw new ApiError_('invalid_credentials');
+    var user = null;
+    for (var i = 0; i < a.users.length; i++) {
+      if (a.users[i].googleSub === identity.sub) user = a.users[i];
+    }
+    if (!user) {
+      // Never attach to an existing account by matching names: whoever chose
+      // that username first has not proven they own the Google address.
+      var username = normalizeUsername_(identity.email);
+      while (a.users.some(function (u) { return u.username === username; })) {
+        username = username.slice(0, 56) + '+' + Utilities.getUuid().replace(/-/g, '').slice(0, 6);
+      }
+      user = createUser_(a, {
+        username: username,
+        displayName: cleanName_(identity.name, identity.email),
+        googleSub: identity.sub
+      });
+    }
+    if (user.status !== 'active') return { user: toPublic_(user) };
+    var session = openSession_(a, user);
+    return { user: toPublic_(user), session: session };
+  });
+}
+
+function updateProfile_(request) {
+  return mutateAs_(request.session, function (a, actor) {
+    var user = findUser_(a, actor.id);
+    if (request.displayName !== undefined) user.displayName = cleanName_(request.displayName, user.username);
+    if (typeof request.allowAdminView === 'boolean' && request.allowAdminView !== user.allowAdminView) {
+      user.allowAdminView = request.allowAdminView;
+      audit_(a, user, 'set-admin-view', null, request.allowAdminView ? 'allowed' : 'refused');
+    }
+    return toPublic_(user);
+  });
+}
+
+function changePassword_(request) {
+  var next = requireKey_(request.newPasswordKey);
+  return mutateAs_(request.session, function (a, actor) {
+    var user = findUser_(a, actor.id);
+    if (user.passwordHash) {
+      var old = requireKey_(request.oldPasswordKey);
+      var check = hashKey_(old, user.passwordSalt, user.passwordRounds || PASSWORD_ROUNDS);
+      if (!safeEqual_(check, user.passwordHash)) throw new ApiError_('invalid_credentials');
+    }
+    setPassword_(user, next);
+    // Sign out every other device.
+    dropSessions_(a, user.id, sha256Hex_(String(request.session)));
+    audit_(a, user, 'change-password', null, '');
+    return toPublic_(user);
+  });
+}
+
+function linkGoogle_(request) {
+  var clientId = loadAuth_().config.googleClientId;
+  var identity = googleIdentity_(clientId, request.idToken);
+  return mutateAs_(request.session, function (a, actor) {
+    if (a.config.googleClientId !== clientId) throw new ApiError_('invalid_credentials');
+    if (a.users.some(function (u) { return u.googleSub === identity.sub && u.id !== actor.id; })) {
+      throw new ApiError_('這個 Google 帳號已綁定其他會員');
+    }
+    var user = findUser_(a, actor.id);
+    user.googleSub = identity.sub;
+    audit_(a, user, 'link-google', null, '');
+    return toPublic_(user);
+  });
+}
+
+// ---- Google sign-in --------------------------------------------------------
+
+/** Ask Google to validate the token, then check it was issued for this app. */
+function googleIdentity_(clientId, idToken) {
+  if (!clientId) throw new ApiError_('尚未啟用 Google 登入');
+  if (typeof idToken !== 'string' || !idToken) throw new ApiError_('invalid_credentials');
+  try {
+    var response = UrlFetchApp.fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+      { muteHttpExceptions: true }
+    );
+    if (response.getResponseCode() !== 200) throw new Error('rejected');
+    var info = JSON.parse(response.getContentText());
+    var issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com';
+    var fresh = Number(info.exp) * 1000 > Date.now();
+    if (info.aud !== clientId || !issuerOk || !fresh || String(info.email_verified) !== 'true' || !info.sub) {
+      throw new Error('invalid token');
+    }
+    return { sub: String(info.sub), email: info.email, name: info.name };
+  } catch (err) {
+    // Whatever went wrong, the caller learns only that sign-in failed.
+    throw new ApiError_('invalid_credentials');
   }
 }
 
-// ---- Storage ---------------------------------------------------------
+// ---- Admin operations ------------------------------------------------------
+
+function adminUpdateUser_(request) {
+  return mutateAs_(request.session, function (a, actor) {
+    requireAdmin_(actor);
+    var user = findUser_(a, String(request.userId));
+    var status = request.status;
+    var role = request.role;
+    if (status !== undefined && ['pending', 'active', 'disabled'].indexOf(status) < 0) throw new ApiError_('狀態不正確');
+    if (role !== undefined && ['admin', 'member'].indexOf(role) < 0) throw new ApiError_('角色不正確');
+
+    var losesAdmin = user.role === 'admin' && user.status === 'active' &&
+      ((role !== undefined && role !== 'admin') || (status !== undefined && status !== 'active'));
+    if (losesAdmin && activeAdmins_(a).length <= 1) throw new ApiError_('至少要保留一位啟用中的管理員');
+
+    if (status !== undefined && status !== user.status) {
+      audit_(a, actor, 'set-status', user, user.status + ' -> ' + status);
+      user.status = status;
+      if (status !== 'active') dropSessions_(a, user.id, null);
+    }
+    if (role !== undefined && role !== user.role) {
+      audit_(a, actor, 'set-role', user, user.role + ' -> ' + role);
+      user.role = role;
+    }
+    if (request.newPasswordKey !== undefined) {
+      setPassword_(user, requireKey_(request.newPasswordKey));
+      dropSessions_(a, user.id, null);
+      audit_(a, actor, 'reset-password', user, '');
+    }
+    return toPublic_(user);
+  });
+}
+
+function adminDeleteUser_(request) {
+  mutateAs_(request.session, function (a, actor) {
+    requireAdmin_(actor);
+    var user = findUser_(a, String(request.userId));
+    if (user.id === actor.id) throw new ApiError_('不能刪除自己的帳號');
+    if (user.role === 'admin' && user.status === 'active' && activeAdmins_(a).length <= 1) {
+      throw new ApiError_('至少要保留一位啟用中的管理員');
+    }
+    a.users = a.users.filter(function (u) { return u.id !== user.id; });
+    dropSessions_(a, user.id, null);
+    var removed = trashMemberData_(user);
+    audit_(a, actor, 'delete-user', user,
+      removed ? 'account and data removed' : 'account removed; data spreadsheet could not be trashed');
+  });
+}
+
+function adminSetConfig_(request) {
+  return mutateAs_(request.session, function (a, actor) {
+    requireAdmin_(actor);
+    if (request.registration !== undefined) {
+      if (request.registration !== 'approval' && request.registration !== 'open') throw new ApiError_('註冊模式不正確');
+      if (request.registration !== a.config.registration) {
+        audit_(a, actor, 'set-registration', null, request.registration);
+        a.config.registration = request.registration;
+      }
+    }
+    if (request.googleClientId !== undefined) {
+      var id = String(request.googleClientId).trim();
+      if (id && !/^[A-Za-z0-9._-]{10,200}$/.test(id)) throw new ApiError_('Google 用戶端 ID 格式不正確');
+      if (id) a.config.googleClientId = id;
+      else delete a.config.googleClientId;
+      audit_(a, actor, 'set-google-client', null, id ? 'set' : 'cleared');
+    }
+    var config = publicConfig_(a);
+    config.hasUsers = true;
+    return config;
+  });
+}
+
+// ---- Member data -----------------------------------------------------------
+// Every member's tables live in their own spreadsheet, so members are
+// separated at the file level. load/save take the spreadsheet as a parameter.
 
 function spreadsheet_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
   var ss = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('No spreadsheet: bind the script to a sheet or set SHEET_ID');
   return ss;
+}
+
+/**
+ * The member's own spreadsheet. Without `create`, a member who has never
+ * saved has none and null is returned. Call under the lock.
+ */
+function memberSpreadsheet_(user, create) {
+  if (user.dataSheetId) return SpreadsheetApp.openById(user.dataSheetId);
+  if (!create) return null;
+  // Named by id only, so the member's name does not show up in Drive.
+  var ss = SpreadsheetApp.create('Exfolio data ' + user.id);
+  user.dataSheetId = ss.getId();
+  setRevision_(ss, 0);
+  var first = ss.getSheetByName('Sheet1');
+  if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
+  return ss;
+}
+
+/** Moves the member's spreadsheet to the deployer's Drive trash. */
+function trashMemberData_(user) {
+  if (!user.dataSheetId) return true;
+  try {
+    DriveApp.getFileById(user.dataSheetId).setTrashed(true);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Data from before accounts existed sits in the control spreadsheet's own
+ * table sheets. The first member gets a copy, once; the original sheets are
+ * left in place (delete them after checking), as the Node backend keeps its
+ * old file renamed.
+ */
+function handOverLegacy_(a, user) {
+  if (a.config.legacyHandedOver) return;
+  var legacy = readAll_(a.ss);
+  var found = legacy.revision > 0 || TABLES.some(function (name) { return legacy.tables[name].length > 0; });
+  if (!found) return;
+  var ss = memberSpreadsheet_(user, true);
+  TABLES.forEach(function (name) {
+    if (legacy.tables[name].length) writeTable_(ss, name, legacy.tables[name], []);
+  });
+  setRevision_(ss, legacy.revision);
+  a.config.legacyHandedOver = new Date().toISOString();
 }
 
 function getRevision_(ss) {
@@ -105,13 +764,68 @@ function setRevision_(ss, revision) {
   sheet.getRange(1, 1, 1, 2).setValues([['revision', revision]]);
 }
 
-function load_() {
-  var ss = spreadsheet_();
+function readAll_(ss) {
   var tables = {};
   TABLES.forEach(function (name) {
     tables[name] = readTable_(ss, name);
   });
-  return { ok: true, revision: getRevision_(ss), tables: tables };
+  return { revision: getRevision_(ss), tables: tables };
+}
+
+/**
+ * Whose data a `load` may read. Opening another member's data needs the
+ * admin role and that member's standing consent, is read-only, and is logged.
+ */
+function load_(request) {
+  return mutateAs_(request.session, function (a, actor) {
+    var owner = actor;
+    var asUser = request.asUser;
+    if (asUser !== undefined && asUser !== null && asUser !== '' && asUser !== actor.id) {
+      requireAdmin_(actor);
+      var target = findUser_(a, String(asUser));
+      if (!target.allowAdminView) throw new ApiError_('forbidden');
+      audit_(a, actor, 'view-data', target, 'read-only');
+      owner = target;
+    }
+    var ss = memberSpreadsheet_(owner, false);
+    var data = ss ? readAll_(ss) : { revision: 0, tables: readAllEmpty_() };
+    return { ok: true, revision: data.revision, tables: data.tables };
+  });
+}
+
+function readAllEmpty_() {
+  var tables = {};
+  TABLES.forEach(function (name) { tables[name] = []; });
+  return tables;
+}
+
+/** A save always targets the caller's own spreadsheet. */
+function save_(request) {
+  var tables = request.tables || {};
+  var baseRevision = request.baseRevision;
+  return mutateAs_(request.session, function (a, actor) {
+    var ss = memberSpreadsheet_(actor, false);
+    var revision = ss ? getRevision_(ss) : 0;
+    if (baseRevision !== undefined && baseRevision !== null && baseRevision !== revision) {
+      return { ok: false, error: 'conflict', revision: revision };
+    }
+    // Check every table before writing any, so a bad row changes nothing.
+    TABLES.forEach(function (name) {
+      var rows = tables[name];
+      if (!Array.isArray(rows)) return;
+      rows.forEach(function (row) {
+        if (!row || typeof row !== 'object' || row.id === undefined || row.id === '') {
+          throw new Error('Every row in "' + name + '" needs an id');
+        }
+      });
+    });
+    if (!ss) ss = memberSpreadsheet_(actor, true);
+    TABLES.forEach(function (name) {
+      if (Array.isArray(tables[name])) writeTable_(ss, name, tables[name], []);
+    });
+    setRevision_(ss, revision + 1);
+    return { ok: true, revision: revision + 1 };
+  });
 }
 
 /**
@@ -134,12 +848,13 @@ function readTable_(ss, name) {
   return rows;
 }
 
-function writeTable_(ss, name, rows) {
+/** `hidden` lists fields that stay in `_json` and get no mirror column. */
+function writeTable_(ss, name, rows, hidden) {
   var sheet = ss.getSheetByName(name) || ss.insertSheet(name);
   var keys = [];
   rows.forEach(function (row) {
     Object.keys(row).forEach(function (key) {
-      if (keys.indexOf(key) < 0) keys.push(key);
+      if (keys.indexOf(key) < 0 && (!hidden || hidden.indexOf(key) < 0)) keys.push(key);
     });
   });
   var header = keys.concat([JSON_COLUMN]);
@@ -159,32 +874,6 @@ function displayValue_(value) {
   if (value === undefined || value === null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
-}
-
-function save_(tables, baseRevision) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    var ss = spreadsheet_();
-    var revision = getRevision_(ss);
-    if (baseRevision !== undefined && baseRevision !== null && baseRevision !== revision) {
-      return { ok: false, error: 'conflict', revision: revision };
-    }
-    TABLES.forEach(function (name) {
-      var rows = tables[name];
-      if (!Array.isArray(rows)) return;
-      rows.forEach(function (row) {
-        if (!row || typeof row !== 'object' || row.id === undefined || row.id === '') {
-          throw new Error('Every row in "' + name + '" needs an id');
-        }
-      });
-      writeTable_(ss, name, rows);
-    });
-    setRevision_(ss, revision + 1);
-    return { ok: true, revision: revision + 1 };
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 // ---- Quotes ----------------------------------------------------------
@@ -377,21 +1066,19 @@ function fetchJson_(url) {
   return JSON.parse(response.getContentText());
 }
 
-// ---- Setup helpers (run from the Apps Script editor) -------------------
+// ---- Setup helper (run once from the Apps Script editor) -------------------
 
-/** Creates a random token, stores it as EXFOLIO_TOKEN and logs it once. */
-function setupToken() {
-  var token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-  PropertiesService.getScriptProperties().setProperty('EXFOLIO_TOKEN', token);
-  Logger.log('EXFOLIO_TOKEN = ' + token);
-  Logger.log('Paste it into Exfolio → Settings → 後端與資料. Do not commit it or share it.');
-}
-
-/** Creates any missing table sheets, so the spreadsheet layout is visible. */
+/**
+ * Creates the control sheets so the layout is visible, and is the easiest
+ * way to trigger the authorization prompt for all the scopes in
+ * appsscript.json. Member spreadsheets are created later, on first save.
+ */
 function setupSheets() {
-  var ss = spreadsheet_();
-  TABLES.forEach(function (name) {
-    if (!ss.getSheetByName(name)) writeTable_(ss, name, []);
+  locked_(function () {
+    var a = loadAuth_();
+    [[USERS_SHEET, USER_HIDDEN], [SESSIONS_SHEET, SESSION_HIDDEN], [AUDIT_SHEET, []]].forEach(function (s) {
+      if (!a.ss.getSheetByName(s[0])) writeTable_(a.ss, s[0], [], s[1]);
+    });
+    if (!a.ss.getSheetByName(CONFIG_SHEET)) writeTable_(a.ss, CONFIG_SHEET, [a.config], []);
   });
-  if (!ss.getSheetByName(META_SHEET)) setRevision_(ss, 0);
 }
