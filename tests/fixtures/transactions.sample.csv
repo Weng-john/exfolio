@@ -1,0 +1,5 @@
+id,date,type,account,bucket,currency,amount,instrument,quantity,price,fee,tax,source,loanId,note
+fx1,2026-01-02,deposit,凱基 台股,core,TWD,100000,,,,,,,,首筆入金（虛構）
+fx2,2026-01-03,buy,kgi_tw,core,,,0050,100,50,20,,,,"含逗號, 與""引號"""
+fx3,2026-13-40,sell,kgi_tw,core,,,0050,10,55,,,,,日期錯誤
+fx4,2026-01-05,withdraw,不存在帳戶,core,TWD,500,,,,,,,,

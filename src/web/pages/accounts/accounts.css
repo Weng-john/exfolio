@@ -1,0 +1,27 @@
+.acct-filters {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 12px;
+}
+
+.acct-group td {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.acct-liability td {
+  color: var(--neg);
+}
+
+.acct-preview {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.acct-errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--neg);
+}
