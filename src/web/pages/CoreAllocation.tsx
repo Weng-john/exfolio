@@ -11,6 +11,7 @@ import { usePortfolio } from '../usePortfolio';
 import { fmtMoney, fmtPct, signClass } from '../format';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { PlanView } from './allocation/PlanView';
+import { ReplacementPanel } from './allocation/ReplacementPanel';
 import { WeightBar } from './allocation/WeightBar';
 import './allocation/allocation.css';
 
@@ -269,6 +270,8 @@ export default function CoreAllocationPage() {
         再平衡模式（可買可賣）：只處理超出容忍區間的指數，並以賣出所得支應買進。以下為建議清單，網站不會下單、也不會寫入任何交易。
       </p>
       <PlanView plan={plan} names={names} />
+
+      <ReplacementPanel />
     </>
   );
 }

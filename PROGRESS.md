@@ -17,7 +17,7 @@
 | P1-A | Strategy Registry、Trade Journal、策略資金帳本、輪動週期 | 完成 |
 | P1-B | TWR、XIRR、基準比較、主被動四層級 | 完成（核心被動層級尚無基準） |
 | P1-C | 兩種風險模擬、期貨轉倉、通知 | 完成 |
-| P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 未開始 |
+| P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 進行中：商品替代比較已完成（`src/core/replacement.ts`、Core Allocation 頁「商品替代比較」） |
 | Future | 選擇權多腿與 Greeks、半自動與自動轉倉 | 未開始 |
 
 ## 怎麼開始

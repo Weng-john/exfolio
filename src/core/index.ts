@@ -24,3 +24,4 @@ export * from './stress';
 export * from './survival';
 export * from './demo';
 export * from './exchangeSync';
+export * from './replacement';
