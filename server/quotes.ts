@@ -36,6 +36,43 @@ async function binance(symbol: string): Promise<Partial<QuoteResult>> {
   return { price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 
+// One call returns every contract month of a product, so the list is cached
+// per product and session, and calls are made one at a time: the site
+// answers bursts with errors.
+const TAIFEX_TTL_MS = 60_000;
+const taifexLists = new Map<string, { at: number; list: any[] }>();
+let taifexQueue: Promise<unknown> = Promise.resolve();
+
+function taifexList(cid: string, marketType: string): Promise<any[]> {
+  const run = async () => {
+    const key = `${cid}:${marketType}`;
+    const hit = taifexLists.get(key);
+    if (hit && Date.now() - hit.at < TAIFEX_TTL_MS) return hit.list;
+    try {
+      const res = await fetch('https://mis.taifex.com.tw/futures/api/getQuoteList', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)' },
+        body: JSON.stringify({
+          MarketType: marketType, SymbolType: 'F', KindID: '1', CID: cid,
+          ExpireMonth: '', RowSize: '全部', PageNo: '', SortColumn: '', AscDesc: 'A',
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const list: any[] = (await res.json())?.RtData?.QuoteList ?? [];
+      taifexLists.set(key, { at: Date.now(), list });
+      return list;
+    } catch (err) {
+      // Keep serving the last good list: its own timestamp shows how old it is.
+      if (hit) return hit.list;
+      throw err;
+    }
+  };
+  const next = taifexQueue.then(run, run);
+  taifexQueue = next.catch(() => undefined);
+  return next;
+}
+
 /**
  * TAIFEX market information site. `symbol` is a product code such as TXF
  * (the nearest monthly contract is used) or a full contract id such as
@@ -50,17 +87,7 @@ async function taifex(symbol: string): Promise<Partial<QuoteResult>> {
   const contract = exact ? symbol.replace(/-[FM]$/, '') : '';
   let best: { price: number; at: number } | undefined;
   for (const marketType of ['0', '1']) {
-    const res = await fetch('https://mis.taifex.com.tw/futures/api/getQuoteList', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)' },
-      body: JSON.stringify({
-        MarketType: marketType, SymbolType: 'F', KindID: '1', CID: cid,
-        ExpireMonth: '', RowSize: '全部', PageNo: '', SortColumn: '', AscDesc: 'A',
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const list: any[] = (await res.json())?.RtData?.QuoteList ?? [];
+    const list = await taifexList(cid, marketType);
     const row = list.find((q) =>
       exact ? String(q.SymbolID).replace(/-[FM]$/, '') === contract : monthly.test(q.SymbolID),
     );
