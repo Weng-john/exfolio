@@ -19,3 +19,5 @@ export * from './journal';
 export * from './strategies';
 export * from './performance';
 export * from './xirr';
+export * from './futures';
+export * from './notifications';
