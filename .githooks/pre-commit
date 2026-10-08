@@ -1,3 +1,10 @@
 #!/bin/sh
 # Block commits that would add personal data or secrets.
-exec node scripts/check-privacy.mjs --staged
+# Fails closed: without Node the check cannot run, so the commit is refused.
+NODE="${EXFOLIO_NODE:-node}"
+if ! command -v "$NODE" >/dev/null 2>&1; then
+  echo "隱私檢查需要 Node，但找不到 '$NODE'。" >&2
+  echo "請把 Node 加入 PATH，或設定 EXFOLIO_NODE=/path/to/node 後再提交。" >&2
+  exit 1
+fi
+exec "$NODE" scripts/check-privacy.mjs --staged
