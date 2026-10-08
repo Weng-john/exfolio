@@ -49,8 +49,18 @@ export function getBackend(): Backend | undefined {
   return backend;
 }
 
+let loading: Promise<void> | undefined;
+
 /** Connect and load. Seeds reference data into an empty store. */
-export async function initStore(): Promise<void> {
+export function initStore(): Promise<void> {
+  // Concurrent calls share one load: two would both seed an empty store
+  // and the second save would be rejected as a conflict.
+  loading ??= load().finally(() => (loading = undefined));
+  return loading;
+}
+
+async function load(): Promise<void> {
+  clearTimeout(timer);
   set({ status: 'loading', error: undefined });
   try {
     backend = await connectBackend();

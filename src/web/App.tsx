@@ -15,6 +15,7 @@ import SettingsPage from './pages/Settings';
 import StrategiesPage from './pages/Strategies';
 import { refreshQuotes, useAutoRefresh, useQuoteSync } from './quotes';
 import { initStore, useStore, type SyncStatus } from './store';
+import { useDailySnapshot } from './useDailySnapshot';
 
 const NAV: Array<{ group: string; items: Array<{ path: string; label: string; element: JSX.Element }> }> = [
   {
@@ -99,6 +100,7 @@ export default function App() {
     void initStore();
   }, []);
   useAutoRefresh(store.status !== 'loading' && store.backendLabel !== '');
+  useDailySnapshot();
 
   return (
     <HashRouter>
