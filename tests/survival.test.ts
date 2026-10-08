@@ -25,8 +25,15 @@ const sim = (data: AppData, params: Partial<SurvivalParams> = {}) =>
   runSurvival(data, computePortfolio(data, opts), { today: TODAY, horizonDays: 30, ...params });
 
 const expense = (p: Partial<CashflowItem> = {}): CashflowItem => ({
-  id: 'cf1', name: '生活費', kind: 'expense', amount: 30_000, currency: 'TWD', frequency: 'monthly',
-  startDate: '2026-11-01', affectsPortfolio: true, ...p,
+  id: 'cf1',
+  name: '生活費',
+  kind: 'expense',
+  amount: 30_000,
+  currency: 'TWD',
+  frequency: 'monthly',
+  startDate: '2026-11-01',
+  affectsPortfolio: true,
+  ...p,
 });
 
 /** NAV 500,000: 0050 x4000 @100 plus 100,000 cash. */
@@ -44,11 +51,27 @@ function squeezed(): AppData {
 describe('cashflowOccurrences', () => {
   it('steps by the frequency from the start date and stops at endDate', () => {
     const m = expense({ startDate: '2026-01-31', endDate: '2026-04-30' });
-    expect(cashflowOccurrences(m, '2026-01-31', '2026-12-31')).toEqual(['2026-02-28', '2026-03-31', '2026-04-30']);
+    expect(cashflowOccurrences(m, '2026-01-31', '2026-12-31')).toEqual([
+      '2026-02-28',
+      '2026-03-31',
+      '2026-04-30',
+    ]);
     const q = expense({ frequency: 'quarterly', startDate: '2026-11-01' });
-    expect(cashflowOccurrences(q, TODAY, '2027-06-30')).toEqual(['2026-11-01', '2027-02-01', '2027-05-01']);
-    expect(cashflowOccurrences(expense({ frequency: 'once', startDate: '2026-12-25' }), TODAY, '2026-12-31')).toEqual(['2026-12-25']);
-    expect(cashflowOccurrences(expense({ frequency: 'once', startDate: TODAY }), TODAY, '2026-12-31')).toEqual([]);
+    expect(cashflowOccurrences(q, TODAY, '2027-06-30')).toEqual([
+      '2026-11-01',
+      '2027-02-01',
+      '2027-05-01',
+    ]);
+    expect(
+      cashflowOccurrences(
+        expense({ frequency: 'once', startDate: '2026-12-25' }),
+        TODAY,
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-12-25']);
+    expect(
+      cashflowOccurrences(expense({ frequency: 'once', startDate: TODAY }), TODAY, '2026-12-31'),
+    ).toEqual([]);
   });
   it('converts months to days', () => {
     expect(monthsToDays(6, TODAY)).toBe(182);
@@ -93,13 +116,17 @@ describe('cash runs out while NAV stays positive', () => {
 
   it('income that does not affect the portfolio never enters its cash', () => {
     const data = squeezed();
-    data.cashflowItems.push(expense({ id: 'cf2', name: '薪資', kind: 'income', amount: 50_000, affectsPortfolio: false }));
+    data.cashflowItems.push(
+      expense({ id: 'cf2', name: '薪資', kind: 'income', amount: 50_000, affectsPortfolio: false }),
+    );
     const out = sim(data, { horizonDays: monthsToDays(6, TODAY) });
     expect(out.summary.minCash.value).toBeCloseTo(-80_000);
     expect(out.summary.shortfallCount).toBe(3);
     // the same income landing in the portfolio removes every shortfall
     const inData = squeezed();
-    inData.cashflowItems.push(expense({ id: 'cf2', name: '薪資', kind: 'income', amount: 50_000, affectsPortfolio: true }));
+    inData.cashflowItems.push(
+      expense({ id: 'cf2', name: '薪資', kind: 'income', amount: 50_000, affectsPortfolio: true }),
+    );
     const ok = sim(inData, { horizonDays: monthsToDays(6, TODAY) });
     expect(ok.summary.shortfallCount).toBe(0);
     expect(ok.summary.cashEnough).toBe(true);
@@ -107,7 +134,10 @@ describe('cash runs out while NAV stays positive', () => {
   });
 
   it('with sell_core, sells pro rata and keeps cash non-negative', () => {
-    const out = sim(squeezed(), { horizonDays: monthsToDays(6, TODAY), shortfallPolicy: 'sell_core' });
+    const out = sim(squeezed(), {
+      horizonDays: monthsToDays(6, TODAY),
+      shortfallPolicy: 'sell_core',
+    });
     const sale = out.events.find((e) => e.type === 'forced_reduction')!;
     expect(sale.date).toBe('2027-02-01');
     expect(sale.amount).toBeCloseTo(20_000);
@@ -123,8 +153,18 @@ describe('loan payments', () => {
   function loanBook(): AppData {
     const data = fresh();
     data.loans.push({
-      id: 'L1', name: '信貸', kind: 'credit', lender: '示範銀行', currency: 'TWD', principal: 120_000,
-      annualRate: 0.12, method: 'interest_only', startDate: '2026-09-15', termMonths: 12, payDay: 15, active: true,
+      id: 'L1',
+      name: '信貸',
+      kind: 'credit',
+      lender: '示範銀行',
+      currency: 'TWD',
+      principal: 120_000,
+      annualRate: 0.12,
+      method: 'interest_only',
+      startDate: '2026-09-15',
+      termMonths: 12,
+      payDay: 15,
+      active: true,
     });
     data.transactions.push(
       tx({ type: 'deposit', date: D, amount: 50_000 }),
@@ -151,7 +191,9 @@ describe('loan payments', () => {
 
   it('applies a rate shift from day 1', () => {
     const r = sim(loanBook(), { horizonDays: 20, rateShift: 6 }); // 18% -> 1,800
-    expect(r.series.find((d) => d.date === '2026-10-15')!.cashByKey['kgi_tw|TWD']).toBeCloseTo(168_200);
+    expect(r.series.find((d) => d.date === '2026-10-15')!.cashByKey['kgi_tw|TWD']).toBeCloseTo(
+      168_200,
+    );
   });
 
   it('records a shortfall when the payment cannot be met in that currency', () => {
@@ -162,7 +204,9 @@ describe('loan payments', () => {
     const ev = r.events.find((e) => e.type === 'cash_shortfall')!;
     expect(ev).toMatchObject({ date: '2026-10-15', currency: 'TWD' });
     expect(ev.amount).toBeCloseTo(200); // 1,000 cash vs 1,200 due
-    expect(r.series.find((d) => d.date === '2026-10-15')!.cashByKey['kgi_tw|TWD']).toBeCloseTo(-200);
+    expect(r.series.find((d) => d.date === '2026-10-15')!.cashByKey['kgi_tw|TWD']).toBeCloseTo(
+      -200,
+    );
   });
 });
 
@@ -175,9 +219,31 @@ describe('futures and perpetual carry', () => {
     setPrice(data, 'perp_BTCUSDT', 60_000, 'USDT');
     data.transactions.push(
       tx({ type: 'deposit', date: D, accountId: 'kgi_fut', amount: 100_000 }),
-      tx({ type: 'buy', date: D, accountId: 'kgi_fut', instrumentId: 'fut_MTX', quantity: 1, price: 20_000 }),
-      tx({ type: 'deposit', date: D, accountId: 'binance_main', currency: 'USDT', amount: 10_000, fxRate: 30 }),
-      tx({ type: 'buy', date: D, accountId: 'binance_main', currency: 'USDT', instrumentId: 'perp_BTCUSDT', quantity: 1, price: 60_000 }),
+      tx({
+        type: 'buy',
+        date: D,
+        accountId: 'kgi_fut',
+        instrumentId: 'fut_MTX',
+        quantity: 1,
+        price: 20_000,
+      }),
+      tx({
+        type: 'deposit',
+        date: D,
+        accountId: 'binance_main',
+        currency: 'USDT',
+        amount: 10_000,
+        fxRate: 30,
+      }),
+      tx({
+        type: 'buy',
+        date: D,
+        accountId: 'binance_main',
+        currency: 'USDT',
+        instrumentId: 'perp_BTCUSDT',
+        quantity: 1,
+        price: 60_000,
+      }),
     );
     return data;
   }
@@ -200,21 +266,43 @@ describe('futures and perpetual carry', () => {
 
   it('charges funding on notional each day and accumulates mark-to-market', () => {
     // funding 36.5% a year = 0.1% a day; BTC falls 1% of its start a day
-    const r = sim(futBook(), { horizonDays: 10, indexMoves: { btc: -0.1 }, fundingRateAnnual: 0.365 });
+    const r = sim(futBook(), {
+      horizonDays: 10,
+      indexMoves: { btc: -0.1 },
+      fundingRateAnnual: 0.365,
+    });
     const flat = sim(futBook(), { horizonDays: 10, fundingRateAnnual: 0.365 });
     expect(flat.series[10].cashByKey['binance_main|USDT']).toBeCloseTo(10_000 - 600);
     // funding = 60 x sum(1 - 0.01 d) = 567 ; MTM = -6,000
     expect(r.series[10].cashByKey['binance_main|USDT']).toBeCloseTo(10_000 - 6_000 - 567);
     // shorts receive
     const s = futBook();
-    s.transactions.push(tx({ type: 'sell', date: D, accountId: 'binance_main', currency: 'USDT', instrumentId: 'perp_BTCUSDT', quantity: 2, price: 60_000 }));
-    expect(sim(s, { horizonDays: 10, fundingRateAnnual: 0.365 }).series[10].cashByKey['binance_main|USDT']).toBeCloseTo(10_000 + 600);
+    s.transactions.push(
+      tx({
+        type: 'sell',
+        date: D,
+        accountId: 'binance_main',
+        currency: 'USDT',
+        instrumentId: 'perp_BTCUSDT',
+        quantity: 2,
+        price: 60_000,
+      }),
+    );
+    expect(
+      sim(s, { horizonDays: 10, fundingRateAnnual: 0.365 }).series[10].cashByKey[
+        'binance_main|USDT'
+      ],
+    ).toBeCloseTo(10_000 + 600);
   });
 
   it('charges the monthly roll cost per futures contract', () => {
     const r = sim(futBook(), { horizonDays: 40, rollCostPerContract: 100 });
-    expect(r.series.find((d) => d.date === '2026-11-08')!.cashByKey['kgi_fut|TWD']).toBeCloseTo(100_000);
-    expect(r.series.find((d) => d.date === '2026-11-09')!.cashByKey['kgi_fut|TWD']).toBeCloseTo(99_900);
+    expect(r.series.find((d) => d.date === '2026-11-08')!.cashByKey['kgi_fut|TWD']).toBeCloseTo(
+      100_000,
+    );
+    expect(r.series.find((d) => d.date === '2026-11-09')!.cashByKey['kgi_fut|TWD']).toBeCloseTo(
+      99_900,
+    );
   });
 
   it('flags derivative accounts without a margin spec', () => {
@@ -236,10 +324,22 @@ describe('pledged loans in the simulation', () => {
     const data = fresh();
     setPrice(data, 'tw_0050', 100);
     data.loans.push({
-      id: 'L1', name: '質押借款', kind: 'pledge', lender: '示範銀行', currency: 'TWD', principal: 300_000,
-      annualRate: 0.03, method: 'interest_only', startDate: '2026-10-01', termMonths: 12, payDay: 1,
-      collateral: [{ instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 5000, loanableRatio: 0.6 }],
-      callRatio: 1.4, active: true,
+      id: 'L1',
+      name: '質押借款',
+      kind: 'pledge',
+      lender: '示範銀行',
+      currency: 'TWD',
+      principal: 300_000,
+      annualRate: 0.03,
+      method: 'interest_only',
+      startDate: '2026-10-01',
+      termMonths: 12,
+      payDay: 1,
+      collateral: [
+        { instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 5000, loanableRatio: 0.6 },
+      ],
+      callRatio: 1.4,
+      active: true,
     });
     data.transactions.push(
       tx({ type: 'deposit', date: D, amount: 500_000 }),
@@ -275,7 +375,10 @@ describe('pledged loans in the simulation', () => {
   });
 
   it('applies dated shocks on their day', () => {
-    const r = sim(pledgeBook(), { horizonDays: 20, shocks: [{ day: 10, kind: 'index', id: 'tw50', move: -0.3 }] });
+    const r = sim(pledgeBook(), {
+      horizonDays: 20,
+      shocks: [{ day: 10, kind: 'index', id: 'tw50', move: -0.3 }],
+    });
     expect(r.series[9].minMaintenanceRatio).toBeCloseTo(500_000 / 300_000, 9);
     expect(r.series[10].minMaintenanceRatio).toBeCloseTo(350_000 / 300_000, 9);
     expect(r.events.find((e) => e.type === 'pledge_call')!.day).toBe(10);
@@ -289,11 +392,17 @@ describe('pledged loans in the simulation', () => {
       tx({ type: 'buy', date: D, instrumentId: 'tw_00631L', quantity: 1000, price: 100 }),
     );
     // a one-day -30% index shock hits the 2x ETF by -60%
-    const a = sim(data, { horizonDays: 3, shocks: [{ day: 1, kind: 'index', id: '*', move: -0.3 }] });
+    const a = sim(data, {
+      horizonDays: 3,
+      shocks: [{ day: 1, kind: 'index', id: '*', move: -0.3 }],
+    });
     expect(a.series[1].nav).toBeCloseTo(40_000, 6);
     expect(a.series[1].grossLeverage).toBeCloseTo(2, 9);
     // -60% would be -120% for the ETF: floored at -100%, NAV 0, ratios undefined
-    const b = sim(data, { horizonDays: 3, shocks: [{ day: 1, kind: 'index', id: 'tw50', move: -0.6 }] });
+    const b = sim(data, {
+      horizonDays: 3,
+      shocks: [{ day: 1, kind: 'index', id: 'tw50', move: -0.6 }],
+    });
     expect(b.series[1].nav).toBeCloseTo(0, 6);
     expect(b.series[1].grossLeverage).toBeUndefined();
     expect(b.events.some((e) => e.type === 'nav_nonpositive' && e.day === 1)).toBe(true);
@@ -306,7 +415,11 @@ describe('pledged loans in the simulation', () => {
 describe('determinism and sampling', () => {
   it('returns identical output for identical inputs', () => {
     const data = squeezed();
-    const params: Partial<SurvivalParams> = { horizonDays: 200, indexMoves: { tw50: -0.2 }, shortfallPolicy: 'sell_core' };
+    const params: Partial<SurvivalParams> = {
+      horizonDays: 200,
+      indexMoves: { tw50: -0.2 },
+      shortfallPolicy: 'sell_core',
+    };
     expect(JSON.stringify(sim(data, params))).toBe(JSON.stringify(sim(data, params)));
   });
 

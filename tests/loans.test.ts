@@ -55,7 +55,10 @@ describe('amortizationSchedule', () => {
   });
 
   it('absorbs rounding in the last period', () => {
-    const rows = amortizationSchedule(loan({ principal: 100_000, annualRate: 0.0345, termMonths: 7 }), { digits: 0 });
+    const rows = amortizationSchedule(
+      loan({ principal: 100_000, annualRate: 0.0345, termMonths: 7 }),
+      { digits: 0 },
+    );
     expect(sum(rows.map((r) => r.principal))).toBe(100_000);
     expect(rows[6].balance).toBe(0);
   });
@@ -95,7 +98,11 @@ describe('amortizationSchedule', () => {
   });
 
   it('restarts from the current balance and remaining periods', () => {
-    const rows = amortizationSchedule(loan(), { balance: 50_000, periods: 5, firstDueDate: '2026-08-15' });
+    const rows = amortizationSchedule(loan(), {
+      balance: 50_000,
+      periods: 5,
+      firstDueDate: '2026-08-15',
+    });
     expect(rows).toHaveLength(5);
     expect(rows[0].dueDate).toBe('2026-08-15');
     expect(rows[0].interest).toBe(500);
@@ -111,8 +118,24 @@ describe('loanStatus', () => {
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 50_000 }),
       tx({ type: 'loan_draw', date: '2026-01-15', amount: 120_000, loanId: 'L1' }),
-      tx({ type: 'loan_repay', date: '2026-02-15', amount: 10661.85, principal: 9461.85, interest: 1200, loanId: 'L1', source: 'external' }),
-      tx({ type: 'loan_repay', date: '2026-03-15', amount: 10661.85, principal: 9556.47, interest: 1105.38, loanId: 'L1', source: 'portfolio' }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-02-15',
+        amount: 10661.85,
+        principal: 9461.85,
+        interest: 1200,
+        loanId: 'L1',
+        source: 'external',
+      }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-03-15',
+        amount: 10661.85,
+        principal: 9556.47,
+        interest: 1105.38,
+        loanId: 'L1',
+        source: 'portfolio',
+      }),
     );
     return data;
   };
@@ -131,7 +154,10 @@ describe('loanStatus', () => {
     expect(st.remainingPeriods).toBe(10);
     expect(st.nextDueDate).toBe('2026-04-15');
     expect(st.nextPayment!.interest).toBeCloseTo(st.balance * 0.01, 2);
-    expect(st.nextPayment!.principal + st.nextPayment!.interest).toBeCloseTo(st.nextPayment!.total, 6);
+    expect(st.nextPayment!.principal + st.nextPayment!.interest).toBeCloseTo(
+      st.nextPayment!.total,
+      6,
+    );
     expect(st.projectedMonthlyInterest).toBeCloseTo(st.balance * 0.01, 6);
     expect(st.remainingSchedule).toHaveLength(10);
     expect(st.remainingSchedule[9].balance).toBe(0);
@@ -180,14 +206,27 @@ describe('prepaymentEffect', () => {
 describe('pledged collateral', () => {
   const pledge = (data: AppData, balance = 400_000, callRatio = 1.3): Loan => {
     const l = loan({
-      id: 'P1', kind: 'pledge', method: 'revolving', termMonths: undefined, annualRate: 0.025, principal: balance,
+      id: 'P1',
+      kind: 'pledge',
+      method: 'revolving',
+      termMonths: undefined,
+      annualRate: 0.025,
+      principal: balance,
       callRatio,
-      collateral: [{ instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 10_000, loanableRatio: 0.6 }],
+      collateral: [
+        { instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 10_000, loanableRatio: 0.6 },
+      ],
     });
     data.loans.push(l);
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 1_000_000 }),
-      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 10_000, price: 100 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        instrumentId: 'tw_0050',
+        quantity: 10_000,
+        price: 100,
+      }),
       tx({ type: 'loan_draw', date: '2026-01-03', amount: balance, loanId: 'P1' }),
     );
     setPrice(data, 'tw_0050', 100);
@@ -269,14 +308,34 @@ describe('pledged collateral', () => {
     const data = fresh();
     setFx(data, 'USD', 'TWD', 32);
     data.transactions.push(
-      tx({ type: 'deposit', date: '2026-01-01', accountId: 'sinopac_us', currency: 'USD', amount: 100_000 }),
-      tx({ type: 'buy', date: '2026-01-02', accountId: 'sinopac_us', currency: 'USD', instrumentId: 'us_VOO', quantity: 100, price: 500 }),
+      tx({
+        type: 'deposit',
+        date: '2026-01-01',
+        accountId: 'sinopac_us',
+        currency: 'USD',
+        amount: 100_000,
+      }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        accountId: 'sinopac_us',
+        currency: 'USD',
+        instrumentId: 'us_VOO',
+        quantity: 100,
+        price: 500,
+      }),
       tx({ type: 'loan_draw', date: '2026-01-03', amount: 800_000, loanId: 'P2' }),
     );
     setPrice(data, 'us_VOO', 500, 'USD');
     const l = loan({
-      id: 'P2', kind: 'pledge', method: 'revolving', termMonths: undefined, callRatio: 1.3,
-      collateral: [{ instrumentId: 'us_VOO', accountId: 'sinopac_us', quantity: 100, loanableRatio: 0.5 }],
+      id: 'P2',
+      kind: 'pledge',
+      method: 'revolving',
+      termMonths: undefined,
+      callRatio: 1.3,
+      collateral: [
+        { instrumentId: 'us_VOO', accountId: 'sinopac_us', quantity: 100, loanableRatio: 0.5 },
+      ],
     });
     data.loans.push(l);
     const c = status(data, l);
@@ -289,7 +348,17 @@ describe('pledged collateral', () => {
 describe('debtCashflowForecast', () => {
   it('lists scheduled principal and interest per month in base currency', () => {
     const data = fresh();
-    data.loans.push(loan(), loan({ id: 'U1', currency: 'USD', method: 'revolving', termMonths: undefined, payDay: 20, annualRate: 0.06 }));
+    data.loans.push(
+      loan(),
+      loan({
+        id: 'U1',
+        currency: 'USD',
+        method: 'revolving',
+        termMonths: undefined,
+        payDay: 20,
+        annualRate: 0.06,
+      }),
+    );
     setFx(data, 'USD', 'TWD', 30);
     data.transactions.push(
       tx({ type: 'loan_draw', date: '2026-01-15', amount: 120_000, loanId: 'L1' }),

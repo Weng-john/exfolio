@@ -317,8 +317,6 @@ function applyTrade(
   pos.quantity = pos.lots.reduce((s, l) => s + l.quantity, 0);
   if (Math.abs(pos.quantity) <= EPS) pos.quantity = 0;
   pos.avgCost =
-    pos.quantity === 0
-      ? 0
-      : pos.lots.reduce((s, l) => s + l.quantity * l.price, 0) / pos.quantity;
+    pos.quantity === 0 ? 0 : pos.lots.reduce((s, l) => s + l.quantity * l.price, 0) / pos.quantity;
   return realized;
 }

@@ -86,7 +86,11 @@ function TopBar(props: { onSignIn: () => void }) {
   return (
     <div className="topbar">
       <div className="topbar-item">
-        {store.demo ? <Badge tone="warn">預覽</Badge> : <Badge tone={status.tone}>{status.text}</Badge>}
+        {store.demo ? (
+          <Badge tone="warn">預覽</Badge>
+        ) : (
+          <Badge tone={status.tone}>{status.text}</Badge>
+        )}
         <span className="muted">{store.backendLabel}</span>
         {store.error && <span className="neg">{store.error}</span>}
         {(store.status === 'error' || store.status === 'conflict') && (
@@ -145,7 +149,9 @@ export default function App() {
       loadDemo();
     }
   }, [signedIn, guest, userId]);
-  useAutoRefresh(signedIn && !store.demo && store.status !== 'loading' && store.backendLabel !== '');
+  useAutoRefresh(
+    signedIn && !store.demo && store.status !== 'loading' && store.backendLabel !== '',
+  );
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
@@ -183,13 +189,19 @@ export default function App() {
           {guest && (
             <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
               預覽模式：以下是<strong>虛構的示範資料</strong>，可以自由操作，但不會儲存。{' '}
-              <button className="primary" onClick={() => setShowAuth(true)}>登入 / 註冊</button> 後使用自己的資料。
-              {auth.phase === 'error' && <span className="warn">（目前無法連線後端：{auth.error}）</span>}
+              <button className="primary" onClick={() => setShowAuth(true)}>
+                登入 / 註冊
+              </button>{' '}
+              後使用自己的資料。
+              {auth.phase === 'error' && (
+                <span className="warn">（目前無法連線後端：{auth.error}）</span>
+              )}
             </div>
           )}
           {auth.viewing && (
             <div className="notice warn" style={{ margin: 0, borderRadius: 0 }}>
-              正在唯讀檢視 <strong>{auth.viewing.displayName}</strong>（{auth.viewing.username}）的資料，任何修改都不會儲存。{' '}
+              正在唯讀檢視 <strong>{auth.viewing.displayName}</strong>（{auth.viewing.username}
+              ）的資料，任何修改都不會儲存。{' '}
               <button onClick={() => void stopViewing()}>回到我的資料</button>
             </div>
           )}
@@ -198,9 +210,11 @@ export default function App() {
               <div className="empty">載入資料中…</div>
             ) : (
               <Routes>
-                {visible.flatMap((g) => g.items).map((item) => (
-                  <Route key={item.path} path={item.path} element={item.element} />
-                ))}
+                {visible
+                  .flatMap((g) => g.items)
+                  .map((item) => (
+                    <Route key={item.path} path={item.path} element={item.element} />
+                  ))}
               </Routes>
             )}
           </main>

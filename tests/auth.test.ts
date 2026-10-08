@@ -51,9 +51,18 @@ async function twoMembers() {
 
 describe('registration and login', () => {
   it('makes the first account an active admin and later ones pending', async () => {
-    expect((await ok({ action: 'config' })).config).toMatchObject({ authRequired: true, hasUsers: false, registration: 'approval' });
+    expect((await ok({ action: 'config' })).config).toMatchObject({
+      authRequired: true,
+      hasUsers: false,
+      registration: 'approval',
+    });
     const first = await ok({ action: 'register', username: 'Admin', passwordKey: key(1) });
-    expect(first.user).toMatchObject({ username: 'admin', role: 'admin', status: 'active', allowAdminView: true });
+    expect(first.user).toMatchObject({
+      username: 'admin',
+      role: 'admin',
+      status: 'active',
+      allowAdminView: true,
+    });
     expect(first.session).toBeTruthy();
     const second = await ok({ action: 'register', username: 'amy', passwordKey: key(2) });
     expect(second.user).toMatchObject({ role: 'member', status: 'pending' });
@@ -71,21 +80,34 @@ describe('registration and login', () => {
 
   it('rejects duplicate names, bad names and malformed keys', async () => {
     await ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-    expect(await fail({ action: 'register', username: 'ADMIN', passwordKey: key(2) })).toBe('username_taken');
-    expect((await call({ action: 'register', username: 'a b', passwordKey: key(2) })).ok).toBe(false);
-    expect((await call({ action: 'register', username: 'carol', passwordKey: 'plaintext' })).ok).toBe(false);
+    expect(await fail({ action: 'register', username: 'ADMIN', passwordKey: key(2) })).toBe(
+      'username_taken',
+    );
+    expect((await call({ action: 'register', username: 'a b', passwordKey: key(2) })).ok).toBe(
+      false,
+    );
+    expect(
+      (await call({ action: 'register', username: 'carol', passwordKey: 'plaintext' })).ok,
+    ).toBe(false);
   });
 
   it('gives the same answer for a wrong password and an unknown account', async () => {
     await ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-    expect(await fail({ action: 'login', username: 'admin', passwordKey: key(9) })).toBe('invalid_credentials');
-    expect(await fail({ action: 'login', username: 'nobody', passwordKey: key(9) })).toBe('invalid_credentials');
+    expect(await fail({ action: 'login', username: 'admin', passwordKey: key(9) })).toBe(
+      'invalid_credentials',
+    );
+    expect(await fail({ action: 'login', username: 'nobody', passwordKey: key(9) })).toBe(
+      'invalid_credentials',
+    );
   });
 
   it('locks an account name after repeated failures', async () => {
     await ok({ action: 'register', username: 'locked', passwordKey: key(1) });
-    for (let i = 0; i < 8; i++) await fail({ action: 'login', username: 'locked', passwordKey: key(9) });
-    expect(await fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe('rate_limited');
+    for (let i = 0; i < 8; i++)
+      await fail({ action: 'login', username: 'locked', passwordKey: key(9) });
+    expect(await fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe(
+      'rate_limited',
+    );
   });
 
   it('stores neither the password key nor the session token', async () => {
@@ -113,11 +135,25 @@ describe('data isolation', () => {
 
   it('keeps each member in their own file', async () => {
     const s = await twoMembers();
-    await ok({ action: 'save', session: s.admin, tables: { brokers: [{ id: 'a', name: '示範券商甲' }] } });
-    await ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
-    expect((await ok({ action: 'load', session: s.admin })).tables!.brokers).toEqual([{ id: 'a', name: '示範券商甲' }]);
-    expect((await ok({ action: 'load', session: s.amy })).tables!.brokers).toEqual([{ id: 'b', name: '示範券商乙' }]);
-    expect(readdirSync(path.join(dir, 'users')).sort()).toEqual([`${s.adminId}.json`, `${s.amyId}.json`].sort());
+    await ok({
+      action: 'save',
+      session: s.admin,
+      tables: { brokers: [{ id: 'a', name: '示範券商甲' }] },
+    });
+    await ok({
+      action: 'save',
+      session: s.amy,
+      tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+    });
+    expect((await ok({ action: 'load', session: s.admin })).tables!.brokers).toEqual([
+      { id: 'a', name: '示範券商甲' },
+    ]);
+    expect((await ok({ action: 'load', session: s.amy })).tables!.brokers).toEqual([
+      { id: 'b', name: '示範券商乙' },
+    ]);
+    expect(readdirSync(path.join(dir, 'users')).sort()).toEqual(
+      [`${s.adminId}.json`, `${s.amyId}.json`].sort(),
+    );
   });
 
   it('lets a member not read another member, whatever they ask for', async () => {
@@ -125,12 +161,18 @@ describe('data isolation', () => {
     expect(await fail({ action: 'load', session: s.amy, asUser: s.adminId })).toBe('forbidden');
     expect(await fail({ action: 'adminUsers', session: s.amy })).toBe('forbidden');
     expect(await fail({ action: 'adminAudit', session: s.amy })).toBe('forbidden');
-    expect(await fail({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'admin' })).toBe('forbidden');
+    expect(
+      await fail({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'admin' }),
+    ).toBe('forbidden');
   });
 
   it('lets an admin read a consenting member read-only, and logs it', async () => {
     const s = await twoMembers();
-    await ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
+    await ok({
+      action: 'save',
+      session: s.amy,
+      tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+    });
     const view = await ok({ action: 'load', session: s.admin, asUser: s.amyId });
     expect(view.tables!.brokers).toHaveLength(1);
     const audit = (await ok({ action: 'adminAudit', session: s.admin })).audit!;
@@ -147,9 +189,14 @@ describe('data isolation', () => {
   });
 
   it('hands a pre-accounts data file to the first member only', async () => {
-    writeFileSync(path.join(dir, 'exfolio.json'), JSON.stringify({ revision: 3, tables: { brokers: [{ id: 'old', name: '舊資料' }] } }));
+    writeFileSync(
+      path.join(dir, 'exfolio.json'),
+      JSON.stringify({ revision: 3, tables: { brokers: [{ id: 'old', name: '舊資料' }] } }),
+    );
     const s = await twoMembers();
-    expect((await ok({ action: 'load', session: s.admin })).tables!.brokers).toEqual([{ id: 'old', name: '舊資料' }]);
+    expect((await ok({ action: 'load', session: s.admin })).tables!.brokers).toEqual([
+      { id: 'old', name: '舊資料' },
+    ]);
     expect((await ok({ action: 'load', session: s.amy })).tables).toEqual({});
   });
 });
@@ -158,11 +205,25 @@ describe('account management', () => {
   it('changes a password only with the old one, and signs out other sessions', async () => {
     const s = await twoMembers();
     const other = (await ok({ action: 'login', username: 'amy', passwordKey: key(2) })).session!;
-    expect(await fail({ action: 'changePassword', session: s.amy, oldPasswordKey: key(9), newPasswordKey: key(3) })).toBe('invalid_credentials');
-    await ok({ action: 'changePassword', session: s.amy, oldPasswordKey: key(2), newPasswordKey: key(3) });
+    expect(
+      await fail({
+        action: 'changePassword',
+        session: s.amy,
+        oldPasswordKey: key(9),
+        newPasswordKey: key(3),
+      }),
+    ).toBe('invalid_credentials');
+    await ok({
+      action: 'changePassword',
+      session: s.amy,
+      oldPasswordKey: key(2),
+      newPasswordKey: key(3),
+    });
     await ok({ action: 'me', session: s.amy });
     expect(await fail({ action: 'me', session: other })).toBe('unauthenticated');
-    expect(await fail({ action: 'login', username: 'amy', passwordKey: key(2) })).toBe('invalid_credentials');
+    expect(await fail({ action: 'login', username: 'amy', passwordKey: key(2) })).toBe(
+      'invalid_credentials',
+    );
     await ok({ action: 'login', username: 'amy', passwordKey: key(3) });
   });
 
@@ -175,23 +236,52 @@ describe('account management', () => {
 
   it('lets an admin reset a password', async () => {
     const s = await twoMembers();
-    await ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, newPasswordKey: key(7) });
+    await ok({
+      action: 'adminUpdateUser',
+      session: s.admin,
+      userId: s.amyId,
+      newPasswordKey: key(7),
+    });
     expect(await fail({ action: 'me', session: s.amy })).toBe('unauthenticated');
     await ok({ action: 'login', username: 'amy', passwordKey: key(7) });
   });
 
   it('never leaves the system without an active admin', async () => {
     const s = await twoMembers();
-    expect((await call({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, role: 'member' })).ok).toBe(false);
-    expect((await call({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, status: 'disabled' })).ok).toBe(false);
-    expect((await call({ action: 'adminDeleteUser', session: s.admin, userId: s.adminId })).ok).toBe(false);
+    expect(
+      (
+        await call({
+          action: 'adminUpdateUser',
+          session: s.admin,
+          userId: s.adminId,
+          role: 'member',
+        })
+      ).ok,
+    ).toBe(false);
+    expect(
+      (
+        await call({
+          action: 'adminUpdateUser',
+          session: s.admin,
+          userId: s.adminId,
+          status: 'disabled',
+        })
+      ).ok,
+    ).toBe(false);
+    expect(
+      (await call({ action: 'adminDeleteUser', session: s.admin, userId: s.adminId })).ok,
+    ).toBe(false);
     await ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, role: 'admin' });
     await ok({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, role: 'member' });
   });
 
   it('deletes a member together with their data', async () => {
     const s = await twoMembers();
-    await ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
+    await ok({
+      action: 'save',
+      session: s.amy,
+      tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+    });
     await ok({ action: 'adminDeleteUser', session: s.admin, userId: s.amyId });
     expect(readdirSync(path.join(dir, 'users'))).not.toContain(`${s.amyId}.json`);
     expect(await fail({ action: 'load', session: s.amy })).toBe('unauthenticated');
@@ -201,22 +291,38 @@ describe('account management', () => {
 describe('Google sign-in', () => {
   const setup = async () => {
     const admin = await ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-    await ok({ action: 'adminSetConfig', session: admin.session, googleClientId: 'fictional-client-id.apps.example' });
+    await ok({
+      action: 'adminSetConfig',
+      session: admin.session,
+      googleClientId: 'fictional-client-id.apps.example',
+    });
     return admin.session!;
   };
 
   it('is refused until a client id is configured, and for bad tokens', async () => {
     await ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-    expect((await call({ action: 'loginGoogle', idToken: 'good:1:amy@example.com' })).ok).toBe(false);
+    expect((await call({ action: 'loginGoogle', idToken: 'good:1:amy@example.com' })).ok).toBe(
+      false,
+    );
     await setup().catch(() => undefined);
   });
 
   it('creates a pending member, then signs them in once approved', async () => {
     const admin = await setup();
     const first = await ok({ action: 'loginGoogle', idToken: 'good:g1:amy@example.com' });
-    expect(first.user).toMatchObject({ username: 'amy@example.com', status: 'pending', googleLinked: true, hasPassword: false });
+    expect(first.user).toMatchObject({
+      username: 'amy@example.com',
+      status: 'pending',
+      googleLinked: true,
+      hasPassword: false,
+    });
     expect(first.session).toBeUndefined();
-    await ok({ action: 'adminUpdateUser', session: admin, userId: first.user!.id, status: 'active' });
+    await ok({
+      action: 'adminUpdateUser',
+      session: admin,
+      userId: first.user!.id,
+      status: 'active',
+    });
     const again = await ok({ action: 'loginGoogle', idToken: 'good:g1:amy@example.com' });
     expect(again.session).toBeTruthy();
     expect(again.user!.id).toBe(first.user!.id);
@@ -226,7 +332,11 @@ describe('Google sign-in', () => {
   it('never attaches to an existing account just because the name matches', async () => {
     const admin = await setup();
     await ok({ action: 'adminSetConfig', session: admin, registration: 'open' });
-    const squatter = await ok({ action: 'register', username: 'amy@example.com', passwordKey: key(5) });
+    const squatter = await ok({
+      action: 'register',
+      username: 'amy@example.com',
+      passwordKey: key(5),
+    });
     const google = await ok({ action: 'loginGoogle', idToken: 'good:g1:amy@example.com' });
     expect(google.user!.id).not.toBe(squatter.user!.id);
     expect(google.user!.username).not.toBe('amy@example.com');
@@ -234,7 +344,11 @@ describe('Google sign-in', () => {
 
   it('links Google to a signed-in account, once per Google identity', async () => {
     const admin = await setup();
-    const linked = await ok({ action: 'linkGoogle', session: admin, idToken: 'good:g9:admin@example.com' });
+    const linked = await ok({
+      action: 'linkGoogle',
+      session: admin,
+      idToken: 'good:g9:admin@example.com',
+    });
     expect(linked.user!.googleLinked).toBe(true);
     const viaGoogle = await ok({ action: 'loginGoogle', idToken: 'good:g9:admin@example.com' });
     expect(viaGoogle.user!.role).toBe('admin');

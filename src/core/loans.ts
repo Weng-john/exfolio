@@ -274,7 +274,11 @@ export function prepaymentEffect(
   const extra = Math.min(Math.max(extraPrincipal, 0), Math.max(balance, 0));
   const newBalance = round(balance - extra, digits);
   const common = { firstDueDate: options.firstDueDate, digits };
-  const baselineRows = amortizationSchedule(loan, { ...common, balance, periods: remainingPeriods });
+  const baselineRows = amortizationSchedule(loan, {
+    ...common,
+    balance,
+    periods: remainingPeriods,
+  });
   const baselineInterest = sumInterest(baselineRows);
 
   const option = (rows: ScheduleRow[]): PrepaymentOption => ({
@@ -285,7 +289,11 @@ export function prepaymentEffect(
     interestSaved: baselineInterest - sumInterest(rows),
   });
 
-  const keepTermRows = amortizationSchedule(loan, { ...common, balance: newBalance, periods: remainingPeriods });
+  const keepTermRows = amortizationSchedule(loan, {
+    ...common,
+    balance: newBalance,
+    periods: remainingPeriods,
+  });
   let keepPaymentRows = keepTermRows;
 
   if (baselineRows.length && newBalance > EPS && loan.method !== 'interest_only') {
@@ -298,10 +306,10 @@ export function prepaymentEffect(
     let b = newBalance;
     for (let i = 1; i <= MAX_PERIODS && b > EPS; i++) {
       const interest = round(b * rate, digits);
-      let principal =
-        loan.method === 'annuity' ? round(level - interest, digits) : step;
+      let principal = loan.method === 'annuity' ? round(level - interest, digits) : step;
       if (principal <= 0) break; // payment no longer covers interest
-      if (principal >= b - EPS || (loan.method === 'annuity' && level >= b + interest)) principal = b;
+      if (principal >= b - EPS || (loan.method === 'annuity' && level >= b + interest))
+        principal = b;
       b = round(b - principal, digits);
       keepPaymentRows.push({
         period: i,
@@ -396,8 +404,9 @@ export function collateralStatus(
     const price =
       quote && quote > 0
         ? quote
-        : valuation.positions.find((p) => p.instrumentId === c.instrumentId && p.priceStatus !== 'missing')
-            ?.price;
+        : valuation.positions.find(
+            (p) => p.instrumentId === c.instrumentId && p.priceStatus !== 'missing',
+          )?.price;
     let marketValue = 0;
     if (!inst) {
       warnings.push(`擔保品引用了不存在的商品 ${c.instrumentId}`);
@@ -507,7 +516,13 @@ export function debtCashflowForecast(
   const monthKey = (d: ISODate) => d.slice(0, 7);
   const rows: DebtCashflowRow[] = [];
   for (let i = 0; i < months; i++) {
-    rows.push({ month: monthKey(addMonths(today, i, 1)), principal: 0, interest: 0, total: 0, byLoan: [] });
+    rows.push({
+      month: monthKey(addMonths(today, i, 1)),
+      principal: 0,
+      interest: 0,
+      total: 0,
+      byLoan: [],
+    });
   }
   const byMonth = new Map(rows.map((r) => [r.month, r]));
 

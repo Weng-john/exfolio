@@ -36,7 +36,11 @@ function PctInput(props: { value: number; onCommit: (v: number) => void }) {
   );
 }
 
-function TargetRow(props: { target: AllocationTarget; indexName: string; options: Array<[ID, string]> }) {
+function TargetRow(props: {
+  target: AllocationTarget;
+  indexName: string;
+  options: Array<[ID, string]>;
+}) {
   const { target: t } = props;
   const save = (patch: Partial<AllocationTarget>) => upsertRow('targets', { ...t, ...patch });
   return (
@@ -80,7 +84,10 @@ export default function CoreAllocationPage() {
   const base = valuation.baseCurrency;
 
   const cmp = useMemo(() => compareAllocation(data, valuation), [data, valuation]);
-  const names = useMemo(() => Object.fromEntries(data.indices.map((i) => [i.id, i.name])), [data.indices]);
+  const names = useMemo(
+    () => Object.fromEntries(data.indices.map((i) => [i.id, i.name])),
+    [data.indices],
+  );
   const plan = useMemo(() => {
     const account = data.accounts.find((a) => a.active)?.id ?? '';
     return planAllocation(data, valuation, {
@@ -95,22 +102,48 @@ export default function CoreAllocationPage() {
 
   const available = data.indices.filter((i) => !data.targets.some((t) => t.indexId === i.id));
   const t = cmp.totals;
-  const scale = Math.max(0.5, ...cmp.rows.flatMap((r) => [Math.abs(r.targetWeight), Math.abs(r.coreWeight)]));
+  const scale = Math.max(
+    0.5,
+    ...cmp.rows.flatMap((r) => [Math.abs(r.targetWeight), Math.abs(r.coreWeight)]),
+  );
   const m = (v: number) => fmtMoney(v, base);
 
   return (
     <>
-      <PageHeader title="Core Allocation" subtitle="被動核心組合：目標曝險 vs 實際曝險（以 NAV 為分母）" />
+      <PageHeader
+        title="Core Allocation"
+        subtitle="被動核心組合：目標曝險 vs 實際曝險（以 NAV 為分母）"
+      />
       <div className="notice">
-        不設強制槓桿上限：目標權重可超過 100% 或為負值，容忍區間與門檻僅供參考提示。優化器只管理 Core；主動策略曝險另列，但計入總曝險。
+        不設強制槓桿上限：目標權重可超過 100% 或為負值，容忍區間與門檻僅供參考提示。優化器只管理
+        Core；主動策略曝險另列，但計入總曝險。
       </div>
 
       <div className="stats">
         <Stat label="NAV" value={m(t.nav)} />
-        <Stat label="目標 Net／Gross" value={`${fmtPct(t.targetNet)} ／ ${fmtPct(t.targetGross)}`} />
-        <Stat label="Core 實際 Net／Gross" value={`${m(t.coreNet)} ／ ${m(t.coreGross)}`} hint={cmp.navValid ? `${fmtPct(t.coreNet / t.nav)} ／ ${fmtPct(t.coreGross / t.nav)}` : undefined} />
+        <Stat
+          label="目標 Net／Gross"
+          value={`${fmtPct(t.targetNet)} ／ ${fmtPct(t.targetGross)}`}
+        />
+        <Stat
+          label="Core 實際 Net／Gross"
+          value={`${m(t.coreNet)} ／ ${m(t.coreGross)}`}
+          hint={
+            cmp.navValid
+              ? `${fmtPct(t.coreNet / t.nav)} ／ ${fmtPct(t.coreGross / t.nav)}`
+              : undefined
+          }
+        />
         <Stat label="策略 Net／Gross" value={`${m(t.strategyNet)} ／ ${m(t.strategyGross)}`} />
-        <Stat label="合計 Net／Gross（含策略）" value={`${m(t.totalNet)} ／ ${m(t.totalGross)}`} hint={cmp.navValid ? `${fmtPct(t.totalNet / t.nav)} ／ ${fmtPct(t.totalGross / t.nav)}` : undefined} />
+        <Stat
+          label="合計 Net／Gross（含策略）"
+          value={`${m(t.totalNet)} ／ ${m(t.totalGross)}`}
+          hint={
+            cmp.navValid
+              ? `${fmtPct(t.totalNet / t.nav)} ／ ${fmtPct(t.totalGross / t.nav)}`
+              : undefined
+          }
+        />
       </div>
 
       {cmp.warnings.length > 0 && <div className="notice warn">{cmp.warnings.join('；')}</div>}
@@ -119,7 +152,11 @@ export default function CoreAllocationPage() {
         title="目標設定"
         actions={
           <>
-            <select value={newIndex} onChange={(e) => setNewIndex(e.target.value)} aria-label="選擇指數">
+            <select
+              value={newIndex}
+              onChange={(e) => setNewIndex(e.target.value)}
+              aria-label="選擇指數"
+            >
               <option value="">選擇指數…</option>
               {available.map((i) => (
                 <option key={i.id} value={i.id}>
@@ -131,7 +168,12 @@ export default function CoreAllocationPage() {
               className="primary"
               disabled={!newIndex}
               onClick={() => {
-                upsertRow('targets', { id: newId('tg'), indexId: newIndex, targetWeight: 0, tolerance: 0.02 });
+                upsertRow('targets', {
+                  id: newId('tg'),
+                  indexId: newIndex,
+                  targetWeight: 0,
+                  tolerance: 0.02,
+                });
                 setNewIndex('');
               }}
             >
@@ -163,7 +205,10 @@ export default function CoreAllocationPage() {
                     indexName={names[tg.indexId] ?? tg.indexId}
                     options={data.instruments
                       .filter((i) => i.indexId === tg.indexId && i.active)
-                      .map((i): [ID, string] => [i.id, `${i.symbol}${i.leverage !== 1 ? `（${i.leverage}×）` : ''}`])}
+                      .map((i): [ID, string] => [
+                        i.id,
+                        `${i.symbol}${i.leverage !== 1 ? `（${i.leverage}×）` : ''}`,
+                      ])}
                   />
                 ))}
               </tbody>
@@ -184,7 +229,10 @@ export default function CoreAllocationPage() {
         title="目標 vs 實際"
         actions={
           <span className="muted">
-            <span className="legend" />目標<span className="legend actual" />Core 實際
+            <span className="legend" />
+            目標
+            <span className="legend actual" />
+            Core 實際
           </span>
         }
       >
@@ -249,7 +297,11 @@ function GroupRows(props: {
   );
 }
 
-function IndexRows(props: { row: ReturnType<typeof compareAllocation>['rows'][number]; scale: number; base: string }) {
+function IndexRows(props: {
+  row: ReturnType<typeof compareAllocation>['rows'][number];
+  scale: number;
+  base: string;
+}) {
   const { row: r, scale, base } = props;
   const m = (v: number) => fmtMoney(v, base);
   return (
@@ -263,9 +315,17 @@ function IndexRows(props: { row: ReturnType<typeof compareAllocation>['rows'][nu
         <td className="num">{m(r.strategyExposure)}</td>
         <td className="num">{m(r.totalExposure)}</td>
         <td className={`num ${signClass(r.gap)}`}>{r.hasTarget ? m(r.gap) : '—'}</td>
-        <td className={`num ${signClass(r.gapWeight)}`}>{r.hasTarget ? fmtPct(r.gapWeight) : '—'}</td>
+        <td className={`num ${signClass(r.gapWeight)}`}>
+          {r.hasTarget ? fmtPct(r.gapWeight) : '—'}
+        </td>
         <td>
-          {!r.hasTarget ? <Badge tone="info">無目標</Badge> : r.outOfBand ? <Badge tone="warn">超出區間</Badge> : <Badge tone="ok">區間內</Badge>}
+          {!r.hasTarget ? (
+            <Badge tone="info">無目標</Badge>
+          ) : r.outOfBand ? (
+            <Badge tone="warn">超出區間</Badge>
+          ) : (
+            <Badge tone="ok">區間內</Badge>
+          )}
         </td>
         <td>
           <WeightBar target={r.targetWeight} actual={r.coreWeight} scale={scale} />

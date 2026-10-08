@@ -42,7 +42,12 @@ export default function StatsPanel(props: {
               <td className="num">{fmtPct(s.winRate, 0)}</td>
               <td className={`num ${signClass(s.averageWin)}`}>{fmtMoney(s.averageWin, base)}</td>
               <td className={`num ${signClass(s.averageLoss)}`}>{fmtMoney(s.averageLoss, base)}</td>
-              <td className="num" title={s.profitFactor === undefined && s.count ? '沒有虧損交易，無法計算' : undefined}>
+              <td
+                className="num"
+                title={
+                  s.profitFactor === undefined && s.count ? '沒有虧損交易，無法計算' : undefined
+                }
+              >
                 {fmtNum(s.profitFactor, 2)}
               </td>
               <td className={`num ${signClass(s.expectancy)}`}>{fmtMoney(s.expectancy, base)}</td>

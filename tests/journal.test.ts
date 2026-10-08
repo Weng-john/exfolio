@@ -21,12 +21,65 @@ function journalData(): AppData {
   data.transactions.push(
     tx({ type: 'deposit', date: '2026-01-01', amount: 1_000_000 }),
     // same ticker in core and in s1: separate FIFO queues
-    tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 100, price: 100, fee: 10 }),
-    tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 100, price: 50, fee: 10, bucket: 's1', reason: '回檔布局', tags: ['swing'] }),
-    tx({ type: 'buy', date: '2026-01-10', instrumentId: 'tw_0050', quantity: 100, price: 60, fee: 10, bucket: 's1', tags: ['swing'], tradeGroupId: 'g1' }),
-    tx({ type: 'sell', date: '2026-01-20', instrumentId: 'tw_0050', quantity: 150, price: 70, fee: 10, tax: 20, bucket: 's1', tradeGroupId: 'g1' }),
-    tx({ type: 'sell', date: '2026-01-25', instrumentId: 'tw_0050', quantity: 50, price: 55, fee: 5, bucket: 's2' }), // short in s2
-    tx({ type: 'buy', date: '2026-02-01', instrumentId: 'tw_0050', quantity: 50, price: 50, fee: 5, bucket: 's2' }),
+    tx({
+      type: 'buy',
+      date: '2026-01-02',
+      instrumentId: 'tw_0050',
+      quantity: 100,
+      price: 100,
+      fee: 10,
+    }),
+    tx({
+      type: 'buy',
+      date: '2026-01-02',
+      instrumentId: 'tw_0050',
+      quantity: 100,
+      price: 50,
+      fee: 10,
+      bucket: 's1',
+      reason: '回檔布局',
+      tags: ['swing'],
+    }),
+    tx({
+      type: 'buy',
+      date: '2026-01-10',
+      instrumentId: 'tw_0050',
+      quantity: 100,
+      price: 60,
+      fee: 10,
+      bucket: 's1',
+      tags: ['swing'],
+      tradeGroupId: 'g1',
+    }),
+    tx({
+      type: 'sell',
+      date: '2026-01-20',
+      instrumentId: 'tw_0050',
+      quantity: 150,
+      price: 70,
+      fee: 10,
+      tax: 20,
+      bucket: 's1',
+      tradeGroupId: 'g1',
+    }),
+    tx({
+      type: 'sell',
+      date: '2026-01-25',
+      instrumentId: 'tw_0050',
+      quantity: 50,
+      price: 55,
+      fee: 5,
+      bucket: 's2',
+    }), // short in s2
+    tx({
+      type: 'buy',
+      date: '2026-02-01',
+      instrumentId: 'tw_0050',
+      quantity: 50,
+      price: 50,
+      fee: 5,
+      bucket: 's2',
+    }),
   );
   return data;
 }
@@ -46,11 +99,18 @@ describe('journalEntries', () => {
     const replay = replayTrades(data);
     for (const pos of ledger.positions) {
       const sum = replay.entries
-        .filter((e) => e.accountId === pos.accountId && e.instrumentId === pos.instrumentId && e.strategyId === pos.bucket)
+        .filter(
+          (e) =>
+            e.accountId === pos.accountId &&
+            e.instrumentId === pos.instrumentId &&
+            e.strategyId === pos.bucket,
+        )
         .reduce((s, e) => s + e.realizedPnl, 0);
       expect(sum).toBeCloseTo(pos.realizedPnl);
     }
-    expect(replay.entries.reduce((s, e) => s + e.realizedPnlBase, 0)).toBeCloseTo(ledger.totals.realizedPnl);
+    expect(replay.entries.reduce((s, e) => s + e.realizedPnlBase, 0)).toBeCloseTo(
+      ledger.totals.realizedPnl,
+    );
     expect(replay.entries.reduce((s, e) => s + e.costsBase, 0)).toBeCloseTo(ledger.totals.fees);
   });
 
@@ -103,8 +163,26 @@ describe('round trips', () => {
     const data = fresh();
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 500_000, accountId: 'kgi_fut' }),
-      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'fut_MTX', quantity: 1, price: 20_000, accountId: 'kgi_fut', bucket: 's1', fee: 20 }),
-      tx({ type: 'sell', date: '2026-01-03', instrumentId: 'fut_MTX', quantity: 1, price: 20_100, accountId: 'kgi_fut', bucket: 's1', fee: 20 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        instrumentId: 'fut_MTX',
+        quantity: 1,
+        price: 20_000,
+        accountId: 'kgi_fut',
+        bucket: 's1',
+        fee: 20,
+      }),
+      tx({
+        type: 'sell',
+        date: '2026-01-03',
+        instrumentId: 'fut_MTX',
+        quantity: 1,
+        price: 20_100,
+        accountId: 'kgi_fut',
+        bucket: 's1',
+        fee: 20,
+      }),
     );
     const [t] = roundTrips(data, { strategyId: 's1' });
     expect(t.grossPnl).toBe(5_000);

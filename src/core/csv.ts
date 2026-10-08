@@ -1,5 +1,11 @@
 import { newId } from './ids';
-import { CORE_BUCKET, type AppData, type FundingSource, type Transaction, type TxType } from './types';
+import {
+  CORE_BUCKET,
+  type AppData,
+  type FundingSource,
+  type Transaction,
+  type TxType,
+} from './types';
 
 // Transaction CSV (spec 9.2, MVP import path). One header row, then one
 // transaction per row. UTF-8, comma separated, RFC 4180 quoting.
@@ -22,14 +28,44 @@ import { CORE_BUCKET, type AppData, type FundingSource, type Transaction, type T
 //   note, tags  tags are separated by ';'
 
 export const CSV_COLUMNS = [
-  'id', 'date', 'type', 'account', 'bucket', 'currency', 'amount', 'instrument', 'quantity',
-  'price', 'fee', 'tax', 'fxRate', 'toAccount', 'toCurrency', 'toAmount', 'toBucket', 'loanId',
-  'principal', 'interest', 'source', 'note', 'tags',
+  'id',
+  'date',
+  'type',
+  'account',
+  'bucket',
+  'currency',
+  'amount',
+  'instrument',
+  'quantity',
+  'price',
+  'fee',
+  'tax',
+  'fxRate',
+  'toAccount',
+  'toCurrency',
+  'toAmount',
+  'toBucket',
+  'loanId',
+  'principal',
+  'interest',
+  'source',
+  'note',
+  'tags',
 ] as const;
 
 export const TX_TYPES: TxType[] = [
-  'buy', 'sell', 'deposit', 'withdraw', 'transfer', 'dividend', 'fee', 'interest',
-  'loan_draw', 'loan_repay', 'funding_fee', 'adjust',
+  'buy',
+  'sell',
+  'deposit',
+  'withdraw',
+  'transfer',
+  'dividend',
+  'fee',
+  'interest',
+  'loan_draw',
+  'loan_repay',
+  'funding_fee',
+  'adjust',
 ];
 
 const SIGNED_TYPES: TxType[] = ['adjust', 'funding_fee'];
@@ -52,14 +88,35 @@ function quoteField(value: string): string {
 
 /** Transactions to CSV text (ids for accounts / instruments, CRLF line breaks, no BOM). */
 export function transactionsToCsv(transactions: Transaction[]): string {
-  const cell = (v: string | number | undefined): string => (v === undefined ? '' : quoteField(String(v)));
+  const cell = (v: string | number | undefined): string =>
+    v === undefined ? '' : quoteField(String(v));
   const lines = [CSV_COLUMNS.join(',')];
   for (const t of transactions) {
     lines.push(
       [
-        t.id, t.date, t.type, t.accountId, t.bucket, t.currency, t.amount, t.instrumentId,
-        t.quantity, t.price, t.fee, t.tax, t.fxRate, t.toAccountId, t.toCurrency, t.toAmount,
-        t.toBucket, t.loanId, t.principal, t.interest, t.source, t.note, t.tags?.join(';'),
+        t.id,
+        t.date,
+        t.type,
+        t.accountId,
+        t.bucket,
+        t.currency,
+        t.amount,
+        t.instrumentId,
+        t.quantity,
+        t.price,
+        t.fee,
+        t.tax,
+        t.fxRate,
+        t.toAccountId,
+        t.toCurrency,
+        t.toAmount,
+        t.toBucket,
+        t.loanId,
+        t.principal,
+        t.interest,
+        t.source,
+        t.note,
+        t.tags?.join(';'),
       ]
         .map(cell)
         .join(','),
@@ -222,14 +279,16 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     }
 
     const loanId = get('loanId');
-    if ((type === 'loan_draw' || type === 'loan_repay') && !loanId) errs.push('貸款交易需指定 loanId');
+    if ((type === 'loan_draw' || type === 'loan_repay') && !loanId)
+      errs.push('貸款交易需指定 loanId');
     if (loanId && !loanIds.has(loanId)) errs.push(`找不到貸款：${loanId}`);
 
     const sourceRaw = get('source').toLowerCase();
     if (sourceRaw && sourceRaw !== 'external' && sourceRaw !== 'portfolio') {
       errs.push(`source 須為 external 或 portfolio：${sourceRaw}`);
     }
-    if (type === 'loan_repay' && !sourceRaw) errs.push('還款需指定 source（external 或 portfolio）');
+    if (type === 'loan_repay' && !sourceRaw)
+      errs.push('還款需指定 source（external 或 portfolio）');
 
     const fee = nonNegative('fee');
     const tax = nonNegative('tax');
@@ -248,7 +307,15 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     }
     seenIds.add(id);
 
-    const tx: Transaction = { id, date, type, accountId: accountId!, bucket, currency, amount: amount ?? 0 };
+    const tx: Transaction = {
+      id,
+      date,
+      type,
+      accountId: accountId!,
+      bucket,
+      currency,
+      amount: amount ?? 0,
+    };
     if (inst) tx.instrumentId = inst.id;
     if (quantity !== undefined) tx.quantity = quantity;
     if (price !== undefined) tx.price = price;
@@ -264,7 +331,10 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     if (interest !== undefined) tx.interest = interest;
     if (sourceRaw) tx.source = sourceRaw as FundingSource;
     if (get('note')) tx.note = get('note');
-    const tags = get('tags').split(';').map((t) => t.trim()).filter(Boolean);
+    const tags = get('tags')
+      .split(';')
+      .map((t) => t.trim())
+      .filter(Boolean);
     if (tags.length) tx.tags = tags;
     result.transactions.push(tx);
   }

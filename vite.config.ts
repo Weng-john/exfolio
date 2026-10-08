@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
-import type { Plugin } from "vite";
-import { defineConfig } from "vitest/config";
+import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { handleApi } from './server/handler';
 
 // Serve the local backend from the dev server, so `npm run dev` is one process.

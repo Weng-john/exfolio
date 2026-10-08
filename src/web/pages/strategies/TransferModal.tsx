@@ -17,7 +17,10 @@ export default function TransferModal(props: {
   const data = useData();
   const incoming = direction === 'in';
   const accounts = data.accounts.filter((a) => a.active);
-  const others = [CORE_BUCKET, ...data.strategies.filter((s) => s.id !== strategy.id).map((s) => s.id)];
+  const others = [
+    CORE_BUCKET,
+    ...data.strategies.filter((s) => s.id !== strategy.id).map((s) => s.id),
+  ];
 
   const [other, setOther] = useState(CORE_BUCKET);
   const [fromAccount, setFromAccount] = useState(accounts[0]?.id ?? '');
@@ -33,7 +36,8 @@ export default function TransferModal(props: {
 
   const sourceBucket = incoming ? other : strategy.id;
   const destBucket = incoming ? strategy.id : other;
-  const cross = toCurrency.trim() !== '' && toCurrency.trim().toUpperCase() !== currency.trim().toUpperCase();
+  const cross =
+    toCurrency.trim() !== '' && toCurrency.trim().toUpperCase() !== currency.trim().toUpperCase();
   const base = data.settings[0]?.baseCurrency ?? 'TWD';
 
   const save = () => {
@@ -123,11 +127,19 @@ export default function TransferModal(props: {
           <input value={currency} onChange={(e) => setCurrency(e.target.value)} />
         </Field>
         <Field label="轉入幣別（跨幣別才填）">
-          <input value={toCurrency} onChange={(e) => setToCurrency(e.target.value)} placeholder={currency} />
+          <input
+            value={toCurrency}
+            onChange={(e) => setToCurrency(e.target.value)}
+            placeholder={currency}
+          />
         </Field>
         {cross && (
           <Field label="轉入金額">
-            <input inputMode="decimal" value={toAmount} onChange={(e) => setToAmount(e.target.value)} />
+            <input
+              inputMode="decimal"
+              value={toAmount}
+              onChange={(e) => setToAmount(e.target.value)}
+            />
           </Field>
         )}
         {currency.trim().toUpperCase() !== base && (

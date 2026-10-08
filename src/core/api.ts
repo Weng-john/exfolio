@@ -99,7 +99,13 @@ export type ApiRequest = { session?: string } & (
   | { action: 'changePassword'; oldPasswordKey?: string; newPasswordKey: string }
   | { action: 'linkGoogle'; idToken: string }
   | { action: 'adminUsers' }
-  | { action: 'adminUpdateUser'; userId: string; status?: UserStatus; role?: UserRole; newPasswordKey?: string }
+  | {
+      action: 'adminUpdateUser';
+      userId: string;
+      status?: UserStatus;
+      role?: UserRole;
+      newPasswordKey?: string;
+    }
   | { action: 'adminDeleteUser'; userId: string }
   | { action: 'adminSetConfig'; registration?: RegistrationMode; googleClientId?: string }
   | { action: 'adminAudit' }

@@ -30,7 +30,12 @@ const CLASSES = Object.keys(CLASS_LABELS) as FeeClass[];
 // both are stored as fractions.
 const COLUMNS: Array<{ key: keyof FeeRule; label: string; scale: number; hint: string }> = [
   { key: 'rate', label: '手續費率 %', scale: 100, hint: '牌告費率，例如 0.1425' },
-  { key: 'discount', label: '折讓（折）', scale: 100, hint: '實收比例，28 代表 28 折；留空為不打折' },
+  {
+    key: 'discount',
+    label: '折讓（折）',
+    scale: 100,
+    hint: '實收比例，28 代表 28 折；留空為不打折',
+  },
   { key: 'minFee', label: '最低手續費', scale: 1, hint: '每筆最低收費' },
   { key: 'perUnit', label: '每單位費用', scale: 1, hint: '每股或每口固定費用' },
   { key: 'taxRate', label: '交易稅 %（買賣）', scale: 100, hint: '買賣皆收，例如期交稅' },
@@ -114,8 +119,12 @@ export default function InstitutionForm(props: {
       wide
       footer={
         <>
-          <button className="ghost" onClick={props.onClose}>取消</button>
-          <button className="primary" onClick={save}>儲存</button>
+          <button className="ghost" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary" onClick={save}>
+            儲存
+          </button>
         </>
       }
     >
@@ -128,22 +137,30 @@ export default function InstitutionForm(props: {
               {(Object.keys(KIND_LABELS) as InstitutionKind[]).map((k) => (
                 <optgroup key={k} label={KIND_LABELS[k]}>
                   {INSTITUTION_CATALOG.filter((b) => b.kind === k).map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
                   ))}
                 </optgroup>
               ))}
             </select>
           </Field>
         )}
-        <Field label="名稱"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="名稱">
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
         <Field label="類別">
           <select value={kind} onChange={(e) => setKind(e.target.value as InstitutionKind)}>
             {(Object.keys(KIND_LABELS) as InstitutionKind[]).map((k) => (
-              <option key={k} value={k}>{KIND_LABELS[k]}</option>
+              <option key={k} value={k}>
+                {KIND_LABELS[k]}
+              </option>
             ))}
           </select>
         </Field>
-        <Field label="備註"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <Field label="備註">
+          <input value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
       </div>
 
       {kind !== 'bank' && (
@@ -159,7 +176,9 @@ export default function InstitutionForm(props: {
                 <tr>
                   <th>商品類別</th>
                   {COLUMNS.map((col) => (
-                    <th key={col.key} title={col.hint}>{col.label}</th>
+                    <th key={col.key} title={col.hint}>
+                      {col.label}
+                    </th>
                   ))}
                 </tr>
               </thead>

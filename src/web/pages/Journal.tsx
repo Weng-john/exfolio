@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { journalEntries, replayTrades, roundTrips, type JournalFilter, type RoundTrip, type Transaction } from '@core/index';
+import {
+  journalEntries,
+  replayTrades,
+  roundTrips,
+  type JournalFilter,
+  type RoundTrip,
+  type Transaction,
+} from '@core/index';
 import { Card, Empty, PageHeader } from '../components/ui';
 import { fmtMoney, fmtNum, fmtPct, signClass } from '../format';
 import { upsertRow, useData } from '../store';
@@ -29,7 +36,9 @@ export default function JournalPage() {
   const trips: RoundTrip[] = useMemo(() => roundTrips(data, filter), [data, filter]);
 
   const scopeBuckets = useMemo(() => {
-    const ids = [...new Set(replay.entries.map((e) => e.strategyId))].filter((id) => filter.includeCore || id !== 'core');
+    const ids = [...new Set(replay.entries.map((e) => e.strategyId))].filter(
+      (id) => filter.includeCore || id !== 'core',
+    );
     return ids.map((id) => ({ id, name: bucketName(data, id) }));
   }, [replay, data, filter.includeCore]);
 
@@ -44,7 +53,11 @@ export default function JournalPage() {
         title="Trade Journal"
         subtitle="每筆交易與多腿交易群組、交易理由、費用與損益"
         actions={
-          <button className="primary" onClick={() => setAdding(true)} disabled={!data.accounts.length}>
+          <button
+            className="primary"
+            onClick={() => setAdding(true)}
+            disabled={!data.accounts.length}
+          >
             新增交易
           </button>
         }
@@ -53,10 +66,14 @@ export default function JournalPage() {
       <div className="jr-stack">
         <Card title={`交易日誌（${entries.length}）`}>
           <p className="jr-note">
-            顯示策略內的買賣交易。已實現損益依 FIFO 計算，與帳本一致，費用另列。新增交易請用右上角按鈕；這裡只編輯理由、標籤、備註、群組與輪動週期。
+            顯示策略內的買賣交易。已實現損益依 FIFO
+            計算，與帳本一致，費用另列。新增交易請用右上角按鈕；這裡只編輯理由、標籤、備註、群組與輪動週期。
           </p>
           <div className="jr-filters">
-            <select value={filter.strategyId ?? ''} onChange={(e) => patch({ strategyId: e.target.value || undefined })}>
+            <select
+              value={filter.strategyId ?? ''}
+              onChange={(e) => patch({ strategyId: e.target.value || undefined })}
+            >
               <option value="">所有策略</option>
               <option value="core">核心被動</option>
               {data.strategies.map((s) => (
@@ -65,7 +82,10 @@ export default function JournalPage() {
                 </option>
               ))}
             </select>
-            <select value={filter.instrumentId ?? ''} onChange={(e) => patch({ instrumentId: e.target.value || undefined })}>
+            <select
+              value={filter.instrumentId ?? ''}
+              onChange={(e) => patch({ instrumentId: e.target.value || undefined })}
+            >
               <option value="">所有商品</option>
               {data.instruments.map((i) => (
                 <option key={i.id} value={i.id}>
@@ -73,9 +93,22 @@ export default function JournalPage() {
                 </option>
               ))}
             </select>
-            <input type="date" value={filter.from ?? ''} onChange={(e) => patch({ from: e.target.value || undefined })} aria-label="起日" />
-            <input type="date" value={filter.to ?? ''} onChange={(e) => patch({ to: e.target.value || undefined })} aria-label="迄日" />
-            <select value={filter.tag ?? ''} onChange={(e) => patch({ tag: e.target.value || undefined })}>
+            <input
+              type="date"
+              value={filter.from ?? ''}
+              onChange={(e) => patch({ from: e.target.value || undefined })}
+              aria-label="起日"
+            />
+            <input
+              type="date"
+              value={filter.to ?? ''}
+              onChange={(e) => patch({ to: e.target.value || undefined })}
+              aria-label="迄日"
+            />
+            <select
+              value={filter.tag ?? ''}
+              onChange={(e) => patch({ tag: e.target.value || undefined })}
+            >
               <option value="">所有標籤</option>
               {allTags.map((t) => (
                 <option key={t} value={t}>
@@ -83,7 +116,10 @@ export default function JournalPage() {
                 </option>
               ))}
             </select>
-            <select value={filter.tradeGroupId ?? ''} onChange={(e) => patch({ tradeGroupId: e.target.value || undefined })}>
+            <select
+              value={filter.tradeGroupId ?? ''}
+              onChange={(e) => patch({ tradeGroupId: e.target.value || undefined })}
+            >
               <option value="">所有群組</option>
               {data.tradeGroups.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -105,9 +141,14 @@ export default function JournalPage() {
 
         <Card title="績效統計（已平倉交易，淨額）">
           <p className="jr-note">
-            依目前篩選條件，以每筆平倉配對（進場批次對應出場）計算，金額為{base}、已扣交易成本。期貨沒有自然的資金分母，只顯示金額，不以名目價值推算報酬率。
+            依目前篩選條件，以每筆平倉配對（進場批次對應出場）計算，金額為{base}
+            、已扣交易成本。期貨沒有自然的資金分母，只顯示金額，不以名目價值推算報酬率。
           </p>
-          {trips.length ? <StatsPanel trips={trips} groups={scopeBuckets} base={base} /> : <Empty>還沒有已平倉的交易</Empty>}
+          {trips.length ? (
+            <StatsPanel trips={trips} groups={scopeBuckets} base={base} />
+          ) : (
+            <Empty>還沒有已平倉的交易</Empty>
+          )}
         </Card>
 
         <Card title={`已平倉交易（${trips.length}）`}>
@@ -145,10 +186,16 @@ export default function JournalPage() {
                       <td className="num">{fmtNum(t.exitPrice, 4)}</td>
                       <td className="num">{fmtNum(t.quantity, 4)}</td>
                       <td className="num">{t.holdingDays}</td>
-                      <td className={`num ${signClass(t.grossPnl)}`}>{fmtMoney(t.grossPnl, t.currency)}</td>
+                      <td className={`num ${signClass(t.grossPnl)}`}>
+                        {fmtMoney(t.grossPnl, t.currency)}
+                      </td>
                       <td className="num">{fmtMoney(t.costs, t.currency)}</td>
-                      <td className={`num ${signClass(t.netPnl)}`}>{fmtMoney(t.netPnl, t.currency)}</td>
-                      <td className={`num ${signClass(t.returnPct)}`}>{t.returnPct === undefined ? '—' : fmtPct(t.returnPct, 2)}</td>
+                      <td className={`num ${signClass(t.netPnl)}`}>
+                        {fmtMoney(t.netPnl, t.currency)}
+                      </td>
+                      <td className={`num ${signClass(t.returnPct)}`}>
+                        {t.returnPct === undefined ? '—' : fmtPct(t.returnPct, 2)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

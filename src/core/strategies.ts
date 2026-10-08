@@ -211,7 +211,11 @@ export function strategySummaries(data: AppData, portfolio: Portfolio): Strategy
     for (const c of ledger.bucketCash) {
       if (ids.has(c.bucket)) cashMap.set(c.currency, (cashMap.get(c.currency) ?? 0) + c.amount);
     }
-    const cash = [...cashMap].map(([currency, amount]) => ({ currency, amount, value: amount * rate(currency) }));
+    const cash = [...cashMap].map(([currency, amount]) => ({
+      currency,
+      amount,
+      value: amount * rate(currency),
+    }));
     const cashValue = cash.reduce((s, c) => s + c.value, 0);
     const positions = valuation.positions.filter((p) => ids.has(p.bucket));
     const securitiesValue = positions.reduce((s, p) => s + p.marketValue, 0);
@@ -286,7 +290,8 @@ export function strategySummaries(data: AppData, portfolio: Portfolio): Strategy
 // ---------------------------------------------------------------------------
 // Strategy capital ledger
 
-export type CapitalFlowKind = 'external_deposit' | 'external_withdrawal' | 'transfer_in' | 'transfer_out';
+export type CapitalFlowKind =
+  'external_deposit' | 'external_withdrawal' | 'transfer_in' | 'transfer_out';
 
 export interface CapitalFlow {
   txId: ID;
@@ -313,17 +318,61 @@ export function strategyCapitalFlows(data: AppData, strategyId: ID): CapitalFlow
   for (const tx of sortedTransactions(data)) {
     const bucket = tx.bucket || CORE_BUCKET;
     if (bucket === strategyId && tx.type === 'deposit') {
-      flows.push({ txId: tx.id, date: tx.date, kind: 'external_deposit', amount: tx.amount, currency: tx.currency, baseAmount: toBase(tx.amount, tx.currency, tx), note: tx.note });
+      flows.push({
+        txId: tx.id,
+        date: tx.date,
+        kind: 'external_deposit',
+        amount: tx.amount,
+        currency: tx.currency,
+        baseAmount: toBase(tx.amount, tx.currency, tx),
+        note: tx.note,
+      });
     } else if (bucket === strategyId && tx.type === 'withdraw') {
-      flows.push({ txId: tx.id, date: tx.date, kind: 'external_withdrawal', amount: -tx.amount, currency: tx.currency, baseAmount: -toBase(tx.amount, tx.currency, tx), note: tx.note });
+      flows.push({
+        txId: tx.id,
+        date: tx.date,
+        kind: 'external_withdrawal',
+        amount: -tx.amount,
+        currency: tx.currency,
+        baseAmount: -toBase(tx.amount, tx.currency, tx),
+        note: tx.note,
+      });
     } else if (bucket === strategyId && tx.type === 'loan_repay' && tx.source === 'external') {
       const interest = tx.interest ?? 0;
-      const paid = (tx.principal ?? tx.amount - interest) + interest + (tx.fee ?? 0) + (tx.tax ?? 0);
-      flows.push({ txId: tx.id, date: tx.date, kind: 'external_deposit', amount: paid, currency: tx.currency, baseAmount: toBase(paid, tx.currency, tx), source: 'loan_repay', note: tx.note });
+      const paid =
+        (tx.principal ?? tx.amount - interest) + interest + (tx.fee ?? 0) + (tx.tax ?? 0);
+      flows.push({
+        txId: tx.id,
+        date: tx.date,
+        kind: 'external_deposit',
+        amount: paid,
+        currency: tx.currency,
+        baseAmount: toBase(paid, tx.currency, tx),
+        source: 'loan_repay',
+        note: tx.note,
+      });
     } else if (isBucketTransfer(tx) && bucket === strategyId) {
-      flows.push({ txId: tx.id, date: tx.date, kind: 'transfer_out', counterparty: tx.toBucket, amount: -tx.amount, currency: tx.currency, baseAmount: -toBase(tx.amount, tx.currency, tx), note: tx.note });
+      flows.push({
+        txId: tx.id,
+        date: tx.date,
+        kind: 'transfer_out',
+        counterparty: tx.toBucket,
+        amount: -tx.amount,
+        currency: tx.currency,
+        baseAmount: -toBase(tx.amount, tx.currency, tx),
+        note: tx.note,
+      });
     } else if (isBucketTransfer(tx) && tx.toBucket === strategyId) {
-      flows.push({ txId: tx.id, date: tx.date, kind: 'transfer_in', counterparty: bucket, amount: tx.toAmount ?? tx.amount, currency: tx.toCurrency ?? tx.currency, baseAmount: toBase(tx.amount, tx.currency, tx), note: tx.note });
+      flows.push({
+        txId: tx.id,
+        date: tx.date,
+        kind: 'transfer_in',
+        counterparty: bucket,
+        amount: tx.toAmount ?? tx.amount,
+        currency: tx.toCurrency ?? tx.currency,
+        baseAmount: toBase(tx.amount, tx.currency, tx),
+        note: tx.note,
+      });
     }
   }
   let running = 0;
@@ -349,7 +398,11 @@ export function allowedInstrumentViolations(data: AppData, strategyId: ID): Tran
   const s = data.strategies.find((x) => x.id === strategyId);
   if (!s) return [];
   return data.transactions.filter(
-    (t) => (t.type === 'buy' || t.type === 'sell') && t.bucket === strategyId && t.instrumentId && !isInstrumentAllowed(s, t.instrumentId),
+    (t) =>
+      (t.type === 'buy' || t.type === 'sell') &&
+      t.bucket === strategyId &&
+      t.instrumentId &&
+      !isInstrumentAllowed(s, t.instrumentId),
   );
 }
 
@@ -362,10 +415,17 @@ export interface StrategyReferences {
 
 /** What still points at a strategy. Non-zero total = close it instead of deleting. */
 export function strategyReferences(data: AppData, strategyId: ID): StrategyReferences {
-  const transactions = data.transactions.filter((t) => t.bucket === strategyId || t.toBucket === strategyId).length;
+  const transactions = data.transactions.filter(
+    (t) => t.bucket === strategyId || t.toBucket === strategyId,
+  ).length;
   const tradeGroups = data.tradeGroups.filter((g) => g.strategyId === strategyId).length;
   const rotationCycles = data.rotationCycles.filter((c) => c.strategyId === strategyId).length;
-  return { transactions, tradeGroups, rotationCycles, total: transactions + tradeGroups + rotationCycles };
+  return {
+    transactions,
+    tradeGroups,
+    rotationCycles,
+    total: transactions + tradeGroups + rotationCycles,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +435,11 @@ export function strategyReferences(data: AppData, strategyId: ID): StrategyRefer
  * Price on or before `date`: `close`, or `adjClose` (falling back to close)
  * when `adjusted`. Undefined when there is no point within the allowed gap.
  */
-export type PriceLookup = (instrumentId: ID, date: ISODate, adjusted?: boolean) => number | undefined;
+export type PriceLookup = (
+  instrumentId: ID,
+  date: ISODate,
+  adjusted?: boolean,
+) => number | undefined;
 
 export function makePriceLookup(data: AppData, options: { maxGapDays?: number } = {}): PriceLookup {
   const maxGap = options.maxGapDays ?? 10;
@@ -385,7 +449,8 @@ export function makePriceLookup(data: AppData, options: { maxGapDays?: number } 
     list.push(p);
     series.set(p.instrumentId, list);
   }
-  for (const list of series.values()) list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  for (const list of series.values())
+    list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return (instrumentId, date, adjusted) => {
     const list = series.get(instrumentId);
     if (!list?.length) return undefined;
@@ -567,7 +632,8 @@ export function rotationCycleReport(
   const flows: { date: ISODate; value: number }[] = [];
   for (const t of txs) {
     if (t.type === 'deposit') flows.push({ date: t.date, value: toBase(t.amount, t.currency, t) });
-    else if (t.type === 'withdraw') flows.push({ date: t.date, value: -toBase(t.amount, t.currency, t) });
+    else if (t.type === 'withdraw')
+      flows.push({ date: t.date, value: -toBase(t.amount, t.currency, t) });
     else if (isBucketTransfer(t) && t.toBucket === cycle.strategyId) {
       flows.push({ date: t.date, value: toBase(t.amount, t.currency, t) });
     } else if (isBucketTransfer(t) && (t.bucket || CORE_BUCKET) === cycle.strategyId) {
@@ -660,8 +726,16 @@ export interface RotationSeriesSummary {
 export function summarizeRotationCycles(reports: RotationCycleReport[]): RotationSeriesSummary {
   const done = reports
     .filter((r) => r.returnPct !== undefined && r.pnl !== undefined)
-    .sort((a, b) => ((a.startDate ?? '') < (b.startDate ?? '') ? -1 : (a.startDate ?? '') > (b.startDate ?? '') ? 1 : 0));
-  const comparable = done.filter((r) => r.benchmarkReturnPct !== undefined && r.excessPp !== undefined);
+    .sort((a, b) =>
+      (a.startDate ?? '') < (b.startDate ?? '')
+        ? -1
+        : (a.startDate ?? '') > (b.startDate ?? '')
+          ? 1
+          : 0,
+    );
+  const comparable = done.filter(
+    (r) => r.benchmarkReturnPct !== undefined && r.excessPp !== undefined,
+  );
   let eq = 1;
   let peak = 1;
   let maxDd = 0;
@@ -676,9 +750,15 @@ export function summarizeRotationCycles(reports: RotationCycleReport[]): Rotatio
     comparable: comparable.length,
     cumulativePnl: done.reduce((s, r) => s + r.pnl!, 0),
     cumulativeReturn: done.length ? compound(done.map((r) => r.returnPct!)) : undefined,
-    cumulativeBenchmarkReturn: comparable.length ? compound(comparable.map((r) => r.benchmarkReturnPct!)) : undefined,
-    cumulativeExcessPp: comparable.length ? comparable.reduce((s, r) => s + r.excessPp!, 0) : undefined,
-    beatShare: comparable.length ? comparable.filter((r) => r.beatBenchmark).length / comparable.length : undefined,
+    cumulativeBenchmarkReturn: comparable.length
+      ? compound(comparable.map((r) => r.benchmarkReturnPct!))
+      : undefined,
+    cumulativeExcessPp: comparable.length
+      ? comparable.reduce((s, r) => s + r.excessPp!, 0)
+      : undefined,
+    beatShare: comparable.length
+      ? comparable.filter((r) => r.beatBenchmark).length / comparable.length
+      : undefined,
     maxDrawdown: done.length ? maxDd : undefined,
   };
 }

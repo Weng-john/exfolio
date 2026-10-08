@@ -18,7 +18,11 @@ export default function PositionsTab() {
     () =>
       v.positions
         .filter((p) => !accountId || p.accountId === accountId)
-        .sort((a, b) => accountName(a.accountId).localeCompare(accountName(b.accountId)) || a.instrument.symbol.localeCompare(b.instrument.symbol)),
+        .sort(
+          (a, b) =>
+            accountName(a.accountId).localeCompare(accountName(b.accountId)) ||
+            a.instrument.symbol.localeCompare(b.instrument.symbol),
+        ),
     [v.positions, accountId, data.accounts],
   );
   const total = positionTotals(rows, v.nav);
@@ -29,11 +33,16 @@ export default function PositionsTab() {
       <td>
         <strong>{p.instrument.symbol}</strong> <span className="muted">{p.instrument.name}</span>
       </td>
-      <td>{p.bucket === 'core' ? 'core' : (data.strategies.find((s) => s.id === p.bucket)?.name ?? p.bucket)}</td>
+      <td>
+        {p.bucket === 'core'
+          ? 'core'
+          : (data.strategies.find((s) => s.id === p.bucket)?.name ?? p.bucket)}
+      </td>
       <td className={`num ${signClass(p.quantity)}`}>{fmtNum(p.quantity, 4)}</td>
       <td className="num">{fmtNum(p.avgCost, 4)}</td>
       <td className="num">
-        {fmtNum(p.price, 4)} <Badge tone={PRICE_STATUS_TONES[p.priceStatus]}>{PRICE_STATUS_LABELS[p.priceStatus]}</Badge>
+        {fmtNum(p.price, 4)}{' '}
+        <Badge tone={PRICE_STATUS_TONES[p.priceStatus]}>{PRICE_STATUS_LABELS[p.priceStatus]}</Badge>
         <div className="muted">{fmtTime(p.priceAsOf)}</div>
       </td>
       <td className="num">{fmtMoney(p.marketValue, base)}</td>
@@ -54,9 +63,18 @@ export default function PositionsTab() {
       actions={
         <>
           <label>
-            <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /> 依帳戶分組
+            <input
+              type="checkbox"
+              checked={grouped}
+              onChange={(e) => setGrouped(e.target.checked)}
+            />{' '}
+            依帳戶分組
           </label>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="帳戶篩選">
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            aria-label="帳戶篩選"
+          >
             <option value="">全部帳戶</option>
             {data.accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -117,16 +135,25 @@ export default function PositionsTab() {
               <tr>
                 <td colSpan={6}>合計</td>
                 <td className="num">{fmtMoney(total.marketValue, base)}</td>
-                <td className={`num ${signClass(total.exposure)}`}>{fmtMoney(total.exposure, base)}</td>
-                <td className={`num ${signClass(total.unrealizedPnl)}`}>{fmtMoney(total.unrealizedPnl, base)}</td>
-                <td className={`num ${signClass(total.realizedPnl)}`}>{fmtMoney(total.realizedPnl, base)}</td>
+                <td className={`num ${signClass(total.exposure)}`}>
+                  {fmtMoney(total.exposure, base)}
+                </td>
+                <td className={`num ${signClass(total.unrealizedPnl)}`}>
+                  {fmtMoney(total.unrealizedPnl, base)}
+                </td>
+                <td className={`num ${signClass(total.realizedPnl)}`}>
+                  {fmtMoney(total.realizedPnl, base)}
+                </td>
                 <td className="num">{fmtPct(total.exposureToNav)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       )}
-      <p className="muted">期貨 / 永續合約市值為 0（損益結算到現金），曝險為名目價值 × 每日目標槓桿。已實現損益未扣手續費。</p>
+      <p className="muted">
+        期貨 / 永續合約市值為 0（損益結算到現金），曝險為名目價值 ×
+        每日目標槓桿。已實現損益未扣手續費。
+      </p>
     </Card>
   );
 }

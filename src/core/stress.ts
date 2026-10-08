@@ -115,7 +115,12 @@ export function scaleFxRates(rates: FxRate[], moves: Record<Currency, number>): 
 }
 
 /** Copy of `data` with shocked prices and FX. Transactions are untouched. */
-export function applyShocks(data: AppData, valuation: Valuation, shocks: StressShocks, now?: Date): AppData {
+export function applyShocks(
+  data: AppData,
+  valuation: Valuation,
+  shocks: StressShocks,
+  now?: Date,
+): AppData {
   const instruments = new Map(data.instruments.map((i) => [i.id, i]));
   const quotes = new Map(data.prices.map((p) => [p.id, p]));
   const held = new Map<ID, number>(); // price the valuation actually used
@@ -249,7 +254,14 @@ export interface StressInterest {
   /** Same with the rate shift applied (floating-rate assumption), floored at 0%. */
   after: number;
   delta: number;
-  byLoan: Array<{ loanId: ID; name: string; currency: Currency; balance: number; before: number; after: number }>;
+  byLoan: Array<{
+    loanId: ID;
+    name: string;
+    currency: Currency;
+    balance: number;
+    before: number;
+    after: number;
+  }>;
 }
 
 export interface StressResult {
@@ -335,7 +347,9 @@ export function runStressTest(
       derivative,
     });
     if (floored && b.quantity !== 0) {
-      warnings.push(`${b.instrument.symbol} 的槓桿 ${b.instrument.leverage}× 使跌幅超過 100%，已以 −100% 為下限（價值歸零）`);
+      warnings.push(
+        `${b.instrument.symbol} 的槓桿 ${b.instrument.leverage}× 使跌幅超過 100%，已以 −100% 為下限（價值歸零）`,
+      );
     }
   }
   const positionPnl = positions.reduce((s, p) => s + p.pnl, 0);
@@ -344,20 +358,22 @@ export function runStressTest(
   // ---- indices
   const afterIdx = new Map(after.byIndex.map((i) => [i.indexId, i]));
   const beforeIdx = new Map(before.byIndex.map((i) => [i.indexId, i]));
-  const byIndex: StressIndexRow[] = [...new Set([...beforeIdx.keys(), ...afterIdx.keys()])].map((id) => {
-    const b = beforeIdx.get(id);
-    const a = afterIdx.get(id);
-    return {
-      indexId: id,
-      move: indexMoveOf(shocks, id),
-      netBefore: b?.net ?? 0,
-      netAfter: a?.net ?? 0,
-      grossBefore: b?.gross ?? 0,
-      grossAfter: a?.gross ?? 0,
-      weightBefore: b?.weight,
-      weightAfter: a?.weight,
-    };
-  });
+  const byIndex: StressIndexRow[] = [...new Set([...beforeIdx.keys(), ...afterIdx.keys()])].map(
+    (id) => {
+      const b = beforeIdx.get(id);
+      const a = afterIdx.get(id);
+      return {
+        indexId: id,
+        move: indexMoveOf(shocks, id),
+        netBefore: b?.net ?? 0,
+        netAfter: a?.net ?? 0,
+        grossBefore: b?.gross ?? 0,
+        grossAfter: a?.gross ?? 0,
+        weightBefore: b?.weight,
+        weightAfter: a?.weight,
+      };
+    },
+  );
   byIndex.sort((x, y) => y.grossBefore - x.grossBefore);
 
   // ---- pledged loans
@@ -385,7 +401,9 @@ export function runStressTest(
       triggerDropPctAfter: a.triggerDropPct,
     });
     if (a.belowCall) {
-      warnings.push(`「${loan.name}」維持率跌破追繳門檻，需還款約 ${(a.cureRepayment ?? 0).toFixed(0)} ${loan.currency} 或補足擔保品`);
+      warnings.push(
+        `「${loan.name}」維持率跌破追繳門檻，需還款約 ${(a.cureRepayment ?? 0).toFixed(0)} ${loan.currency} 或補足擔保品`,
+      );
     }
   }
 
@@ -402,7 +420,14 @@ export function runStressTest(
     const rate = fxBefore.rate(loan.currency, before.baseCurrency) ?? 0;
     const b = (balance * loan.annualRate) / 12;
     const a = (balance * Math.max(0, loan.annualRate + shift)) / 12;
-    interest.byLoan.push({ loanId: loan.id, name: loan.name, currency: loan.currency, balance, before: b, after: a });
+    interest.byLoan.push({
+      loanId: loan.id,
+      name: loan.name,
+      currency: loan.currency,
+      balance,
+      before: b,
+      after: a,
+    });
     interest.before += b * rate;
     interest.after += a * rate;
   }
@@ -448,7 +473,9 @@ function marginRows(
     const key = `${b.accountId}|${inst.currency}`;
     let g = groups.get(key);
     if (!g) {
-      const cash = portfolio.ledger.cash.find((c) => c.accountId === b.accountId && c.currency === inst.currency);
+      const cash = portfolio.ledger.cash.find(
+        (c) => c.accountId === b.accountId && c.currency === inst.currency,
+      );
       g = {
         accountId: b.accountId,
         currency: inst.currency,
@@ -487,16 +514,21 @@ function marginRows(
     row.shortfall = Math.max(0, row.required - row.equityAfter);
     row.shortfallBase = row.shortfall * (fxAfter.rate(row.currency, after.baseCurrency) ?? 0);
     if (!row.missingSpecs.length && Math.abs(notional) > EPS) {
-      const move = row.equityBefore <= row.required ? 0 : (row.required - row.equityBefore) / notional;
+      const move =
+        row.equityBefore <= row.required ? 0 : (row.required - row.equityBefore) / notional;
       if (move >= -1) row.liquidationMove = move;
     }
     const name = data.accounts.find((a) => a.id === row.accountId)?.name ?? row.accountId;
     if (row.missingSpecs.length) {
-      const syms = row.missingSpecs.map((id) => data.instruments.find((i) => i.id === id)?.symbol ?? id).join('、');
+      const syms = row.missingSpecs
+        .map((id) => data.instruments.find((i) => i.id === id)?.symbol ?? id)
+        .join('、');
       warnings.push(`帳戶「${name}」的 ${syms} 缺少維持保證金規格，保證金需求可能低估`);
     }
     if (row.shortfall > 0) {
-      warnings.push(`帳戶「${name}」衝擊後權益低於維持保證金，缺口 ${row.shortfall.toFixed(0)} ${row.currency}`);
+      warnings.push(
+        `帳戶「${name}」衝擊後權益低於維持保證金，缺口 ${row.shortfall.toFixed(0)} ${row.currency}`,
+      );
     }
     rows.push(row);
   }

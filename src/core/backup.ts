@@ -1,5 +1,12 @@
 import { SEED_INDICES, SEED_INSTRUMENTS } from './seed';
-import { emptyData, isDerivative, TABLE_NAMES, type AppData, type Instrument, type TableName } from './types';
+import {
+  emptyData,
+  isDerivative,
+  TABLE_NAMES,
+  type AppData,
+  type Instrument,
+  type TableName,
+} from './types';
 
 // Backup / restore and the registry rules of the Settings page. Pure
 // functions only: the page calls them and writes the result to the store.
@@ -20,12 +27,20 @@ export function backupFileName(now = new Date()): string {
 }
 
 export function serializeBackup(data: AppData, now = new Date()): string {
-  const tables = Object.fromEntries(TABLE_NAMES.map((t) => [t, data[t] ?? []])) as unknown as AppData;
-  const file: BackupFile = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tables };
+  const tables = Object.fromEntries(
+    TABLE_NAMES.map((t) => [t, data[t] ?? []]),
+  ) as unknown as AppData;
+  const file: BackupFile = {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: now.toISOString(),
+    tables,
+  };
   return JSON.stringify(file, null, 2);
 }
 
-export type ParseResult = { ok: true; data: AppData; exportedAt?: string } | { ok: false; errors: string[] };
+export type ParseResult =
+  { ok: true; data: AppData; exportedAt?: string } | { ok: false; errors: string[] };
 
 /** Validate backup text. Missing tables become empty arrays; the rest must be well-formed. */
 export function parseBackup(text: string): ParseResult {
@@ -40,7 +55,10 @@ export function parseBackup(text: string): ParseResult {
     return { ok: false, errors: [`不是 exfolio 備份檔（format = ${String(raw.format)}）`] };
   }
   if (typeof raw.version === 'number' && raw.version > BACKUP_VERSION) {
-    return { ok: false, errors: [`備份檔版本 ${raw.version} 比本程式支援的版本 ${BACKUP_VERSION} 新`] };
+    return {
+      ok: false,
+      errors: [`備份檔版本 ${raw.version} 比本程式支援的版本 ${BACKUP_VERSION} 新`],
+    };
   }
   // Accept the wrapped format, or a bare { table: rows } object.
   const source = isObject(raw.tables) ? raw.tables : raw;
@@ -73,7 +91,11 @@ export function parseBackup(text: string): ParseResult {
   if (!known) errors.push('找不到任何資料表');
   if (errors.length) return { ok: false, errors };
   if (!data.settings.length) data.settings = emptyData().settings;
-  return { ok: true, data, exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : undefined };
+  return {
+    ok: true,
+    data,
+    exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : undefined,
+  };
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -81,7 +103,10 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 export function rowCounts(data: AppData): Record<TableName, number> {
-  return Object.fromEntries(TABLE_NAMES.map((t) => [t, data[t].length])) as Record<TableName, number>;
+  return Object.fromEntries(TABLE_NAMES.map((t) => [t, data[t].length])) as Record<
+    TableName,
+    number
+  >;
 }
 
 export interface SeedAddition {
@@ -108,7 +133,11 @@ export function addMissingSeed(data: AppData): SeedAddition {
 }
 
 /** Form errors for an instrument; empty when valid. `isNew` enables the unique-id check. */
-export function validateInstrument(i: Instrument, existing: Instrument[], isNew: boolean): string[] {
+export function validateInstrument(
+  i: Instrument,
+  existing: Instrument[],
+  isNew: boolean,
+): string[] {
   const errors: string[] = [];
   if (!i.id.trim()) errors.push('id 為必填');
   else if (isNew && existing.some((x) => x.id === i.id)) errors.push(`id「${i.id}」已存在`);
@@ -116,15 +145,21 @@ export function validateInstrument(i: Instrument, existing: Instrument[], isNew:
   if (!i.name.trim()) errors.push('名稱為必填');
   if (!i.exchange.trim()) errors.push('交易所為必填');
   if (!i.currency.trim()) errors.push('幣別為必填');
-  if (!Number.isFinite(i.leverage) || i.leverage === 0) errors.push('槓桿倍數不可為 0（反向商品請用負數）');
+  if (!Number.isFinite(i.leverage) || i.leverage === 0)
+    errors.push('槓桿倍數不可為 0（反向商品請用負數）');
   if (!Number.isFinite(i.multiplier) || i.multiplier <= 0) errors.push('合約乘數必須大於 0');
   if (!Number.isFinite(i.lotSize) || i.lotSize <= 0) errors.push('最小交易單位必須大於 0');
-  if (i.quoteSource !== 'manual' && !i.quoteSymbol?.trim()) errors.push('非手動報價來源必須填寫報價代號');
+  if (i.quoteSource !== 'manual' && !i.quoteSymbol?.trim())
+    errors.push('非手動報價來源必須填寫報價代號');
   if (i.expenseRatio !== undefined && (!Number.isFinite(i.expenseRatio) || i.expenseRatio < 0)) {
     errors.push('費用率不可為負');
   }
   if (isDerivative(i.type)) {
-    for (const [label, v] of [['跳動點', i.tickSize], ['原始保證金', i.initialMargin], ['維持保證金', i.maintenanceMargin]] as const) {
+    for (const [label, v] of [
+      ['跳動點', i.tickSize],
+      ['原始保證金', i.initialMargin],
+      ['維持保證金', i.maintenanceMargin],
+    ] as const) {
       if (v !== undefined && (!Number.isFinite(v) || v < 0)) errors.push(`${label}不可為負`);
     }
   }
@@ -141,10 +176,14 @@ export interface Reference {
 export function instrumentReferences(data: AppData, id: string, hasPosition = false): Reference[] {
   const refs: Reference[] = [
     { table: '交易紀錄', count: data.transactions.filter((t) => t.instrumentId === id).length },
-    { table: '借款擔保品', count: data.loans.filter((l) => l.collateral?.some((c) => c.instrumentId === id)).length },
+    {
+      table: '借款擔保品',
+      count: data.loans.filter((l) => l.collateral?.some((c) => c.instrumentId === id)).length,
+    },
     { table: '配置目標', count: data.targets.filter((t) => t.preferredInstrumentId === id).length },
   ];
-  if (hasPosition) refs.push({ table: '持倉報價', count: data.prices.filter((p) => p.id === id).length });
+  if (hasPosition)
+    refs.push({ table: '持倉報價', count: data.prices.filter((p) => p.id === id).length });
   return refs.filter((r) => r.count > 0);
 }
 

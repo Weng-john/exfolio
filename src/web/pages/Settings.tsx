@@ -20,10 +20,19 @@ export default function SettingsPage() {
   const Body = TABS.find((t) => t.id === tab)!.Body;
   return (
     <>
-      <PageHeader title="Settings & Integrations" subtitle="商品登錄、報價來源、提醒門檻、後端連線與資料備份" />
+      <PageHeader
+        title="Settings & Integrations"
+        subtitle="商品登錄、報價來源、提醒門檻、後端連線與資料備份"
+      />
       <div className="tabs" role="tablist">
         {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={tab === t.id ? 'active' : ''}
+            onClick={() => setTab(t.id)}
+          >
             {t.label}
           </button>
         ))}

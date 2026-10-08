@@ -39,7 +39,9 @@ describe('time-weighted performance', () => {
   it('chain-links a mid-period contribution instead of dividing profit by contributions', () => {
     const result = timeWeightedReturn(contributedPortfolio(), 'total', FROM, TO, TODAY);
     expect(result.periods).toHaveLength(2);
-    expect(result.periods.map((period) => period.return)).toEqual(expect.arrayContaining([expect.closeTo(0.1), expect.closeTo(0.1)]));
+    expect(result.periods.map((period) => period.return)).toEqual(
+      expect.arrayContaining([expect.closeTo(0.1), expect.closeTo(0.1)]),
+    );
     expect(result.cumulative).toBeCloseTo(0.21);
     // NAV ends at 231 against 200 contributed; this deliberately differs.
     expect(result.cumulative).not.toBeCloseTo(31 / 200);
@@ -67,15 +69,24 @@ describe('time-weighted performance', () => {
     const result = moneyWeightedReturn(contributedPortfolio(), 'total', FROM, TO, TODAY);
     expect(result.xirr! / (1.1 ** 365 - 1)).toBeCloseTo(1, 8);
     expect(result.flows).toEqual([{ date: '2026-01-02', amount: 100 }]);
-    expect(result.xirr).toBeCloseTo(xirr([
-      { date: FROM, amount: -100 }, { date: '2026-01-02', amount: -100 }, { date: TO, amount: 231 },
-    ])!);
+    expect(result.xirr).toBeCloseTo(
+      xirr([
+        { date: FROM, amount: -100 },
+        { date: '2026-01-02', amount: -100 },
+        { date: TO, amount: 231 },
+      ])!,
+    );
   });
 
   it('reports missing historical closes and makes non-positive starts undefined', () => {
     const data = fresh();
-    data.transactions.push(tx({ type: 'deposit', date: FROM, amount: 100 }), tx({ type: 'buy', date: FROM, instrumentId: 'tw_0050', quantity: 1, price: 100 }));
-    expect(valueAsOf(data, '2026-01-02', 'total', TODAY).missing).toEqual([{ instrumentId: 'tw_0050', date: '2026-01-02' }]);
+    data.transactions.push(
+      tx({ type: 'deposit', date: FROM, amount: 100 }),
+      tx({ type: 'buy', date: FROM, instrumentId: 'tw_0050', quantity: 1, price: 100 }),
+    );
+    expect(valueAsOf(data, '2026-01-02', 'total', TODAY).missing).toEqual([
+      { instrumentId: 'tw_0050', date: '2026-01-02' },
+    ]);
     const empty = timeWeightedReturn(fresh(), 'total', FROM, TO, TODAY);
     expect(empty.undefinedPeriods).toBe(true);
     expect(empty.cumulative).toBeUndefined();
@@ -85,11 +96,30 @@ describe('time-weighted performance', () => {
     const data = fresh();
     data.transactions.push(
       tx({ type: 'deposit', date: FROM, bucket: 'core', amount: 100 }),
-      tx({ type: 'buy', date: FROM, bucket: 'core', instrumentId: 'tw_0050', quantity: 1, price: 100 }),
+      tx({
+        type: 'buy',
+        date: FROM,
+        bucket: 'core',
+        instrumentId: 'tw_0050',
+        quantity: 1,
+        price: 100,
+      }),
       tx({ type: 'deposit', date: FROM, bucket: 's1', amount: 300 }),
-      tx({ type: 'buy', date: FROM, bucket: 's1', instrumentId: 'tw_00631L', quantity: 3, price: 100 }),
+      tx({
+        type: 'buy',
+        date: FROM,
+        bucket: 's1',
+        instrumentId: 'tw_00631L',
+        quantity: 3,
+        price: 100,
+      }),
     );
-    data.priceHistory = [point('tw_0050', FROM, 100), point('tw_0050', TO, 110), point('tw_00631L', FROM, 100), point('tw_00631L', TO, 120)];
+    data.priceHistory = [
+      point('tw_0050', FROM, 100),
+      point('tw_0050', TO, 110),
+      point('tw_00631L', FROM, 100),
+      point('tw_00631L', TO, 120),
+    ];
     setPrice(data, 'tw_0050', 110);
     setPrice(data, 'tw_00631L', 120);
     const core = timeWeightedReturn(data, 'core', FROM, TO, TODAY).cumulative!;
@@ -116,7 +146,10 @@ describe('benchmark and risk', () => {
 
   it('calculates max drawdown from a known daily series', () => {
     const data = fresh();
-    data.transactions.push(tx({ type: 'deposit', date: FROM, amount: 100 }), tx({ type: 'buy', date: FROM, instrumentId: 'tw_0050', quantity: 1, price: 100 }));
+    data.transactions.push(
+      tx({ type: 'deposit', date: FROM, amount: 100 }),
+      tx({ type: 'buy', date: FROM, instrumentId: 'tw_0050', quantity: 1, price: 100 }),
+    );
     data.priceHistory = [
       point('tw_0050', FROM, 100),
       point('tw_0050', '2026-01-02', 120),

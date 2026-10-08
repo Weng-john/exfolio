@@ -44,9 +44,24 @@ function ScheduleTable(props: { rows: ScheduleRow[]; currency: string; highlight
         <tfoot>
           <tr>
             <td colSpan={2}>合計</td>
-            <td className="num">{fmtMoney(sum((r) => r.payment), currency)}</td>
-            <td className="num">{fmtMoney(sum((r) => r.principal), currency)}</td>
-            <td className="num">{fmtMoney(sum((r) => r.interest), currency)}</td>
+            <td className="num">
+              {fmtMoney(
+                sum((r) => r.payment),
+                currency,
+              )}
+            </td>
+            <td className="num">
+              {fmtMoney(
+                sum((r) => r.principal),
+                currency,
+              )}
+            </td>
+            <td className="num">
+              {fmtMoney(
+                sum((r) => r.interest),
+                currency,
+              )}
+            </td>
             <td />
           </tr>
         </tfoot>
@@ -62,7 +77,9 @@ function PrepaymentCalc(props: { loan: Loan; status: LoanStatus }) {
   if (!status.remainingPeriods || status.balance <= 0) return null;
   const effect =
     e > 0
-      ? prepaymentEffect(loan, status.balance, e, status.remainingPeriods, { firstDueDate: status.nextDueDate })
+      ? prepaymentEffect(loan, status.balance, e, status.remainingPeriods, {
+          firstDueDate: status.nextDueDate,
+        })
       : undefined;
   const cur = loan.currency;
   const row = (label: string, o: NonNullable<typeof effect>['baseline']) => (
@@ -161,9 +178,17 @@ function History(props: { data: AppData; loan: Loan }) {
                     <td className="num">{fmtMoney(principal, cur)}</td>
                     <td className="num">{fmtMoney(interest, cur)}</td>
                     <td className="num">{fmtMoney(principal + interest, cur)}</td>
-                    <td>{external ? <Badge tone="ok">外部資金</Badge> : <Badge tone="info">投資組合</Badge>}</td>
+                    <td>
+                      {external ? (
+                        <Badge tone="ok">外部資金</Badge>
+                      ) : (
+                        <Badge tone="info">投資組合</Badge>
+                      )}
+                    </td>
                     <td className="muted">
-                      {external ? '債務減少，NAV 與投入本金上升' : '現金與負債同減，NAV 不變（利息為成本）'}
+                      {external
+                        ? '債務減少，NAV 與投入本金上升'
+                        : '現金與負債同減，NAV 不變（利息為成本）'}
                     </td>
                   </tr>
                 );
@@ -191,7 +216,9 @@ export default function LoanDetail(props: {
   return (
     <>
       {modal === 'draw' && <DrawForm data={data} loan={loan} onClose={() => setModal(undefined)} />}
-      {modal === 'repay' && <RepayForm data={data} loan={loan} status={status} onClose={() => setModal(undefined)} />}
+      {modal === 'repay' && (
+        <RepayForm data={data} loan={loan} status={status} onClose={() => setModal(undefined)} />
+      )}
       <Card
         title={loan.name}
         actions={
@@ -205,13 +232,17 @@ export default function LoanDetail(props: {
         }
       >
         <p className="muted">
-          {KIND_LABEL[loan.kind]} · {loan.lender || '—'} · {METHOD_LABEL[loan.method]} · 年利率 {fmtPct(loan.annualRate, 2)} ·
-          起貸 {loan.startDate}
+          {KIND_LABEL[loan.kind]} · {loan.lender || '—'} · {METHOD_LABEL[loan.method]} · 年利率{' '}
+          {fmtPct(loan.annualRate, 2)} · 起貸 {loan.startDate}
           {loan.payDay ? ` · 每月 ${loan.payDay} 日` : ''}
           {!loan.active && ' · 已停用'}
         </p>
         <div className="stats">
-          <Stat label="目前餘額" value={fmtMoney(status.balance, cur)} hint={`${cur} · 原始本金 ${fmtMoney(loan.principal, cur)}`} />
+          <Stat
+            label="目前餘額"
+            value={fmtMoney(status.balance, cur)}
+            hint={`${cur} · 原始本金 ${fmtMoney(loan.principal, cur)}`}
+          />
           <Stat label="累計動用" value={fmtMoney(status.drawn, cur)} />
           <Stat label="已還本金" value={fmtMoney(status.principalRepaid, cur)} />
           <Stat label="已付利息" value={fmtMoney(status.interestPaid, cur)} />
@@ -223,7 +254,11 @@ export default function LoanDetail(props: {
           <Stat
             label="剩餘期數"
             value={status.remainingPeriods === undefined ? '—' : String(status.remainingPeriods)}
-            hint={status.elapsedPeriods !== undefined ? `已過 ${status.elapsedPeriods} 期` : '無固定期限'}
+            hint={
+              status.elapsedPeriods !== undefined
+                ? `已過 ${status.elapsedPeriods} 期`
+                : '無固定期限'
+            }
           />
           <Stat
             label="下期應繳"
@@ -234,7 +269,11 @@ export default function LoanDetail(props: {
                 : undefined
             }
           />
-          <Stat label="預估月息" value={fmtMoney(status.projectedMonthlyInterest, cur)} hint="以目前餘額計" />
+          <Stat
+            label="預估月息"
+            value={fmtMoney(status.projectedMonthlyInterest, cur)}
+            hint="以目前餘額計"
+          />
         </div>
       </Card>
 
@@ -247,7 +286,13 @@ export default function LoanDetail(props: {
           <ScheduleTable rows={status.remainingSchedule} currency={cur} />
         ) : (
           <Empty>
-            {scheduled ? '已無待繳期數或餘額為 0。' : '循環額度沒有固定攤還表，只預估每月利息 ' + fmtMoney(status.projectedMonthlyInterest, cur) + ' ' + cur + '。'}
+            {scheduled
+              ? '已無待繳期數或餘額為 0。'
+              : '循環額度沒有固定攤還表，只預估每月利息 ' +
+                fmtMoney(status.projectedMonthlyInterest, cur) +
+                ' ' +
+                cur +
+                '。'}
           </Empty>
         )}
       </Card>

@@ -21,7 +21,13 @@ export default function AccountsPage() {
       <PageHeader title="Accounts & Positions" subtitle="跨券商帳戶、持倉、交易、現金與匯率" />
       <div className="tabs" role="tablist">
         {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={tab === t.id ? 'active' : ''}
+            onClick={() => setTab(t.id)}
+          >
             {t.label}
           </button>
         ))}

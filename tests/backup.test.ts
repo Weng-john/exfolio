@@ -14,8 +14,17 @@ import {
 import { fresh, tx } from './helpers';
 
 const base = (): Instrument => ({
-  id: 'x1', symbol: 'XX', name: '測試', type: 'etf', exchange: 'TWSE', currency: 'TWD',
-  leverage: 1, multiplier: 1, lotSize: 1, quoteSource: 'manual', active: true,
+  id: 'x1',
+  symbol: 'XX',
+  name: '測試',
+  type: 'etf',
+  exchange: 'TWSE',
+  currency: 'TWD',
+  leverage: 1,
+  multiplier: 1,
+  lotSize: 1,
+  quoteSource: 'manual',
+  active: true,
 });
 
 describe('backup round trip', () => {
@@ -45,7 +54,11 @@ describe('backup round trip', () => {
     expect(parseBackup('{oops').ok).toBe(false);
     expect(parseBackup('[]').ok).toBe(false);
     expect(parseBackup('{}').ok).toBe(false);
-    const bad = parseBackup(JSON.stringify({ tables: { brokers: {}, accounts: [{ name: 'a' }], loans: [{ id: 'l' }, { id: 'l' }] } }));
+    const bad = parseBackup(
+      JSON.stringify({
+        tables: { brokers: {}, accounts: [{ name: 'a' }], loans: [{ id: 'l' }, { id: 'l' }] },
+      }),
+    );
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.errors).toHaveLength(3);
   });
@@ -83,12 +96,18 @@ describe('validateInstrument', () => {
     expect(validateInstrument(base(), [], true)).toEqual([]);
   });
   it('flags required, positive and leverage rules', () => {
-    const errs = validateInstrument({ ...base(), symbol: '', multiplier: 0, lotSize: -1, leverage: 0 }, [], true);
+    const errs = validateInstrument(
+      { ...base(), symbol: '', multiplier: 0, lotSize: -1, leverage: 0 },
+      [],
+      true,
+    );
     expect(errs.length).toBe(4);
   });
   it('requires a quote symbol unless manual', () => {
     expect(validateInstrument({ ...base(), quoteSource: 'yahoo' }, [], true)).toHaveLength(1);
-    expect(validateInstrument({ ...base(), quoteSource: 'yahoo', quoteSymbol: 'XX.TW' }, [], true)).toEqual([]);
+    expect(
+      validateInstrument({ ...base(), quoteSource: 'yahoo', quoteSymbol: 'XX.TW' }, [], true),
+    ).toEqual([]);
   });
   it('checks id uniqueness only for new rows', () => {
     expect(validateInstrument(base(), [base()], true)).toHaveLength(1);
@@ -102,10 +121,28 @@ describe('validateInstrument', () => {
 describe('references', () => {
   it('finds transactions, collateral and targets for an instrument', () => {
     const data = seedData();
-    data.transactions.push(tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 1, price: 10 }));
-    data.targets.push({ id: 't', indexId: 'tw50', targetWeight: 1, tolerance: 0.05, preferredInstrumentId: 'tw_0050' });
-    data.prices.push({ id: 'tw_0050', price: 1, currency: 'TWD', asOf: '2026-01-01T00:00:00Z', source: 'manual', status: 'manual' });
-    expect(instrumentReferences(data, 'tw_0050').map((r) => r.table)).toEqual(['交易紀錄', '配置目標']);
+    data.transactions.push(
+      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 1, price: 10 }),
+    );
+    data.targets.push({
+      id: 't',
+      indexId: 'tw50',
+      targetWeight: 1,
+      tolerance: 0.05,
+      preferredInstrumentId: 'tw_0050',
+    });
+    data.prices.push({
+      id: 'tw_0050',
+      price: 1,
+      currency: 'TWD',
+      asOf: '2026-01-01T00:00:00Z',
+      source: 'manual',
+      status: 'manual',
+    });
+    expect(instrumentReferences(data, 'tw_0050').map((r) => r.table)).toEqual([
+      '交易紀錄',
+      '配置目標',
+    ]);
     expect(instrumentReferences(data, 'tw_0050', true).map((r) => r.table)).toContain('持倉報價');
     expect(instrumentReferences(data, 'us_VOO')).toEqual([]);
   });

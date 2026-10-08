@@ -12,7 +12,10 @@ export function feeClassOf(instrument: Instrument): FeeClass {
   return instrument.type;
 }
 
-export function feeRuleFor(broker: Broker | undefined, instrument: Instrument): FeeRule | undefined {
+export function feeRuleFor(
+  broker: Broker | undefined,
+  instrument: Instrument,
+): FeeRule | undefined {
   return broker?.fees?.[feeClassOf(instrument)];
 }
 

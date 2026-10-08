@@ -36,9 +36,18 @@ export default function NewMoneyPage() {
   const [cmpIndex, setCmpIndex] = useState('');
   const [cmpAmount, setCmpAmount] = useState('1000000');
 
-  const names = useMemo(() => Object.fromEntries(data.indices.map((i) => [i.id, i.name])), [data.indices]);
+  const names = useMemo(
+    () => Object.fromEntries(data.indices.map((i) => [i.id, i.name])),
+    [data.indices],
+  );
   const currencies = useMemo(
-    () => [...new Set([base, ...data.instruments.map((i) => i.currency), ...data.fxRates.map((r) => r.from)])],
+    () => [
+      ...new Set([
+        base,
+        ...data.instruments.map((i) => i.currency),
+        ...data.fxRates.map((r) => r.from),
+      ]),
+    ],
     [base, data.instruments, data.fxRates],
   );
   const targeted = data.targets.map((t) => t.indexId);
@@ -73,14 +82,20 @@ export default function NewMoneyPage() {
     <>
       <PageHeader title="New Money Allocator" subtitle="輸入新資金來源與金額，產生交易建議清單" />
       <div className="notice">
-        此頁只產生<strong>建議清單</strong>：網站不會下單，也不會建立任何交易紀錄。實際成交後請至交易紀錄自行登錄。
+        此頁只產生<strong>建議清單</strong>
+        ：網站不會下單，也不會建立任何交易紀錄。實際成交後請至交易紀錄自行登錄。
         流程依序為：先算資金到位後的 NAV，再以該 NAV 評估各指數目標缺口；僅買進（不賣出）。
       </div>
 
       <Card title="資金">
         <div className="form-grid">
           <Field label="金額">
-            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input
+              type="number"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
           </Field>
           <Field label="幣別">
             <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -111,17 +126,24 @@ export default function NewMoneyPage() {
             <Field label="借款">
               <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
                 <option value="">選擇借款…</option>
-                {data.loans.filter((l) => l.active).map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
+                {data.loans
+                  .filter((l) => l.active)
+                  .map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
               </select>
             </Field>
           )}
           <Field label="現有現金" hint="同時動用收款帳戶內的閒置現金">
             <label>
-              <input type="checkbox" checked={useCash} onChange={(e) => setUseCash(e.target.checked)} /> 一併使用
+              <input
+                type="checkbox"
+                checked={useCash}
+                onChange={(e) => setUseCash(e.target.checked)}
+              />{' '}
+              一併使用
             </label>
           </Field>
         </div>
@@ -136,7 +158,10 @@ export default function NewMoneyPage() {
               const pref = data.targets.find((t) => t.indexId === idx)?.preferredInstrumentId;
               return (
                 <Field key={idx} label={names[idx] ?? idx}>
-                  <select value={overrides[idx] ?? ''} onChange={(e) => setOverrides({ ...overrides, [idx]: e.target.value })}>
+                  <select
+                    value={overrides[idx] ?? ''}
+                    onChange={(e) => setOverrides({ ...overrides, [idx]: e.target.value })}
+                  >
                     <option value="">{pref ? '目標設定的偏好商品' : '自動（無槓桿商品）'}</option>
                     {data.instruments
                       .filter((i) => i.indexId === idx && i.active)
@@ -194,10 +219,14 @@ export default function NewMoneyPage() {
                 <tr key={r.instrumentId}>
                   <td>{r.symbol}</td>
                   <td className="num">{r.leverage}×</td>
-                  <td className="num">{r.price === undefined ? '—' : `${fmtMoney(r.price, r.currency)} ${r.currency}`}</td>
+                  <td className="num">
+                    {r.price === undefined ? '—' : `${fmtMoney(r.price, r.currency)} ${r.currency}`}
+                  </td>
                   <td className="num">{fmtNum(r.quantity, 8)}</td>
                   <td className="num">
-                    {r.cash === undefined ? '—' : `${fmtMoney(r.cash, r.currency)} ${r.currency}${r.isMargin ? '（保證金）' : ''}`}
+                    {r.cash === undefined
+                      ? '—'
+                      : `${fmtMoney(r.cash, r.currency)} ${r.currency}${r.isMargin ? '（保證金）' : ''}`}
                   </td>
                   <td className="num">{fmtMoney(r.cashBase, base)}</td>
                   <td className="num">{fmtPct(r.cashRatio, 0)}</td>

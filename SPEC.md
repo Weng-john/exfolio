@@ -33,8 +33,9 @@ unit tests for every calculation added to `src/core/`.
 
 ## Acceptance Criteria
 
-- `npm test`, `npm run typecheck`, `npm run build` and
-  `npm run check:privacy` all pass.
+- `npm test`, `npm run typecheck`, `npm run build`,
+  `npm run check:privacy` and `npm run format:check` all pass. Run
+  `npm run format` before committing.
 - Calculations live in `src/core/` as pure functions with tests; pages only
   call them.
 - Accounting rules of the product spec hold: exposure is signed and

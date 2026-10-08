@@ -112,7 +112,9 @@ export async function derivePasswordKey(username: string, password: string): Pro
     throw new Error('這個網址不是安全連線（需要 https 或 localhost），無法安全地處理密碼');
   }
   const enc = new TextEncoder();
-  const material = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const material = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+    'deriveBits',
+  ]);
   const bits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
@@ -130,13 +132,22 @@ function accept(res: Ok): PublicUser {
   const user = res.user!;
   if (res.session) {
     setSession(res.session);
-    set({ phase: 'ready', user, viewing: undefined, config: state.config && { ...state.config, hasUsers: true } });
+    set({
+      phase: 'ready',
+      user,
+      viewing: undefined,
+      config: state.config && { ...state.config, hasUsers: true },
+    });
   }
   return user;
 }
 
 /** Returns the new member; they are signed in only when already active. */
-export async function register(username: string, password: string, displayName: string): Promise<PublicUser> {
+export async function register(
+  username: string,
+  password: string,
+  displayName: string,
+): Promise<PublicUser> {
   const passwordKey = await derivePasswordKey(username, password);
   return accept(await api({ action: 'register', username, displayName, passwordKey }));
 }
@@ -158,11 +169,17 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function updateProfile(patch: { displayName?: string; allowAdminView?: boolean }): Promise<void> {
+export async function updateProfile(patch: {
+  displayName?: string;
+  allowAdminView?: boolean;
+}): Promise<void> {
   set({ user: (await api({ action: 'updateProfile', ...patch })).user });
 }
 
-export async function changePassword(oldPassword: string | undefined, newPassword: string): Promise<void> {
+export async function changePassword(
+  oldPassword: string | undefined,
+  newPassword: string,
+): Promise<void> {
   const username = state.user!.username;
   const res = await api({
     action: 'changePassword',

@@ -30,14 +30,19 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<PublicUser[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [registration, setRegistration] = useState<RegistrationMode>(auth.config?.registration ?? 'approval');
+  const [registration, setRegistration] = useState<RegistrationMode>(
+    auth.config?.registration ?? 'approval',
+  );
   const [googleClientId, setGoogleClientId] = useState(auth.config?.googleClientId ?? '');
   const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
   const [resetting, setResetting] = useState<PublicUser>();
   const isAdmin = auth.user?.role === 'admin';
 
   const refresh = useCallback(async () => {
-    const [u, a] = await Promise.all([api({ action: 'adminUsers' }), api({ action: 'adminAudit' })]);
+    const [u, a] = await Promise.all([
+      api({ action: 'adminUsers' }),
+      api({ action: 'adminAudit' }),
+    ]);
     setUsers(u.users ?? []);
     setAudit(a.audit ?? []);
   }, []);
@@ -69,8 +74,11 @@ export default function AdminPage() {
     );
   }
 
-  const update = (u: PublicUser, patch: { status?: UserStatus; role?: PublicUser['role'] }, done: string) =>
-    void run(() => api({ action: 'adminUpdateUser', userId: u.id, ...patch }), done);
+  const update = (
+    u: PublicUser,
+    patch: { status?: UserStatus; role?: PublicUser['role'] },
+    done: string,
+  ) => void run(() => api({ action: 'adminUpdateUser', userId: u.id, ...patch }), done);
 
   const remove = (u: PublicUser) => {
     if (!window.confirm(`刪除帳號「${u.username}」及其全部資料？這個動作無法復原。`)) return;
@@ -91,7 +99,10 @@ export default function AdminPage() {
 
   return (
     <>
-      <PageHeader title="會員管理" subtitle={`${users.length} 個帳號${pending ? `，${pending} 個待核准` : ''}`} />
+      <PageHeader
+        title="會員管理"
+        subtitle={`${users.length} 個帳號${pending ? `，${pending} 個待核准` : ''}`}
+      />
       {msg && <div className={`notice ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
 
       <Card title="會員">
@@ -114,24 +125,46 @@ export default function AdminPage() {
                 const self = u.id === auth.user?.id;
                 return (
                   <tr key={u.id}>
-                    <td>{u.username}{self && <span className="muted">（你）</span>}</td>
+                    <td>
+                      {u.username}
+                      {self && <span className="muted">（你）</span>}
+                    </td>
                     <td>{u.displayName}</td>
                     <td>{u.role === 'admin' ? '管理員' : '會員'}</td>
-                    <td><Badge tone={STATUS[u.status].tone}>{STATUS[u.status].text}</Badge></td>
-                    <td>{[u.hasPassword && '密碼', u.googleLinked && 'Google'].filter(Boolean).join('、') || '—'}</td>
+                    <td>
+                      <Badge tone={STATUS[u.status].tone}>{STATUS[u.status].text}</Badge>
+                    </td>
+                    <td>
+                      {[u.hasPassword && '密碼', u.googleLinked && 'Google']
+                        .filter(Boolean)
+                        .join('、') || '—'}
+                    </td>
                     <td>{fmtTime(u.lastLoginAt)}</td>
                     <td>{u.allowAdminView ? '是' : '否'}</td>
                     <td className="actions">
                       {u.status !== 'active' && (
-                        <button className="primary" onClick={() => update(u, { status: 'active' }, `已啟用 ${u.username}`)}>
+                        <button
+                          className="primary"
+                          onClick={() => update(u, { status: 'active' }, `已啟用 ${u.username}`)}
+                        >
                           {u.status === 'pending' ? '核准' : '重新啟用'}
                         </button>
                       )}
                       {u.status === 'active' && !self && (
-                        <button onClick={() => update(u, { status: 'disabled' }, `已停用 ${u.username}`)}>停用</button>
+                        <button
+                          onClick={() => update(u, { status: 'disabled' }, `已停用 ${u.username}`)}
+                        >
+                          停用
+                        </button>
                       )}
                       <button
-                        onClick={() => update(u, { role: u.role === 'admin' ? 'member' : 'admin' }, `已變更 ${u.username} 的角色`)}
+                        onClick={() =>
+                          update(
+                            u,
+                            { role: u.role === 'admin' ? 'member' : 'admin' },
+                            `已變更 ${u.username} 的角色`,
+                          )
+                        }
                       >
                         {u.role === 'admin' ? '改為會員' : '設為管理員'}
                       </button>
@@ -139,7 +172,11 @@ export default function AdminPage() {
                       {!self && u.allowAdminView && u.status === 'active' && (
                         <button onClick={() => void open(u)}>唯讀檢視</button>
                       )}
-                      {!self && <button className="danger" onClick={() => remove(u)}>刪除</button>}
+                      {!self && (
+                        <button className="danger" onClick={() => remove(u)}>
+                          刪除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -155,13 +192,21 @@ export default function AdminPage() {
       <div className="grid">
         <Card title="註冊方式">
           <Field label="新帳號" hint="管理員審核：註冊後須核准才能登入。開放註冊：註冊後立即可用。">
-            <select value={registration} onChange={(e) => setRegistration(e.target.value as RegistrationMode)}>
+            <select
+              value={registration}
+              onChange={(e) => setRegistration(e.target.value as RegistrationMode)}
+            >
               <option value="approval">管理員審核</option>
               <option value="open">開放註冊</option>
             </select>
           </Field>
           <p className="actions">
-            <button className="primary" onClick={() => void run(() => api({ action: 'adminSetConfig', registration }), '已更新註冊方式')}>
+            <button
+              className="primary"
+              onClick={() =>
+                void run(() => api({ action: 'adminSetConfig', registration }), '已更新註冊方式')
+              }
+            >
               儲存
             </button>
           </p>
@@ -171,13 +216,25 @@ export default function AdminPage() {
         </Card>
 
         <Card title="Google 登入">
-          <Field label="OAuth 用戶端 ID" hint="在 Google Cloud Console 建立「網頁應用程式」用戶端，並把本網站的網址加入已授權的 JavaScript 來源。留空則停用。">
-            <input value={googleClientId} onChange={(e) => setGoogleClientId(e.target.value)} placeholder="xxxxxxxx.apps.googleusercontent.com" />
+          <Field
+            label="OAuth 用戶端 ID"
+            hint="在 Google Cloud Console 建立「網頁應用程式」用戶端，並把本網站的網址加入已授權的 JavaScript 來源。留空則停用。"
+          >
+            <input
+              value={googleClientId}
+              onChange={(e) => setGoogleClientId(e.target.value)}
+              placeholder="xxxxxxxx.apps.googleusercontent.com"
+            />
           </Field>
           <p className="actions">
             <button
               className="primary"
-              onClick={() => void run(() => api({ action: 'adminSetConfig', googleClientId: googleClientId.trim() }), '已更新 Google 登入設定')}
+              onClick={() =>
+                void run(
+                  () => api({ action: 'adminSetConfig', googleClientId: googleClientId.trim() }),
+                  '已更新 Google 登入設定',
+                )
+              }
             >
               儲存
             </button>
@@ -231,7 +288,11 @@ export default function AdminPage() {
   );
 }
 
-function ResetPassword(props: { user: PublicUser; onClose: () => void; onDone: (text: string) => void }) {
+function ResetPassword(props: {
+  user: PublicUser;
+  onClose: () => void;
+  onDone: (text: string) => void;
+}) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const save = async () => {
@@ -250,14 +311,23 @@ function ResetPassword(props: { user: PublicUser; onClose: () => void; onDone: (
       onClose={props.onClose}
       footer={
         <>
-          <button className="ghost" onClick={props.onClose}>取消</button>
-          <button className="primary" onClick={() => void save()}>重設</button>
+          <button className="ghost" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary" onClick={() => void save()}>
+            重設
+          </button>
         </>
       }
     >
       {error && <div className="notice warn">{error}</div>}
       <Field label="新密碼" hint="請用安全的方式把新密碼交給該會員，並請對方登入後自行變更。">
-        <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+        <input
+          type="text"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="off"
+        />
       </Field>
     </Modal>
   );

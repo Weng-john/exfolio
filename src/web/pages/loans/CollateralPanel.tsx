@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { isDerivative, type AppData, type CollateralItem, type CollateralStatus, type Loan } from '@core/index';
+import {
+  isDerivative,
+  type AppData,
+  type CollateralItem,
+  type CollateralStatus,
+  type Loan,
+} from '@core/index';
 import { Badge, Card, Empty, Field, Modal, Stat } from '../../components/ui';
 import { fmtMoney, fmtNum, fmtPct } from '../../format';
 import { upsertRow } from '../../store';
@@ -15,7 +21,9 @@ interface Draft {
 function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => void }) {
   const { data, loan } = props;
   const instruments = data.instruments.filter((i) => i.active && !isDerivative(i.type));
-  const accounts = data.accounts.filter((a) => a.active && (a.type === 'securities' || a.type === 'crypto'));
+  const accounts = data.accounts.filter(
+    (a) => a.active && (a.type === 'securities' || a.type === 'crypto'),
+  );
   const [rows, setRows] = useState<Draft[]>(
     (loan.collateral ?? []).map((c) => ({
       instrumentId: c.instrumentId,
@@ -24,9 +32,15 @@ function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => voi
       ratio: String(Number((c.loanableRatio * 100).toFixed(4))),
     })),
   );
-  const patch = (i: number, p: Partial<Draft>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const patch = (i: number, p: Partial<Draft>) =>
+    setRows(rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
   const valid = rows.every(
-    (r) => r.instrumentId && r.accountId && num(r.quantity) > 0 && num(r.ratio) >= 0 && num(r.ratio) <= 100,
+    (r) =>
+      r.instrumentId &&
+      r.accountId &&
+      num(r.quantity) > 0 &&
+      num(r.ratio) >= 0 &&
+      num(r.ratio) <= 100,
   );
 
   const save = () => {
@@ -63,7 +77,10 @@ function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => voi
         {rows.map((r, i) => (
           <div className="loans-inline" key={i}>
             <Field label="商品">
-              <select value={r.instrumentId} onChange={(e) => patch(i, { instrumentId: e.target.value })}>
+              <select
+                value={r.instrumentId}
+                onChange={(e) => patch(i, { instrumentId: e.target.value })}
+              >
                 <option value="">選擇商品</option>
                 {instruments.map((x) => (
                   <option key={x.id} value={x.id}>
@@ -83,10 +100,18 @@ function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => voi
               </select>
             </Field>
             <Field label="質押數量">
-              <input type="number" value={r.quantity} onChange={(e) => patch(i, { quantity: e.target.value })} />
+              <input
+                type="number"
+                value={r.quantity}
+                onChange={(e) => patch(i, { quantity: e.target.value })}
+              />
             </Field>
             <Field label="折算率（%）">
-              <input type="number" value={r.ratio} onChange={(e) => patch(i, { ratio: e.target.value })} />
+              <input
+                type="number"
+                value={r.ratio}
+                onChange={(e) => patch(i, { ratio: e.target.value })}
+              />
             </Field>
             <button className="danger" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
               移除
@@ -96,7 +121,10 @@ function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => voi
         <div>
           <button
             onClick={() =>
-              setRows([...rows, { instrumentId: '', accountId: accounts[0]?.id ?? '', quantity: '', ratio: '60' }])
+              setRows([
+                ...rows,
+                { instrumentId: '', accountId: accounts[0]?.id ?? '', quantity: '', ratio: '60' },
+              ])
             }
           >
             新增擔保品
@@ -107,13 +135,20 @@ function CollateralEditor(props: { data: AppData; loan: Loan; onClose: () => voi
   );
 }
 
-export default function CollateralPanel(props: { data: AppData; loan: Loan; status?: CollateralStatus }) {
+export default function CollateralPanel(props: {
+  data: AppData;
+  loan: Loan;
+  status?: CollateralStatus;
+}) {
   const { data, loan, status: c } = props;
   const [editing, setEditing] = useState(false);
   const cur = loan.currency;
 
   return (
-    <Card title="擔保品與維持率" actions={<button onClick={() => setEditing(true)}>編輯擔保品</button>}>
+    <Card
+      title="擔保品與維持率"
+      actions={<button onClick={() => setEditing(true)}>編輯擔保品</button>}
+    >
       {editing && <CollateralEditor data={data} loan={loan} onClose={() => setEditing(false)} />}
       {!c || !c.items.length ? (
         <Empty>尚未設定擔保品。</Empty>
@@ -127,19 +162,34 @@ export default function CollateralPanel(props: { data: AppData; loan: Loan; stat
               hint={c.callRatio ? `追繳門檻 ${fmtPct(c.callRatio, 0)}` : '未設定追繳門檻'}
             />
             <Stat label="擔保品市值" value={fmtMoney(c.marketValue, cur)} hint={cur} />
-            <Stat label="可借額度（折算後）" value={fmtMoney(c.lendableValue, cur)} hint={`剩餘 ${fmtMoney(c.borrowingCapacity, cur)}`} />
+            <Stat
+              label="可借額度（折算後）"
+              value={fmtMoney(c.lendableValue, cur)}
+              hint={`剩餘 ${fmtMoney(c.borrowingCapacity, cur)}`}
+            />
             <Stat
               label="距離追繳"
-              value={c.callRatio ? (c.belowCall ? '已低於門檻' : `-${fmtPct(c.triggerDropPct, 1)}`) : '—'}
+              value={
+                c.callRatio ? (c.belowCall ? '已低於門檻' : `-${fmtPct(c.triggerDropPct, 1)}`) : '—'
+              }
               tone={c.belowCall ? 'neg' : undefined}
-              hint={c.triggerValue !== undefined ? `市值 ${fmtMoney(c.triggerValue, cur)} 時觸發` : undefined}
+              hint={
+                c.triggerValue !== undefined
+                  ? `市值 ${fmtMoney(c.triggerValue, cur)} 時觸發`
+                  : undefined
+              }
             />
-            <Stat label="可解除質押市值" value={fmtMoney(c.releasableValue, cur)} hint="仍維持在門檻以上" />
+            <Stat
+              label="可解除質押市值"
+              value={fmtMoney(c.releasableValue, cur)}
+              hint="仍維持在門檻以上"
+            />
           </div>
           {c.belowCall && (
             <div className="notice warn">
-              維持率低於追繳門檻。還款 <b>{fmtMoney(c.cureRepayment, cur)}</b> {cur}，或追加擔保品市值{' '}
-              <b>{fmtMoney(c.cureCollateral, cur)}</b> {cur}，可回到 {fmtPct(c.callRatio, 0)}。
+              維持率低於追繳門檻。還款 <b>{fmtMoney(c.cureRepayment, cur)}</b> {cur}
+              ，或追加擔保品市值 <b>{fmtMoney(c.cureCollateral, cur)}</b> {cur}，可回到{' '}
+              {fmtPct(c.callRatio, 0)}。
             </div>
           )}
           {c.warnings
@@ -167,11 +217,17 @@ export default function CollateralPanel(props: { data: AppData; loan: Loan; stat
                 {c.items.map((it, i) => (
                   <tr key={i}>
                     <td>{it.symbol}</td>
-                    <td>{data.accounts.find((a) => a.id === it.accountId)?.name ?? it.accountId}</td>
+                    <td>
+                      {data.accounts.find((a) => a.id === it.accountId)?.name ?? it.accountId}
+                    </td>
                     <td className="num">{fmtNum(it.pledgedQuantity, 4)}</td>
                     <td className="num">{fmtNum(it.heldQuantity, 4)}</td>
                     <td className="num">
-                      {it.overPledged ? <Badge tone="bad">超額質押 {fmtNum(it.freeQuantity, 4)}</Badge> : fmtNum(it.freeQuantity, 4)}
+                      {it.overPledged ? (
+                        <Badge tone="bad">超額質押 {fmtNum(it.freeQuantity, 4)}</Badge>
+                      ) : (
+                        fmtNum(it.freeQuantity, 4)
+                      )}
                     </td>
                     <td className="num">{fmtMoney(it.marketValue, cur)}</td>
                     <td className="num">{fmtPct(it.loanableRatio, 0)}</td>
@@ -182,7 +238,8 @@ export default function CollateralPanel(props: { data: AppData; loan: Loan; stat
             </table>
           </div>
           <p className="loans-explain">
-            擔保品市值只是備忘，不計入資產或 NAV（與持倉是同一筆資產）。門檻僅提示，系統不會阻擋任何操作。
+            擔保品市值只是備忘，不計入資產或
+            NAV（與持倉是同一筆資產）。門檻僅提示，系統不會阻擋任何操作。
           </p>
         </div>
       )}

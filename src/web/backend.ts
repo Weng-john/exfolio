@@ -68,7 +68,10 @@ function remoteBackend(config: BackendConfig): Backend {
 function browserBackend(): Backend {
   const read = () => {
     try {
-      return JSON.parse(localStorage.getItem(DATA_KEY) ?? '') as { revision: number; tables: object };
+      return JSON.parse(localStorage.getItem(DATA_KEY) ?? '') as {
+        revision: number;
+        tables: object;
+      };
     } catch {
       return { revision: 0, tables: {} };
     }
@@ -84,7 +87,10 @@ function browserBackend(): Backend {
           return { ok: true, ...read() };
         case 'save': {
           const store = read();
-          const next = { revision: store.revision + 1, tables: { ...store.tables, ...request.tables } };
+          const next = {
+            revision: store.revision + 1,
+            tables: { ...store.tables, ...request.tables },
+          };
           localStorage.setItem(DATA_KEY, JSON.stringify(next));
           return { ok: true, revision: next.revision };
         }
@@ -98,7 +104,10 @@ function browserBackend(): Backend {
         case 'history':
           return { ok: false, error: '無後端模式無法取得歷史價格' };
         case 'config':
-          return { ok: true, config: { authRequired: false, registration: 'approval', hasUsers: true } };
+          return {
+            ok: true,
+            config: { authRequired: false, registration: 'approval', hasUsers: true },
+          };
         default:
           return { ok: false, error: '無後端模式沒有會員功能' };
       }

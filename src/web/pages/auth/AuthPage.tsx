@@ -55,8 +55,14 @@ export default function AuthPage(props: { onBack?: () => void }) {
         <div className="auth-head">
           <div className="brand">Exfolio</div>
           <div className="actions">
-            {props.onBack && <button className="ghost" onClick={props.onBack}>← 返回預覽</button>}
-            <button className="ghost" onClick={cycle}>主題：{THEME_LABELS[theme]}</button>
+            {props.onBack && (
+              <button className="ghost" onClick={props.onBack}>
+                ← 返回預覽
+              </button>
+            )}
+            <button className="ghost" onClick={cycle}>
+              主題：{THEME_LABELS[theme]}
+            </button>
           </div>
         </div>
 
@@ -65,8 +71,15 @@ export default function AuthPage(props: { onBack?: () => void }) {
         ) : (
           <>
             <div className="tabs">
-              <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>登入</button>
-              <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>註冊</button>
+              <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
+                登入
+              </button>
+              <button
+                className={mode === 'register' ? 'active' : ''}
+                onClick={() => setMode('register')}
+              >
+                註冊
+              </button>
             </div>
 
             {mode === 'register' && (
@@ -80,15 +93,34 @@ export default function AuthPage(props: { onBack?: () => void }) {
             )}
 
             <form onSubmit={submit} className="auth-form">
-              <Field label="帳號" hint={mode === 'register' ? '3–64 個字元：英數字與 . _ @ + -' : undefined}>
-                <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
+              <Field
+                label="帳號"
+                hint={mode === 'register' ? '3–64 個字元：英數字與 . _ @ + -' : undefined}
+              >
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
               </Field>
               {mode === 'register' && (
                 <Field label="顯示名稱（選填）">
-                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoComplete="nickname" />
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="nickname"
+                  />
                 </Field>
               )}
-              <Field label="密碼" hint={mode === 'register' ? '至少 10 個字元。系統不寄信，忘記密碼需請管理員重設。' : undefined}>
+              <Field
+                label="密碼"
+                hint={
+                  mode === 'register'
+                    ? '至少 10 個字元。系統不寄信，忘記密碼需請管理員重設。'
+                    : undefined
+                }
+              >
                 <input
                   type="password"
                   value={password}
@@ -99,7 +131,13 @@ export default function AuthPage(props: { onBack?: () => void }) {
               </Field>
               {mode === 'register' && (
                 <Field label="再輸入一次密碼">
-                  <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
+                  <input
+                    type="password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
                 </Field>
               )}
               {error && <div className="notice warn">{error}</div>}

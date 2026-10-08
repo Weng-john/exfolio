@@ -52,7 +52,8 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
     setReason('');
   };
 
-  const close = (c: RotationCycle) => upsertRow('rotationCycles', { ...c, status: 'closed', closedAt: today() });
+  const close = (c: RotationCycle) =>
+    upsertRow('rotationCycles', { ...c, status: 'closed', closedAt: today() });
   const reopen = (c: RotationCycle) => {
     const { closedAt: _closedAt, ...rest } = c;
     upsertRow('rotationCycles', { ...rest, status: 'open' });
@@ -74,18 +75,21 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
   return (
     <Card
       title="輪動週期（rotation cycle）"
-      actions={
-        <button onClick={() => setAdding((v) => !v)}>{adding ? '取消' : '新增週期'}</button>
-      }
+      actions={<button onClick={() => setAdding((v) => !v)}>{adding ? '取消' : '新增週期'}</button>}
     >
       <p className="str-note">
-        把切出、替代持有、切回的交易在 Trade Journal 掛上同一個週期。報告比較「實際輪動」與「沒有輪動、一直持有基準商品」，
+        把切出、替代持有、切回的交易在 Trade Journal
+        掛上同一個週期。報告比較「實際輪動」與「沒有輪動、一直持有基準商品」，
         兩邊使用相同起始資金與相同的外部資金流（標記為此週期的入出金與策略資金撥入撥出）。
       </p>
       {adding && (
         <div className="str-inline" style={{ marginBottom: 12 }}>
           <Field label="週期名稱">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：2026-03 SSO→QLD" />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：2026-03 SSO→QLD"
+            />
           </Field>
           <Field label="切出商品">{instrumentSelect(from, setFrom)}</Field>
           <Field label="替代持有商品">{instrumentSelect(to, setTo)}</Field>
@@ -107,8 +111,16 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
       {series.cycles > 0 && (
         <div className="stats">
           <Stat label="週期數" value={series.cycles} hint={`${series.comparable} 個可比較基準`} />
-          <Stat label={`累積損益（${base}）`} value={fmtMoney(series.cumulativePnl, base)} tone={series.cumulativePnl > 0 ? 'pos' : series.cumulativePnl < 0 ? 'neg' : undefined} />
-          <Stat label="累積報酬（複利）" value={fmtPct(series.cumulativeReturn)} hint={`基準 ${fmtPct(series.cumulativeBenchmarkReturn)}`} />
+          <Stat
+            label={`累積損益（${base}）`}
+            value={fmtMoney(series.cumulativePnl, base)}
+            tone={series.cumulativePnl > 0 ? 'pos' : series.cumulativePnl < 0 ? 'neg' : undefined}
+          />
+          <Stat
+            label="累積報酬（複利）"
+            value={fmtPct(series.cumulativeReturn)}
+            hint={`基準 ${fmtPct(series.cumulativeBenchmarkReturn)}`}
+          />
           <Stat label="勝過基準比例" value={fmtPct(series.beatShare, 0)} />
           <Stat label="週期序列最大回撤" value={fmtPct(series.maxDrawdown)} />
         </div>
@@ -140,7 +152,9 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
                 <tr key={c.id}>
                   <td title={c.reason}>{c.name}</td>
                   <td>
-                    <Badge tone={c.status === 'open' ? 'ok' : 'info'}>{c.status === 'open' ? '進行中' : '已結束'}</Badge>
+                    <Badge tone={c.status === 'open' ? 'ok' : 'info'}>
+                      {c.status === 'open' ? '進行中' : '已結束'}
+                    </Badge>
                   </td>
                   <td>{r.startDate ? `${r.startDate} ~ ${r.endDate}` : '尚無交易'}</td>
                   <td className="num">{r.holdingDays ?? '—'}</td>
@@ -154,15 +168,21 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
                     {fmtPct(r.returnPct, 2)}
                     {r.pnl !== undefined && <div className="muted">{fmtMoney(r.pnl, base)}</div>}
                   </td>
-                  <td className={`num ${signClass(r.benchmarkPnl)}`}>{fmtPct(r.benchmarkReturnPct, 2)}</td>
+                  <td className={`num ${signClass(r.benchmarkPnl)}`}>
+                    {fmtPct(r.benchmarkReturnPct, 2)}
+                  </td>
                   <td className={`num ${signClass(r.excessPp)}`}>
-                    {r.excessPp === undefined ? '—' : `${r.excessPp > 0 ? '+' : ''}${fmtNum(r.excessPp, 2)}`}
+                    {r.excessPp === undefined
+                      ? '—'
+                      : `${r.excessPp > 0 ? '+' : ''}${fmtNum(r.excessPp, 2)}`}
                   </td>
                   <td>
                     {c.status === 'open' ? (
                       <button onClick={() => close(c)}>結束</button>
                     ) : (
-                      <button className="ghost" onClick={() => reopen(c)}>重新開啟</button>
+                      <button className="ghost" onClick={() => reopen(c)}>
+                        重新開啟
+                      </button>
                     )}
                   </td>
                 </tr>

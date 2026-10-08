@@ -197,7 +197,10 @@ export function replayTrades(data: AppData): TradeReplay {
         grossPnlBase: grossBase,
         costsBase: costShareBase,
         netPnlBase: grossBase - costShareBase,
-        returnPct: isDerivative(inst.type) || entryNotional === 0 ? undefined : (gross - costShare) / entryNotional,
+        returnPct:
+          isDerivative(inst.type) || entryNotional === 0
+            ? undefined
+            : (gross - costShare) / entryNotional,
         tradeGroupId: tx.tradeGroupId ?? lot.tx.tradeGroupId,
         rotationCycleId: tx.rotationCycleId ?? lot.tx.rotationCycleId,
         tags: [...new Set([...(lot.tx.tags ?? []), ...(tx.tags ?? [])])],
@@ -319,7 +322,11 @@ export interface TradeGroupSummary {
 }
 
 /** Multi-leg unit: all trades that share a trade group id. */
-export function tradeGroupSummary(data: AppData, groupId: ID, replay?: TradeReplay): TradeGroupSummary {
+export function tradeGroupSummary(
+  data: AppData,
+  groupId: ID,
+  replay?: TradeReplay,
+): TradeGroupSummary {
   const legs = (replay ?? replayTrades(data)).entries.filter((e) => e.tradeGroupId === groupId);
   const group = data.tradeGroups.find((g) => g.id === groupId);
   const realizedPnlBase = legs.reduce((s, l) => s + l.realizedPnlBase, 0);
@@ -368,7 +375,9 @@ export interface TradeStats {
  */
 export function tradeStats(trips: RoundTrip[]): TradeStats {
   const count = trips.length;
-  const ordered = [...trips].sort((a, b) => (a.exitDate < b.exitDate ? -1 : a.exitDate > b.exitDate ? 1 : 0));
+  const ordered = [...trips].sort((a, b) =>
+    a.exitDate < b.exitDate ? -1 : a.exitDate > b.exitDate ? 1 : 0,
+  );
   const winners = trips.filter((t) => t.netPnlBase > 0);
   const losers = trips.filter((t) => t.netPnlBase < 0);
   const grossWin = winners.reduce((s, t) => s + t.netPnlBase, 0);

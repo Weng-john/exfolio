@@ -18,7 +18,9 @@ describe('demo data', () => {
   it('exercises loans, pledging and a strategy', () => {
     const pledge = data.loans.find((l) => l.kind === 'pledge')!;
     const balance = portfolio.ledger.loans.find((l) => l.loanId === pledge.id)!.balance;
-    expect(collateralStatus(data, portfolio.valuation, pledge, balance).maintenanceRatio).toBeGreaterThan(pledge.callRatio!);
+    expect(
+      collateralStatus(data, portfolio.valuation, pledge, balance).maintenanceRatio,
+    ).toBeGreaterThan(pledge.callRatio!);
     expect(strategySummaries(data, portfolio).levels.length).toBeGreaterThanOrEqual(4);
   });
 

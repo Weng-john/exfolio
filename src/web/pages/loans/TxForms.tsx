@@ -1,5 +1,16 @@
 import { useState } from 'react';
-import { CORE_BUCKET, FxTable, getSettings, newId, today, type AppData, type FundingSource, type Loan, type LoanStatus, type Transaction } from '@core/index';
+import {
+  CORE_BUCKET,
+  FxTable,
+  getSettings,
+  newId,
+  today,
+  type AppData,
+  type FundingSource,
+  type Loan,
+  type LoanStatus,
+  type Transaction,
+} from '@core/index';
 import { Field, Modal } from '../../components/ui';
 import { fmtMoney } from '../../format';
 import { upsertRow } from '../../store';
@@ -58,7 +69,9 @@ export function DrawForm(props: { data: AppData; loan: Loan; onClose: () => void
       }
     >
       <div className="loans-stack">
-        <p className="loans-explain">借入的款項進入所選帳戶成為現金，借款餘額與負債同額增加，NAV 不變。</p>
+        <p className="loans-explain">
+          借入的款項進入所選帳戶成為現金，借款餘額與負債同額增加，NAV 不變。
+        </p>
         <div className="form-grid">
           <Field label="日期">
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -88,7 +101,12 @@ export function DrawForm(props: { data: AppData; loan: Loan; onClose: () => void
 }
 
 /** 還款: principal / interest split plus where the money came from. */
-export function RepayForm(props: { data: AppData; loan: Loan; status: LoanStatus; onClose: () => void }) {
+export function RepayForm(props: {
+  data: AppData;
+  loan: Loan;
+  status: LoanStatus;
+  onClose: () => void;
+}) {
   const { data, loan, status } = props;
   const accounts = accountOptions(data);
   const next = status.nextPayment;
@@ -139,8 +157,8 @@ export function RepayForm(props: { data: AppData; loan: Loan; status: LoanStatus
       <div className="loans-stack">
         {next && (
           <p className="loans-explain">
-            已依下一期（{status.nextDueDate}）預填：本金 {fmtMoney(next.principal, loan.currency)} + 利息{' '}
-            {fmtMoney(next.interest, loan.currency)}。可自行修改（例如提前還款）。
+            已依下一期（{status.nextDueDate}）預填：本金 {fmtMoney(next.principal, loan.currency)} +
+            利息 {fmtMoney(next.interest, loan.currency)}。可自行修改（例如提前還款）。
           </p>
         )}
         <div className="form-grid">
@@ -185,7 +203,9 @@ export function RepayForm(props: { data: AppData; loan: Loan; status: LoanStatus
         <Field label="備註">
           <input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
-        <p className="loans-explain">合計支付 {fmtMoney(p + i, loan.currency)} {loan.currency}</p>
+        <p className="loans-explain">
+          合計支付 {fmtMoney(p + i, loan.currency)} {loan.currency}
+        </p>
       </div>
     </Modal>
   );

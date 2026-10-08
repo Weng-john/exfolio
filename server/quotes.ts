@@ -1,4 +1,9 @@
-import type { HistoryPointResult, HistoryResult, QuoteRequestItem, QuoteResult } from '../src/core/api';
+import type {
+  HistoryPointResult,
+  HistoryResult,
+  QuoteRequestItem,
+  QuoteResult,
+} from '../src/core/api';
 
 // Free public sources, fetched server-side because none of them allows
 // cross-origin browser calls reliably. Both are unofficial for this use:
@@ -9,7 +14,10 @@ const cache = new Map<string, { at: number; result: QuoteResult }>();
 
 async function getJson(url: string): Promise<any> {
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)', Accept: 'application/json' },
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)',
+      Accept: 'application/json',
+    },
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -51,10 +59,20 @@ function taifexList(cid: string, marketType: string): Promise<TaifexRow[]> {
     try {
       const res = await fetch('https://mis.taifex.com.tw/futures/api/getQuoteList', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)',
+        },
         body: JSON.stringify({
-          MarketType: marketType, SymbolType: 'F', KindID: '1', CID: cid,
-          ExpireMonth: '', RowSize: '全部', PageNo: '', SortColumn: '', AscDesc: 'A',
+          MarketType: marketType,
+          SymbolType: 'F',
+          KindID: '1',
+          CID: cid,
+          ExpireMonth: '',
+          RowSize: '全部',
+          PageNo: '',
+          SortColumn: '',
+          AscDesc: 'A',
         }),
         signal: AbortSignal.timeout(8000),
       });
@@ -97,7 +115,9 @@ export function pickTaifexQuote(
   let best: { price: number; at: number } | undefined;
   for (const session of ['0', '1'] as const) {
     const row = lists[session].find((q) =>
-      exact ? String(q.SymbolID).replace(/-[FM]$/, '') === contract : monthly.test(q.SymbolID ?? ''),
+      exact
+        ? String(q.SymbolID).replace(/-[FM]$/, '') === contract
+        : monthly.test(q.SymbolID ?? ''),
     );
     const price = Number(row?.CLastPrice);
     const d = row?.CDate ?? '';
@@ -120,7 +140,12 @@ async function taifex(symbol: string): Promise<Partial<QuoteResult>> {
     '1': await taifexList(cid, '1'),
   });
   if (!best) throw new Error('No price in response');
-  return { price: best.price, currency: 'TWD', asOf: new Date(best.at).toISOString(), status: 'delayed' };
+  return {
+    price: best.price,
+    currency: 'TWD',
+    asOf: new Date(best.at).toISOString(),
+    status: 'delayed',
+  };
 }
 
 async function fetchOne(item: QuoteRequestItem): Promise<QuoteResult> {
@@ -161,7 +186,11 @@ async function yahooHistory(symbol: string, from: string): Promise<HistoryPointR
     const close = closes[i];
     if (typeof close !== 'number') return;
     const adj = adjusted[i];
-    points.push({ date: day(t * 1000 + offset), close, ...(typeof adj === 'number' ? { adjClose: adj } : {}) });
+    points.push({
+      date: day(t * 1000 + offset),
+      close,
+      ...(typeof adj === 'number' ? { adjClose: adj } : {}),
+    });
   });
   return points;
 }
@@ -184,7 +213,8 @@ async function binanceHistory(symbol: string, from: string): Promise<HistoryPoin
 async function historyOne(item: QuoteRequestItem, from: string): Promise<HistoryResult> {
   try {
     if (item.source === 'yahoo') return { ...item, points: await yahooHistory(item.symbol, from) };
-    if (item.source === 'binance') return { ...item, points: await binanceHistory(item.symbol, from) };
+    if (item.source === 'binance')
+      return { ...item, points: await binanceHistory(item.symbol, from) };
     return { ...item, points: [], error: 'Manual source has no remote history' };
   } catch (err) {
     return { ...item, points: [], error: err instanceof Error ? err.message : String(err) };

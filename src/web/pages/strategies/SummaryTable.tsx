@@ -23,7 +23,10 @@ export default function SummaryTable(props: { rows: BucketSummary[]; base: strin
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={`${r.level}:${r.bucket}`} className={r.level === 'strategies' || r.level === 'total' ? 'str-level' : ''}>
+            <tr
+              key={`${r.level}:${r.bucket}`}
+              className={r.level === 'strategies' || r.level === 'total' ? 'str-level' : ''}
+            >
               <td>{r.name}</td>
               <td className="num">{fmtMoney(r.capital, base)}</td>
               <td className="num">{fmtMoney(r.equity, base)}</td>

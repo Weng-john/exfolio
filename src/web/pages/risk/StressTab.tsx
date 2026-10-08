@@ -12,7 +12,9 @@ const EMPTY: StressShocks = { indexMoves: {}, currencyMoves: {} };
 function readShocks(params: Record<string, unknown>): StressShocks {
   const rec = (v: unknown): Record<string, number> =>
     v && typeof v === 'object'
-      ? Object.fromEntries(Object.entries(v).filter(([, n]) => typeof n === 'number' && Number.isFinite(n)))
+      ? Object.fromEntries(
+          Object.entries(v).filter(([, n]) => typeof n === 'number' && Number.isFinite(n)),
+        )
       : {};
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
   return {
@@ -33,7 +35,9 @@ export default function StressTab() {
   const held = new Set(portfolio.valuation.byIndex.map((i) => i.indexId));
   const indices = [
     ...data.indices.map((i) => ({ id: i.id, name: i.name })),
-    ...[...held].filter((id) => !data.indices.some((i) => i.id === id)).map((id) => ({ id, name: id })),
+    ...[...held]
+      .filter((id) => !data.indices.some((i) => i.id === id))
+      .map((id) => ({ id, name: id })),
   ].sort((a, b) => Number(held.has(b.id)) - Number(held.has(a.id)));
   const currencies = foreignCurrencies(data, portfolio);
   const symbolOf = (id: string) => data.instruments.find((i) => i.id === id)?.symbol ?? id;
@@ -88,18 +92,30 @@ export default function StressTab() {
         <div className="risk-form-grid">
           {indices.map((i) => (
             <Field key={i.id} label={`${i.name}${held.has(i.id) ? '' : '（未持有）'}`}>
-              <PctInput value={shocks.indexMoves[i.id]} onChange={(v) => setIndex(i.id, v)} placeholder={fmtPct(shocks.defaultIndexMove ?? 0, 0)} />
+              <PctInput
+                value={shocks.indexMoves[i.id]}
+                onChange={(v) => setIndex(i.id, v)}
+                placeholder={fmtPct(shocks.defaultIndexMove ?? 0, 0)}
+              />
             </Field>
           ))}
           <Field label="其餘指數（統一漲跌）">
-            <PctInput value={shocks.defaultIndexMove} onChange={(v) => setShocks((s) => ({ ...s, defaultIndexMove: v }))} placeholder="0" />
+            <PctInput
+              value={shocks.defaultIndexMove}
+              onChange={(v) => setShocks((s) => ({ ...s, defaultIndexMove: v }))}
+              placeholder="0"
+            />
           </Field>
         </div>
         <div className="risk-subhead">匯率：各幣別對 {base} 的升貶（正 = 該幣升值）</div>
         <div className="risk-form-grid">
           {currencies.map((c) => (
             <Field key={c} label={`${c} / ${base}`}>
-              <PctInput value={shocks.currencyMoves[c]} onChange={(v) => setCurrency(c, v)} placeholder="0" />
+              <PctInput
+                value={shocks.currencyMoves[c]}
+                onChange={(v) => setCurrency(c, v)}
+                placeholder="0"
+              />
             </Field>
           ))}
           {!currencies.length && <span className="muted">沒有外幣部位或匯率。</span>}
@@ -107,7 +123,11 @@ export default function StressTab() {
         <div className="risk-subhead">利率</div>
         <div className="risk-form-grid">
           <Field label="利率變動（百分點）" hint="例：2 = 所有借款年利率 +2pp，浮動利率假設">
-            <NumInput value={shocks.rateShift} onChange={(v) => setShocks((s) => ({ ...s, rateShift: v }))} placeholder="0" />
+            <NumInput
+              value={shocks.rateShift}
+              onChange={(v) => setShocks((s) => ({ ...s, rateShift: v }))}
+              placeholder="0"
+            />
           </Field>
         </div>
       </Card>
@@ -119,12 +139,39 @@ export default function StressTab() {
       ) : (
         <>
           <div className="stats">
-            <Stat label={`情境後 NAV（${base}）`} value={fmtMoney(r.after.nav, base)} hint={`目前 ${fmtMoney(r.before.nav, base)}`} />
-            <Stat label="損益" value={fmtMoney(r.pnl, base)} tone={r.pnl < 0 ? 'neg' : r.pnl > 0 ? 'pos' : undefined} hint={r.otherPnl ? `含現金／借款匯率 ${fmtMoney(r.otherPnl, base)}` : undefined} />
-            <Stat label="剩餘淨值比例" value={fmtPct(r.remainingNavRatio, 1)} tone={r.remainingNavRatio !== undefined && r.remainingNavRatio < 0.7 ? 'warn' : undefined} />
-            <Stat label="Gross 槓桿" value={`${fmtX(r.before.grossLeverage)} → ${fmtX(r.after.grossLeverage)}`} tone={(r.after.grossLeverage ?? 0) > (r.before.grossLeverage ?? 0) ? 'warn' : undefined} />
-            <Stat label="Net 槓桿" value={`${fmtX(r.before.netLeverage)} → ${fmtX(r.after.netLeverage)}`} />
-            <Stat label="負債 / NAV" value={`${fmtX(r.before.debtToNav)} → ${fmtX(r.after.debtToNav)}`} />
+            <Stat
+              label={`情境後 NAV（${base}）`}
+              value={fmtMoney(r.after.nav, base)}
+              hint={`目前 ${fmtMoney(r.before.nav, base)}`}
+            />
+            <Stat
+              label="損益"
+              value={fmtMoney(r.pnl, base)}
+              tone={r.pnl < 0 ? 'neg' : r.pnl > 0 ? 'pos' : undefined}
+              hint={r.otherPnl ? `含現金／借款匯率 ${fmtMoney(r.otherPnl, base)}` : undefined}
+            />
+            <Stat
+              label="剩餘淨值比例"
+              value={fmtPct(r.remainingNavRatio, 1)}
+              tone={
+                r.remainingNavRatio !== undefined && r.remainingNavRatio < 0.7 ? 'warn' : undefined
+              }
+            />
+            <Stat
+              label="Gross 槓桿"
+              value={`${fmtX(r.before.grossLeverage)} → ${fmtX(r.after.grossLeverage)}`}
+              tone={
+                (r.after.grossLeverage ?? 0) > (r.before.grossLeverage ?? 0) ? 'warn' : undefined
+              }
+            />
+            <Stat
+              label="Net 槓桿"
+              value={`${fmtX(r.before.netLeverage)} → ${fmtX(r.after.netLeverage)}`}
+            />
+            <Stat
+              label="負債 / NAV"
+              value={`${fmtX(r.before.debtToNav)} → ${fmtX(r.after.debtToNav)}`}
+            />
           </div>
 
           <Card title="衝擊前後">
@@ -152,7 +199,9 @@ export default function StressTab() {
                       <td>{label}</td>
                       <td className="num">{fmtMoney(r.before[key], base)}</td>
                       <td className="num">{fmtMoney(r.after[key], base)}</td>
-                      <td className={`num ${signClass(r.after[key] - r.before[key])}`}>{fmtMoney(r.after[key] - r.before[key], base)}</td>
+                      <td className={`num ${signClass(r.after[key] - r.before[key])}`}>
+                        {fmtMoney(r.after[key] - r.before[key], base)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -210,7 +259,8 @@ export default function StressTab() {
                   {r.positions.map((p) => (
                     <tr key={p.key}>
                       <td>
-                        {p.symbol} {p.floored && <Badge tone="bad">跌幅下限 −100%</Badge>} {p.derivative && <Badge>衍生品</Badge>}
+                        {p.symbol} {p.floored && <Badge tone="bad">跌幅下限 −100%</Badge>}{' '}
+                        {p.derivative && <Badge>衍生品</Badge>}
                       </td>
                       <td>{accountName(p.accountId)}</td>
                       <td className="num">{fmtNum(p.quantity, 4)}</td>
@@ -248,13 +298,31 @@ export default function StressTab() {
                     {r.loans.map((l) => (
                       <tr key={l.loanId}>
                         <td>{l.name}</td>
-                        <td className="num">{fmtMoney(l.balance, l.currency)} {l.currency}</td>
+                        <td className="num">
+                          {fmtMoney(l.balance, l.currency)} {l.currency}
+                        </td>
                         <td className="num">{fmtPct(l.ratioBefore, 1)}</td>
-                        <td className={`num ${l.belowCallAfter ? 'neg' : ''}`}>{fmtPct(l.ratioAfter, 1)}</td>
+                        <td className={`num ${l.belowCallAfter ? 'neg' : ''}`}>
+                          {fmtPct(l.ratioAfter, 1)}
+                        </td>
                         <td className="num">{fmtPct(l.callRatio, 0)}</td>
-                        <td>{l.belowCallAfter ? <Badge tone="bad">低於門檻</Badge> : <Badge tone="ok">未觸發</Badge>}</td>
-                        <td className="num">{l.cureRepayment !== undefined ? `${fmtMoney(l.cureRepayment, l.currency)} ${l.currency}` : '—'}</td>
-                        <td className="num">{l.cureCollateral !== undefined ? `${fmtMoney(l.cureCollateral, l.currency)} ${l.currency}` : '—'}</td>
+                        <td>
+                          {l.belowCallAfter ? (
+                            <Badge tone="bad">低於門檻</Badge>
+                          ) : (
+                            <Badge tone="ok">未觸發</Badge>
+                          )}
+                        </td>
+                        <td className="num">
+                          {l.cureRepayment !== undefined
+                            ? `${fmtMoney(l.cureRepayment, l.currency)} ${l.currency}`
+                            : '—'}
+                        </td>
+                        <td className="num">
+                          {l.cureCollateral !== undefined
+                            ? `${fmtMoney(l.cureCollateral, l.currency)} ${l.currency}`
+                            : '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -285,14 +353,26 @@ export default function StressTab() {
                     {r.margins.map((m) => (
                       <tr key={`${m.accountId}|${m.currency}`}>
                         <td>{accountName(m.accountId)}</td>
-                        <td className="num">{fmtMoney(m.cash, m.currency)} {m.currency}</td>
+                        <td className="num">
+                          {fmtMoney(m.cash, m.currency)} {m.currency}
+                        </td>
                         <td className="num">{fmtMoney(m.equityBefore, m.currency)}</td>
-                        <td className={`num ${m.equityAfter < m.required ? 'neg' : ''}`}>{fmtMoney(m.equityAfter, m.currency)}</td>
+                        <td className={`num ${m.equityAfter < m.required ? 'neg' : ''}`}>
+                          {fmtMoney(m.equityAfter, m.currency)}
+                        </td>
                         <td className="num">{fmtMoney(m.required, m.currency)}</td>
-                        <td className={`num ${m.shortfall > 0 ? 'neg' : ''}`}>{m.shortfall > 0 ? fmtMoney(m.shortfall, m.currency) : '—'}</td>
-                        <td className="num">{m.liquidationMove !== undefined ? fmtPct(m.liquidationMove, 1) : '—'}</td>
+                        <td className={`num ${m.shortfall > 0 ? 'neg' : ''}`}>
+                          {m.shortfall > 0 ? fmtMoney(m.shortfall, m.currency) : '—'}
+                        </td>
+                        <td className="num">
+                          {m.liquidationMove !== undefined ? fmtPct(m.liquidationMove, 1) : '—'}
+                        </td>
                         <td>
-                          {m.missingSpecs.length > 0 && <Badge tone="warn">缺保證金規格：{m.missingSpecs.map(symbolOf).join('、')}</Badge>}{' '}
+                          {m.missingSpecs.length > 0 && (
+                            <Badge tone="warn">
+                              缺保證金規格：{m.missingSpecs.map(symbolOf).join('、')}
+                            </Badge>
+                          )}{' '}
                           {m.hasPerpetual && <Badge>含永續合約</Badge>}
                         </td>
                       </tr>
@@ -302,15 +382,24 @@ export default function StressTab() {
               </div>
             )}
             <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-              權益 = 帳戶現金 + 衍生品未實現損益（變動保證金逐日結算入現金，現金可能為負）。清算估計把同帳戶所有合約的標的同幅變動，從現價到權益等於維持保證金為止。
+              權益 = 帳戶現金 +
+              衍生品未實現損益（變動保證金逐日結算入現金，現金可能為負）。清算估計把同帳戶所有合約的標的同幅變動，從現價到權益等於維持保證金為止。
             </p>
           </Card>
 
           <Card title="利息">
             <div className="stats" style={{ marginBottom: 0 }}>
               <Stat label={`每月利息 現況（${base}）`} value={fmtMoney(r.interest.before, base)} />
-              <Stat label={`每月利息 衝擊後（${base}）`} value={fmtMoney(r.interest.after, base)} hint="浮動利率假設" />
-              <Stat label="變化" value={fmtMoney(r.interest.delta, base)} tone={r.interest.delta > 0 ? 'neg' : undefined} />
+              <Stat
+                label={`每月利息 衝擊後（${base}）`}
+                value={fmtMoney(r.interest.after, base)}
+                hint="浮動利率假設"
+              />
+              <Stat
+                label="變化"
+                value={fmtMoney(r.interest.delta, base)}
+                tone={r.interest.delta > 0 ? 'neg' : undefined}
+              />
             </div>
           </Card>
 

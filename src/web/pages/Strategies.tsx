@@ -52,12 +52,18 @@ export default function StrategiesPage() {
         }
       />
       {form && (
-        <StrategyForm strategy={form.strategy} onClose={() => setForm(undefined)} onSaved={(id) => setSelectedId(id)} />
+        <StrategyForm
+          strategy={form.strategy}
+          onClose={() => setForm(undefined)}
+          onSaved={(id) => setSelectedId(id)}
+        />
       )}
       <div className="str-stack">
         <Card title="策略列表">
           {!data.strategies.length ? (
-            <Empty>還沒有策略。策略完全由你定義，不需要設定觸發條件；建立後用「撥入資金」從核心配置資金給它。</Empty>
+            <Empty>
+              還沒有策略。策略完全由你定義，不需要設定觸發條件；建立後用「撥入資金」從核心配置資金給它。
+            </Empty>
           ) : (
             <div className="table-wrap">
               <table className="str-list">
@@ -92,16 +98,24 @@ export default function StrategiesPage() {
                         </td>
                         <td className="num">{fmtMoney(r?.capital, base)}</td>
                         <td className="num">{fmtMoney(r?.equity, base)}</td>
-                        <td className={`num ${signClass(r?.totalPnl)}`}>{fmtMoney(r?.totalPnl, base)}</td>
+                        <td className={`num ${signClass(r?.totalPnl)}`}>
+                          {fmtMoney(r?.totalPnl, base)}
+                        </td>
                         <td className="num">{fmtMoney(r?.grossExposure, base)}</td>
                         <td className="num">{fmtMoney(r?.netExposure, base)}</td>
                         <td className="num">{fmtPct(r?.shareOfNav)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <button className="ghost" onClick={() => setForm({ strategy: s })}>編輯</button>
+                          <button className="ghost" onClick={() => setForm({ strategy: s })}>
+                            編輯
+                          </button>
                           {s.status !== 'closed' && (
-                            <button className="ghost" onClick={() => close(s)}>結束</button>
+                            <button className="ghost" onClick={() => close(s)}>
+                              結束
+                            </button>
                           )}
-                          <button className="ghost danger" onClick={() => remove(s)}>刪除</button>
+                          <button className="ghost danger" onClick={() => remove(s)}>
+                            刪除
+                          </button>
                         </td>
                       </tr>
                     );
@@ -121,7 +135,11 @@ export default function StrategiesPage() {
         </Card>
 
         {selected ? (
-          <StrategyDetail strategy={selected} summary={summaryOf(selected.id) ?? summaries.core} base={base} />
+          <StrategyDetail
+            strategy={selected}
+            summary={summaryOf(selected.id) ?? summaries.core}
+            base={base}
+          />
         ) : (
           data.strategies.length > 0 && <Empty>點選上方策略查看持倉、資金帳本與輪動週期</Empty>
         )}

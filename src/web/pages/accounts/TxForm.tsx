@@ -43,7 +43,10 @@ interface FormState {
 const str = (n: number | undefined) => (n === undefined ? '' : String(n));
 
 function initial(data: AppData, tx?: Transaction): FormState {
-  const account = data.accounts.find((a) => a.id === tx?.accountId) ?? data.accounts.find((a) => a.active) ?? data.accounts[0];
+  const account =
+    data.accounts.find((a) => a.id === tx?.accountId) ??
+    data.accounts.find((a) => a.active) ??
+    data.accounts[0];
   return {
     date: tx?.date ?? today(),
     type: tx?.type ?? 'buy',
@@ -87,7 +90,12 @@ function layout(type: TxType) {
 }
 
 /** Validate the form and build the transaction. Returns an error message instead of throwing. */
-export function buildTransaction(f: FormState, data: AppData, id: string, orig?: Transaction): Transaction | string {
+export function buildTransaction(
+  f: FormState,
+  data: AppData,
+  id: string,
+  orig?: Transaction,
+): Transaction | string {
   const L = layout(f.type);
   const base = getSettings(data).baseCurrency;
   const num = (label: string, raw: string): number | undefined | string => {
@@ -97,14 +105,21 @@ export function buildTransaction(f: FormState, data: AppData, id: string, orig?:
   };
   const vals: Record<string, number | undefined> = {};
   const fields: [string, string, string][] = [
-    ['amount', '金額', f.amount], ['quantity', '數量', f.quantity], ['price', '價格', f.price],
-    ['fee', '手續費', f.fee], ['tax', '稅', f.tax], ['fxRate', '匯率', f.fxRate],
-    ['toAmount', '轉入金額', f.toAmount], ['principal', '本金', f.principal], ['interest', '利息', f.interest],
+    ['amount', '金額', f.amount],
+    ['quantity', '數量', f.quantity],
+    ['price', '價格', f.price],
+    ['fee', '手續費', f.fee],
+    ['tax', '稅', f.tax],
+    ['fxRate', '匯率', f.fxRate],
+    ['toAmount', '轉入金額', f.toAmount],
+    ['principal', '本金', f.principal],
+    ['interest', '利息', f.interest],
   ];
   for (const [key, label, raw] of fields) {
     const r = num(label, raw);
     if (typeof r === 'string') return r;
-    if (r !== undefined && r < 0 && !(key === 'amount' && L.signedAmount)) return `${label} 不可為負數`;
+    if (r !== undefined && r < 0 && !(key === 'amount' && L.signedAmount))
+      return `${label} 不可為負數`;
     vals[key] = r;
   }
 
@@ -132,7 +147,11 @@ export function buildTransaction(f: FormState, data: AppData, id: string, orig?:
     accountId: f.accountId,
     bucket: f.bucket || CORE_BUCKET,
     currency,
-    amount: L.trade ? 0 : L.repay ? (vals.principal ?? 0) + (vals.interest ?? 0) : (vals.amount ?? 0),
+    amount: L.trade
+      ? 0
+      : L.repay
+        ? (vals.principal ?? 0) + (vals.interest ?? 0)
+        : (vals.amount ?? 0),
   };
   if (L.instrument && f.instrumentId) tx.instrumentId = f.instrumentId;
   if (L.trade) {
@@ -193,7 +212,13 @@ export default function TxForm(props: {
   const broker = data.brokers.find((b) => b.id === account?.brokerId);
   const estimate =
     L.trade && inst
-      ? estimateFees(broker, inst, f.type === 'sell' ? 'sell' : 'buy', Number(f.quantity), Number(f.price))
+      ? estimateFees(
+          broker,
+          inst,
+          f.type === 'sell' ? 'sell' : 'buy',
+          Number(f.quantity),
+          Number(f.price),
+        )
       : undefined;
   const round = (n: number) => String(Math.round(n * 100) / 100);
   const feeHint = !estimate ? undefined : estimate.known ? (
@@ -303,7 +328,11 @@ export default function TxForm(props: {
               </Field>
             )}
             <Field label={L.transfer ? '轉出幣別' : '幣別'}>
-              <input value={f.currency} onChange={(e) => set({ currency: e.target.value })} list="acct-currencies" />
+              <input
+                value={f.currency}
+                onChange={(e) => set({ currency: e.target.value })}
+                list="acct-currencies"
+              />
             </Field>
           </>
         )}
@@ -311,8 +340,14 @@ export default function TxForm(props: {
           <>
             <Field label="本金">{input('principal')}</Field>
             <Field label="利息">{input('interest')}</Field>
-            <Field label="資金來源" hint="外部：不動用投資組合現金，NAV 上升；投資組合：從帳戶現金扣款">
-              <select value={f.source} onChange={(e) => set({ source: e.target.value as FormState['source'] })}>
+            <Field
+              label="資金來源"
+              hint="外部：不動用投資組合現金，NAV 上升；投資組合：從帳戶現金扣款"
+            >
+              <select
+                value={f.source}
+                onChange={(e) => set({ source: e.target.value as FormState['source'] })}
+              >
                 <option value="">請選擇</option>
                 <option value="external">外部資金</option>
                 <option value="portfolio">投資組合現金</option>
@@ -358,7 +393,11 @@ export default function TxForm(props: {
             </select>
           </Field>
           <Field label="轉入幣別" hint="跨幣別時填寫；留空 = 同幣別">
-            <input value={f.toCurrency} onChange={(e) => set({ toCurrency: e.target.value })} list="acct-currencies" />
+            <input
+              value={f.toCurrency}
+              onChange={(e) => set({ toCurrency: e.target.value })}
+              list="acct-currencies"
+            />
           </Field>
           <Field label="轉入金額" hint="跨幣別時填實際入帳金額；留空 = 同轉出金額">
             {input('toAmount')}
@@ -383,11 +422,17 @@ export default function TxForm(props: {
         </Field>
       </div>
       <datalist id="acct-currencies">
-        {[...new Set([base, 'USD', 'USDT', 'BTC', ...data.accounts.map((a) => a.baseCurrency)])].map((c) => (
+        {[
+          ...new Set([base, 'USD', 'USDT', 'BTC', ...data.accounts.map((a) => a.baseCurrency)]),
+        ].map((c) => (
           <option key={c} value={c} />
         ))}
       </datalist>
-      {error && <div className="notice warn" style={{ marginTop: 12 }}>{error}</div>}
+      {error && (
+        <div className="notice warn" style={{ marginTop: 12 }}>
+          {error}
+        </div>
+      )}
     </Modal>
   );
 }

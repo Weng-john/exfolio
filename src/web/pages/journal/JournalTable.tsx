@@ -13,7 +13,14 @@ interface Draft {
   rotationCycleId: string;
 }
 
-const parseTags = (s: string) => [...new Set(s.split(/[,，\s]+/).map((t) => t.trim()).filter(Boolean))];
+const parseTags = (s: string) => [
+  ...new Set(
+    s
+      .split(/[,，\s]+/)
+      .map((t) => t.trim())
+      .filter(Boolean),
+  ),
+];
 
 /** Journal metadata only: the transaction itself (price, quantity...) is not edited here. */
 function applyDraft(tx: Transaction, d: Draft): Transaction {
@@ -28,7 +35,11 @@ function applyDraft(tx: Transaction, d: Draft): Transaction {
   return next;
 }
 
-export default function JournalTable(props: { data: AppData; entries: JournalEntry[]; base: string }) {
+export default function JournalTable(props: {
+  data: AppData;
+  entries: JournalEntry[];
+  base: string;
+}) {
   const { data, entries, base } = props;
   const [editingId, setEditingId] = useState<string>();
   const [draft, setDraft] = useState<Draft>();
@@ -52,8 +63,10 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
 
   if (!entries.length) return <Empty>沒有符合條件的交易。策略內的買賣交易會出現在這裡。</Empty>;
 
-  const groupName = (id?: string) => (id ? (data.tradeGroups.find((g) => g.id === id)?.name ?? id) : '');
-  const cycleName = (id?: string) => (id ? (data.rotationCycles.find((c) => c.id === id)?.name ?? id) : '');
+  const groupName = (id?: string) =>
+    id ? (data.tradeGroups.find((g) => g.id === id)?.name ?? id) : '';
+  const cycleName = (id?: string) =>
+    id ? (data.rotationCycles.find((c) => c.id === id)?.name ?? id) : '';
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   return (
@@ -83,12 +96,16 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
               <tr key={e.txId} className="jr-edit">
                 <td colSpan={14}>
                   <div className="muted" style={{ marginBottom: 8 }}>
-                    {e.date} · {bucketName(data, e.strategyId)} · {symbolOf(data, e.instrumentId)} {e.side === 'buy' ? '買進' : '賣出'}{' '}
-                    {fmtNum(e.quantity, 4)} @ {fmtNum(e.price, 4)}
+                    {e.date} · {bucketName(data, e.strategyId)} · {symbolOf(data, e.instrumentId)}{' '}
+                    {e.side === 'buy' ? '買進' : '賣出'} {fmtNum(e.quantity, 4)} @{' '}
+                    {fmtNum(e.price, 4)}
                   </div>
                   <div className="jr-edit-grid">
                     <Field label="交易理由">
-                      <input value={draft.reason} onChange={(ev) => set({ reason: ev.target.value })} />
+                      <input
+                        value={draft.reason}
+                        onChange={(ev) => set({ reason: ev.target.value })}
+                      />
                     </Field>
                     <Field label="標籤（逗號分隔）">
                       <input value={draft.tags} onChange={(ev) => set({ tags: ev.target.value })} />
@@ -97,7 +114,10 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
                       <input value={draft.note} onChange={(ev) => set({ note: ev.target.value })} />
                     </Field>
                     <Field label="交易群組">
-                      <select value={draft.tradeGroupId} onChange={(ev) => set({ tradeGroupId: ev.target.value })}>
+                      <select
+                        value={draft.tradeGroupId}
+                        onChange={(ev) => set({ tradeGroupId: ev.target.value })}
+                      >
                         <option value="">無</option>
                         {data.tradeGroups
                           .filter((g) => g.strategyId === e.strategyId)
@@ -109,7 +129,10 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
                       </select>
                     </Field>
                     <Field label="輪動週期">
-                      <select value={draft.rotationCycleId} onChange={(ev) => set({ rotationCycleId: ev.target.value })}>
+                      <select
+                        value={draft.rotationCycleId}
+                        onChange={(ev) => set({ rotationCycleId: ev.target.value })}
+                      >
                         <option value="">無</option>
                         {data.rotationCycles
                           .filter((c) => c.strategyId === e.strategyId)
@@ -122,8 +145,12 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
                     </Field>
                   </div>
                   <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                    <button className="primary" onClick={() => save(e)}>儲存</button>
-                    <button className="ghost" onClick={() => setEditingId(undefined)}>取消</button>
+                    <button className="primary" onClick={() => save(e)}>
+                      儲存
+                    </button>
+                    <button className="ghost" onClick={() => setEditingId(undefined)}>
+                      取消
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -137,19 +164,30 @@ export default function JournalTable(props: { data: AppData; entries: JournalEnt
                 <td className="num">{fmtNum(e.quantity, 4)}</td>
                 <td>{e.currency}</td>
                 <td className="num">{fmtMoney(e.costs, e.currency)}</td>
-                <td className={`num ${signClass(e.realizedPnl)}`} title={`約當 ${fmtMoney(e.realizedPnlBase, base)} ${base}`}>
-                  {e.side === 'sell' || e.realizedPnl !== 0 ? fmtMoney(e.realizedPnl, e.currency) : '—'}
+                <td
+                  className={`num ${signClass(e.realizedPnl)}`}
+                  title={`約當 ${fmtMoney(e.realizedPnlBase, base)} ${base}`}
+                >
+                  {e.side === 'sell' || e.realizedPnl !== 0
+                    ? fmtMoney(e.realizedPnl, e.currency)
+                    : '—'}
                 </td>
-                <td className="jr-text" title={e.reason}>{e.reason}</td>
+                <td className="jr-text" title={e.reason}>
+                  {e.reason}
+                </td>
                 <td>
                   {e.tags.map((t) => (
-                    <span key={t} className="jr-tag">{t}</span>
+                    <span key={t} className="jr-tag">
+                      {t}
+                    </span>
                   ))}
                 </td>
                 <td>{groupName(e.tradeGroupId)}</td>
                 <td>{cycleName(e.rotationCycleId)}</td>
                 <td>
-                  <button className="ghost" onClick={() => begin(e)}>編輯</button>
+                  <button className="ghost" onClick={() => begin(e)}>
+                    編輯
+                  </button>
                 </td>
               </tr>
             ),

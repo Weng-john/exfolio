@@ -36,7 +36,9 @@ function add(out: Map<string, Notification>, notification: Notification) {
 function overdueLoanPayment(data: AppData, loanId: string, today: ISODate): ISODate | undefined {
   const loan = data.loans.find((l) => l.id === loanId);
   if (!loan) return undefined;
-  const repayments = data.transactions.filter((t) => t.loanId === loanId && t.type === 'loan_repay' && t.date <= today).length;
+  const repayments = data.transactions.filter(
+    (t) => t.loanId === loanId && t.type === 'loan_repay' && t.date <= today,
+  ).length;
   const term = loan.termMonths ?? 0;
   // A revolving line has no payment schedule to fall behind on.
   if (loan.method === 'revolving' || term <= 0) return undefined;
@@ -50,7 +52,11 @@ function overdueLoanPayment(data: AppData, loanId: string, today: ISODate): ISOD
 }
 
 /** Build informational reminders from derivatives, loans, allocation and legacy alerts. */
-export function buildNotifications(data: AppData, portfolio: Portfolio, today: ISODate): Notification[] {
+export function buildNotifications(
+  data: AppData,
+  portfolio: Portfolio,
+  today: ISODate,
+): Notification[] {
   const settings = getSettings(data);
   const alerts = settings.alerts;
   const out = new Map<string, Notification>();
@@ -154,7 +160,8 @@ export function buildNotifications(data: AppData, portfolio: Portfolio, today: I
   for (const row of allocation.rows) {
     const drift = Math.abs(row.gapWeight);
     const globalDrift = alerts.allocationDrift;
-    if (!row.hasTarget || (!row.outOfBand && (globalDrift === undefined || drift <= globalDrift))) continue;
+    if (!row.hasTarget || (!row.outOfBand && (globalDrift === undefined || drift <= globalDrift)))
+      continue;
     add(out, {
       id: `allocation-drift-${row.indexId}`,
       level: 'warn',

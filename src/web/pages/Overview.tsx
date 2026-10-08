@@ -1,12 +1,32 @@
 import { Link } from 'react-router-dom';
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { buildNotifications, CORE_BUCKET, leverageHistory, portfolioAlerts, today, UNCLASSIFIED_INDEX } from '@core/index';
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  buildNotifications,
+  CORE_BUCKET,
+  leverageHistory,
+  portfolioAlerts,
+  today,
+  UNCLASSIFIED_INDEX,
+} from '@core/index';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 
-const TOOLTIP = { background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' };
+const TOOLTIP = {
+  background: 'var(--panel)',
+  border: '1px solid var(--border)',
+  color: 'var(--text)',
+};
 const CATEGORY: Record<string, string> = {
   'futures-expiry': '期貨到期',
   'futures-margin': '期貨保證金',
@@ -33,7 +53,10 @@ export default function OverviewPage() {
 
   return (
     <>
-      <PageHeader title="Overview" subtitle={`所有金額以 ${base} 計；曝險與槓桿以目前 NAV 為分母`} />
+      <PageHeader
+        title="Overview"
+        subtitle={`所有金額以 ${base} 計；曝險與槓桿以目前 NAV 為分母`}
+      />
 
       {empty && (
         <div className="notice">
@@ -43,17 +66,37 @@ export default function OverviewPage() {
       )}
 
       <div className="stats">
-        <Stat label="NAV 淨資產" value={fmtMoney(v.nav, base)} hint={`資產 ${fmtMoney(v.totalAssets, base)}`} />
-        <Stat label="外部累積投入" value={fmtMoney(v.contributedCapital, base)} hint="含外部資金還款" />
+        <Stat
+          label="NAV 淨資產"
+          value={fmtMoney(v.nav, base)}
+          hint={`資產 ${fmtMoney(v.totalAssets, base)}`}
+        />
+        <Stat
+          label="外部累積投入"
+          value={fmtMoney(v.contributedCapital, base)}
+          hint="含外部資金還款"
+        />
         <Stat
           label="總損益"
           value={fmtMoney(v.totalPnl, base)}
           tone={v.totalPnl > 0 ? 'pos' : v.totalPnl < 0 ? 'neg' : undefined}
           hint={`未實現 ${fmtMoney(v.unrealizedPnl, base)}`}
         />
-        <Stat label="Gross 曝險" value={fmtMoney(v.grossExposure, base)} hint={`槓桿 ${fmtX(v.grossLeverage)}`} />
-        <Stat label="Net 曝險" value={fmtMoney(v.netExposure, base)} hint={`槓桿 ${fmtX(v.netLeverage)}`} />
-        <Stat label="負債" value={fmtMoney(v.liabilities, base)} hint={`負債 / NAV ${fmtPct(v.debtToNav)}`} />
+        <Stat
+          label="Gross 曝險"
+          value={fmtMoney(v.grossExposure, base)}
+          hint={`槓桿 ${fmtX(v.grossLeverage)}`}
+        />
+        <Stat
+          label="Net 曝險"
+          value={fmtMoney(v.netExposure, base)}
+          hint={`槓桿 ${fmtX(v.netLeverage)}`}
+        />
+        <Stat
+          label="負債"
+          value={fmtMoney(v.liabilities, base)}
+          hint={`負債 / NAV ${fmtPct(v.debtToNav)}`}
+        />
         <Stat label="現金" value={fmtMoney(v.cashValue, base)} hint="各帳戶正餘額合計" />
       </div>
 
@@ -84,8 +127,12 @@ export default function OverviewPage() {
             <tbody>
               {notifications.map((n) => (
                 <tr key={n.id}>
-                  <td><Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge></td>
-                  <td><strong>{n.title}</strong></td>
+                  <td>
+                    <Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge>
+                  </td>
+                  <td>
+                    <strong>{n.title}</strong>
+                  </td>
                   <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
                   <td>{n.dueDate ?? '—'}</td>
                 </tr>
@@ -148,8 +195,8 @@ export default function OverviewPage() {
             </div>
           )}
           <p className="muted">
-            不同指數可能高度重疊（例如 S&P 500 與 Nasdaq 100），曝險加總不等於獨立風險來源。
-            槓桿 ETF 以每日目標倍數估算曝險，長期報酬不能直接用倍數推算。
+            不同指數可能高度重疊（例如 S&P 500 與 Nasdaq 100），曝險加總不等於獨立風險來源。 槓桿
+            ETF 以每日目標倍數估算曝險，長期報酬不能直接用倍數推算。
           </p>
         </Card>
 
@@ -175,7 +222,9 @@ export default function OverviewPage() {
                       <td className="num">{fmtMoney(b.marketValue, base)}</td>
                       <td className="num">{fmtMoney(b.net, base)}</td>
                       <td className="num">{fmtMoney(b.gross, base)}</td>
-                      <td className={`num ${signClass(b.unrealizedPnl)}`}>{fmtMoney(b.unrealizedPnl, base)}</td>
+                      <td className={`num ${signClass(b.unrealizedPnl)}`}>
+                        {fmtMoney(b.unrealizedPnl, base)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -217,11 +266,21 @@ export default function OverviewPage() {
                 <LineChart data={history}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
-                  <YAxis stroke="var(--muted)" fontSize={12} width={80} tickFormatter={(n) => fmtMoney(n, base, 0)} />
+                  <YAxis
+                    stroke="var(--muted)"
+                    fontSize={12}
+                    width={80}
+                    tickFormatter={(n) => fmtMoney(n, base, 0)}
+                  />
                   <Tooltip formatter={(n: number) => fmtMoney(n, base)} contentStyle={TOOLTIP} />
                   <Legend />
                   <Line dataKey="nav" name="NAV" stroke="var(--accent)" dot={false} />
-                  <Line dataKey="contributedCapital" name="累積投入" stroke="var(--muted)" dot={false} />
+                  <Line
+                    dataKey="contributedCapital"
+                    name="累積投入"
+                    stroke="var(--muted)"
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -230,7 +289,12 @@ export default function OverviewPage() {
                 <LineChart data={history}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
-                  <YAxis stroke="var(--muted)" fontSize={12} width={50} tickFormatter={(n) => `${n}×`} />
+                  <YAxis
+                    stroke="var(--muted)"
+                    fontSize={12}
+                    width={50}
+                    tickFormatter={(n) => `${n}×`}
+                  />
                   <Tooltip formatter={(n: number) => fmtX(n)} contentStyle={TOOLTIP} />
                   <Legend />
                   <Line dataKey="grossLeverage" name="Gross 槓桿" stroke="var(--neg)" dot={false} />

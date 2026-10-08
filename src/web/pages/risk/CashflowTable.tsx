@@ -33,11 +33,17 @@ export default function CashflowTable() {
 
   const save = () => {
     if (!form) return;
-    upsertRow('cashflowItems', { ...form.item, name: form.item.name.trim(), endDate: form.item.endDate || undefined });
+    upsertRow('cashflowItems', {
+      ...form.item,
+      name: form.item.name.trim(),
+      endDate: form.item.endDate || undefined,
+    });
     setForm(undefined);
   };
-  const valid = !!form && form.item.name.trim() !== '' && form.item.amount > 0 && !!form.item.startDate;
-  const set = (patch: Partial<CashflowItem>) => setForm((f) => f && { ...f, item: { ...f.item, ...patch } });
+  const valid =
+    !!form && form.item.name.trim() !== '' && form.item.amount > 0 && !!form.item.startDate;
+  const set = (patch: Partial<CashflowItem>) =>
+    setForm((f) => f && { ...f, item: { ...f.item, ...patch } });
 
   return (
     <Card
@@ -76,15 +82,27 @@ export default function CashflowTable() {
                   <td>{FREQ[c.frequency]}</td>
                   <td>{c.startDate}</td>
                   <td>{c.endDate ?? '—'}</td>
-                  <td>{c.affectsPortfolio ? <Badge tone="info">是</Badge> : <Badge tone="warn">否（組合外）</Badge>}</td>
+                  <td>
+                    {c.affectsPortfolio ? (
+                      <Badge tone="info">是</Badge>
+                    ) : (
+                      <Badge tone="warn">否（組合外）</Badge>
+                    )}
+                  </td>
                   <td>
                     <div className="risk-row-actions">
-                      <button className="ghost" onClick={() => setForm({ item: { ...c }, isNew: false })}>
+                      <button
+                        className="ghost"
+                        onClick={() => setForm({ item: { ...c }, isNew: false })}
+                      >
                         編輯
                       </button>
                       <button
                         className="ghost danger"
-                        onClick={() => window.confirm(`確定刪除「${c.name}」？`) && removeRow('cashflowItems', c.id)}
+                        onClick={() =>
+                          window.confirm(`確定刪除「${c.name}」？`) &&
+                          removeRow('cashflowItems', c.id)
+                        }
                       >
                         刪除
                       </button>
@@ -118,19 +136,31 @@ export default function CashflowTable() {
               <input value={form.item.name} onChange={(e) => set({ name: e.target.value })} />
             </Field>
             <Field label="類別">
-              <select value={form.item.kind} onChange={(e) => set({ kind: e.target.value as CashflowItem['kind'] })}>
+              <select
+                value={form.item.kind}
+                onChange={(e) => set({ kind: e.target.value as CashflowItem['kind'] })}
+              >
                 <option value="income">收入</option>
                 <option value="expense">支出</option>
               </select>
             </Field>
             <Field label="金額（正數）">
-              <NumInput value={form.item.amount || undefined} onChange={(v) => set({ amount: v ?? 0 })} />
+              <NumInput
+                value={form.item.amount || undefined}
+                onChange={(v) => set({ amount: v ?? 0 })}
+              />
             </Field>
             <Field label="幣別">
-              <input value={form.item.currency} onChange={(e) => set({ currency: e.target.value.trim().toUpperCase() })} />
+              <input
+                value={form.item.currency}
+                onChange={(e) => set({ currency: e.target.value.trim().toUpperCase() })}
+              />
             </Field>
             <Field label="頻率">
-              <select value={form.item.frequency} onChange={(e) => set({ frequency: e.target.value as CashflowItem['frequency'] })}>
+              <select
+                value={form.item.frequency}
+                onChange={(e) => set({ frequency: e.target.value as CashflowItem['frequency'] })}
+              >
                 {Object.entries(FREQ).map(([k, v]) => (
                   <option key={k} value={k}>
                     {v}
@@ -139,13 +169,24 @@ export default function CashflowTable() {
               </select>
             </Field>
             <Field label="開始日期">
-              <input type="date" value={form.item.startDate} onChange={(e) => set({ startDate: e.target.value })} />
+              <input
+                type="date"
+                value={form.item.startDate}
+                onChange={(e) => set({ startDate: e.target.value })}
+              />
             </Field>
             <Field label="結束日期（可留空）">
-              <input type="date" value={form.item.endDate ?? ''} onChange={(e) => set({ endDate: e.target.value || undefined })} />
+              <input
+                type="date"
+                value={form.item.endDate ?? ''}
+                onChange={(e) => set({ endDate: e.target.value || undefined })}
+              />
             </Field>
             <Field label="進出投資組合" hint="否 = 在組合外收付">
-              <select value={form.item.affectsPortfolio ? 'yes' : 'no'} onChange={(e) => set({ affectsPortfolio: e.target.value === 'yes' })}>
+              <select
+                value={form.item.affectsPortfolio ? 'yes' : 'no'}
+                onChange={(e) => set({ affectsPortfolio: e.target.value === 'yes' })}
+              >
                 <option value="yes">是</option>
                 <option value="no">否</option>
               </select>

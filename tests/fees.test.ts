@@ -6,7 +6,9 @@ const inst = (id: string) => data.instruments.find((i) => i.id === id)!;
 
 describe('estimateFees', () => {
   const broker: Broker = {
-    id: 'b', name: '示範券商', kind: 'broker',
+    id: 'b',
+    name: '示範券商',
+    kind: 'broker',
     fees: {
       stock: { rate: 0.001425, discount: 0.28, minFee: 20, sellTaxRate: 0.003 },
       etf: { rate: 0.001425, discount: 0.28, minFee: 20, sellTaxRate: 0.001 },
@@ -37,13 +39,17 @@ describe('estimateFees', () => {
   });
 
   it('reports an unknown class instead of guessing', () => {
-    expect(estimateFees(broker, inst('crypto_BTC'), 'buy', 1, 50_000)).toEqual({ fee: 0, tax: 0, known: false });
+    expect(estimateFees(broker, inst('crypto_BTC'), 'buy', 1, 50_000)).toEqual({
+      fee: 0,
+      tax: 0,
+      known: false,
+    });
     expect(estimateFees(undefined, inst('tw_0050'), 'buy', 1, 100).known).toBe(false);
   });
 });
 
 describe('institutions', () => {
-  it('seeds no institutions or accounts: those are the user\'s to add', () => {
+  it("seeds no institutions or accounts: those are the user's to add", () => {
     expect(data.brokers).toEqual([]);
     expect(data.accounts).toEqual([]);
   });

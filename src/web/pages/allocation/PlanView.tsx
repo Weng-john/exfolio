@@ -11,13 +11,40 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
   return (
     <>
       <div className="stats">
-        <Stat label="交易後 NAV（資金到位後）" value={m(plan.postFundingNav)} hint={`交易費用後 ${m(plan.postTrade.nav)}`} />
-        <Stat label="可用資金" value={m(plan.availableCash)} hint={plan.sellProceeds ? `含賣出所得 ${m(plan.sellProceeds)}` : undefined} />
-        <Stat label="資金占用（成本／保證金）" value={m(plan.cashUsed)} hint={`預估費用 ${m(plan.totalFees)}`} />
-        <Stat label="剩餘現金" value={m(plan.leftoverCash)} tone={plan.leftoverCash < 0 ? 'neg' : undefined} />
-        <Stat label="交易後 Gross／Net 曝險" value={`${m(plan.postTrade.grossExposure)} ／ ${m(plan.postTrade.netExposure)}`} />
-        <Stat label="交易後槓桿 Gross／Net" value={`${fmtX(plan.postTrade.grossLeverage)} ／ ${fmtX(plan.postTrade.netLeverage)}`} hint="僅供參考，無強制上限" />
-        <Stat label="未補足缺口" value={m(plan.unfunded)} tone={plan.unfunded > 0 ? 'warn' : undefined} />
+        <Stat
+          label="交易後 NAV（資金到位後）"
+          value={m(plan.postFundingNav)}
+          hint={`交易費用後 ${m(plan.postTrade.nav)}`}
+        />
+        <Stat
+          label="可用資金"
+          value={m(plan.availableCash)}
+          hint={plan.sellProceeds ? `含賣出所得 ${m(plan.sellProceeds)}` : undefined}
+        />
+        <Stat
+          label="資金占用（成本／保證金）"
+          value={m(plan.cashUsed)}
+          hint={`預估費用 ${m(plan.totalFees)}`}
+        />
+        <Stat
+          label="剩餘現金"
+          value={m(plan.leftoverCash)}
+          tone={plan.leftoverCash < 0 ? 'neg' : undefined}
+        />
+        <Stat
+          label="交易後 Gross／Net 曝險"
+          value={`${m(plan.postTrade.grossExposure)} ／ ${m(plan.postTrade.netExposure)}`}
+        />
+        <Stat
+          label="交易後槓桿 Gross／Net"
+          value={`${fmtX(plan.postTrade.grossLeverage)} ／ ${fmtX(plan.postTrade.netLeverage)}`}
+          hint="僅供參考，無強制上限"
+        />
+        <Stat
+          label="未補足缺口"
+          value={m(plan.unfunded)}
+          tone={plan.unfunded > 0 ? 'warn' : undefined}
+        />
       </div>
 
       {plan.warnings.length > 0 && (
@@ -56,14 +83,18 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
                     <td>{names[s.indexId] ?? s.indexId}</td>
                     <td>{s.symbol}</td>
                     <td>
-                      <Badge tone={s.side === 'buy' ? 'ok' : 'warn'}>{s.side === 'buy' ? '買進' : '賣出'}</Badge>
+                      <Badge tone={s.side === 'buy' ? 'ok' : 'warn'}>
+                        {s.side === 'buy' ? '買進' : '賣出'}
+                      </Badge>
                     </td>
                     <td className="num">{fmtNum(s.quantity, 8)}</td>
                     <td className="num">
                       {fmtMoney(s.price, s.currency)} {s.currency}
                     </td>
                     <td className="num">
-                      {s.side === 'buy' ? `${fmtMoney(s.cashRequired, s.currency)} ${s.currency}${s.isMargin ? '（保證金）' : ''}` : '—'}
+                      {s.side === 'buy'
+                        ? `${fmtMoney(s.cashRequired, s.currency)} ${s.currency}${s.isMargin ? '（保證金）' : ''}`
+                        : '—'}
                     </td>
                     <td className="num">{s.side === 'buy' ? m(s.cashRequiredBase) : '—'}</td>
                     <td className={`num ${signClass(s.exposureAdded)}`}>{m(s.exposureAdded)}</td>

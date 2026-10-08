@@ -24,10 +24,14 @@ function dayNumber(date: ISODate): number | undefined {
  * have flat slopes or a root close to -100%.
  */
 export function xirr(flows: CashFlow[]): number | undefined {
-  if (flows.length < 2 || !flows.some((f) => f.amount > 0) || !flows.some((f) => f.amount < 0)) return undefined;
+  if (flows.length < 2 || !flows.some((f) => f.amount > 0) || !flows.some((f) => f.amount < 0))
+    return undefined;
   const dated = flows
     .map((flow) => ({ ...flow, day: dayNumber(flow.date) }))
-    .filter((flow): flow is CashFlow & { day: number } => flow.day !== undefined && Number.isFinite(flow.amount));
+    .filter(
+      (flow): flow is CashFlow & { day: number } =>
+        flow.day !== undefined && Number.isFinite(flow.amount),
+    );
   if (dated.length < 2) return undefined;
   const first = Math.min(...dated.map((flow) => flow.day));
   const npv = (rate: number) => {
@@ -40,8 +44,30 @@ export function xirr(flows: CashFlow[]): number | undefined {
   // realistic annual return lies. Multiple roots remain inherently ambiguous;
   // returning the first bracket is the conventional XIRR behaviour.
   const candidates = [
-    MIN_RATE, -0.9, -0.5, -0.1, 0, 0.1, 0.5, 1, 2, 5, 10, 100, 1_000, 10_000,
-    1e6, 1e8, 1e10, 1e12, 1e14, 1e16, 1e20, 1e40, 1e70, MAX_RATE,
+    MIN_RATE,
+    -0.9,
+    -0.5,
+    -0.1,
+    0,
+    0.1,
+    0.5,
+    1,
+    2,
+    5,
+    10,
+    100,
+    1_000,
+    10_000,
+    1e6,
+    1e8,
+    1e10,
+    1e12,
+    1e14,
+    1e16,
+    1e20,
+    1e40,
+    1e70,
+    MAX_RATE,
   ];
   let left = candidates[0];
   let leftValue = npv(left);
@@ -63,7 +89,8 @@ export function xirr(flows: CashFlow[]): number | undefined {
         const mid = (lo + hi) / 2;
         const midValue = npv(mid);
         if (!Number.isFinite(midValue)) return undefined;
-        if (Math.abs(midValue) < TOLERANCE || Math.abs(hi - lo) < TOLERANCE * (1 + Math.abs(mid))) return mid;
+        if (Math.abs(midValue) < TOLERANCE || Math.abs(hi - lo) < TOLERANCE * (1 + Math.abs(mid)))
+          return mid;
         if (Math.sign(loValue) === Math.sign(midValue)) {
           lo = mid;
           loValue = midValue;

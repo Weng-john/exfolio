@@ -1,4 +1,11 @@
-import { FxTable, getSettings, type AppData, type Loan, type LoanKind, type RepaymentMethod } from '@core/index';
+import {
+  FxTable,
+  getSettings,
+  type AppData,
+  type Loan,
+  type LoanKind,
+  type RepaymentMethod,
+} from '@core/index';
 
 export const KIND_LABEL: Record<LoanKind, string> = {
   credit: '信用貸款',

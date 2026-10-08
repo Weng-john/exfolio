@@ -57,7 +57,14 @@ describe('compareAllocation', () => {
   it('reports strategy exposure separately and does not count it against the core target', () => {
     const data = base();
     data.transactions.push(
-      tx({ type: 'buy', date: '2026-01-03', bucket: 'strat1', instrumentId: 'tw_0050', quantity: 1000, price: 100 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-03',
+        bucket: 'strat1',
+        instrumentId: 'tw_0050',
+        quantity: 1000,
+        price: 100,
+      }),
     );
     setTarget(data, 'tw50', 0.5);
     const c = compareAllocation(data, val(data));
@@ -103,8 +110,16 @@ describe('planAllocation: post-funding NAV comes first', () => {
 
   it('loan proceeds raise cash and debt but not NAV', () => {
     data.loans.push({
-      id: 'l1', name: '信貸', kind: 'credit', lender: '銀行', currency: 'TWD', principal: 500_000,
-      annualRate: 0.03, method: 'annuity', startDate: '2026-01-01', active: true,
+      id: 'l1',
+      name: '信貸',
+      kind: 'credit',
+      lender: '銀行',
+      currency: 'TWD',
+      principal: 500_000,
+      annualRate: 0.03,
+      method: 'annuity',
+      startDate: '2026-01-01',
+      active: true,
     });
     const p = planAllocation(data, v, req({ source: 'loan', loanId: 'l1' }));
     data.loans.pop();
@@ -188,7 +203,11 @@ describe('planAllocation: instruments, lots and cash need', () => {
     setFx(data, 'USD', 'TWD', 32);
     setTarget(data, 'sp500', 0.64);
     // NAV 1M, gap 640,000 TWD; one share = 400 x 32 = 12,800 -> 50 shares
-    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 700_000, feeRate: 0.001 }));
+    const p = planAllocation(
+      data,
+      val(data),
+      req({ source: 'internal', amount: 700_000, feeRate: 0.001 }),
+    );
     const s = p.suggestions[0];
     expect(s).toMatchObject({ symbol: 'VOO', quantity: 50, currency: 'USD', fxRate: 32 });
     expect(s.cashRequired).toBeCloseTo(20_000 * 1.001);
@@ -202,7 +221,11 @@ describe('planAllocation: instruments, lots and cash need', () => {
     setPrice(data, 'us_SSO', 100, 'USD');
     setFx(data, 'USD', 'TWD', 32);
     setTarget(data, 'sp500', 0.32, { preferredInstrumentId: 'us_VOO' });
-    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 320_000, overrides: { sp500: 'us_SSO' } }));
+    const p = planAllocation(
+      data,
+      val(data),
+      req({ source: 'internal', amount: 320_000, overrides: { sp500: 'us_SSO' } }),
+    );
     expect(p.suggestions[0]).toMatchObject({ symbol: 'SSO', quantity: 50 }); // 320,000 / (100 x 2 x 32)
   });
 });
@@ -229,7 +252,11 @@ describe('planAllocation: shortfall, sells, warnings', () => {
   it('new-money mode never sells an over-weight index', () => {
     const data = base();
     setTarget(data, 'tw50', 0.2);
-    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 100_000, allowSell: false }));
+    const p = planAllocation(
+      data,
+      val(data),
+      req({ source: 'internal', amount: 100_000, allowSell: false }),
+    );
     expect(p.suggestions).toHaveLength(0);
     expect(p.leftoverCash).toBe(100_000);
   });
@@ -240,7 +267,11 @@ describe('planAllocation: shortfall, sells, warnings', () => {
     setFx(data, 'USD', 'TWD', 10);
     setTarget(data, 'tw50', 0.3); // core 500k vs 300k: sell 200k
     setTarget(data, 'sp500', 0.2);
-    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 0, allowSell: true }));
+    const p = planAllocation(
+      data,
+      val(data),
+      req({ source: 'internal', amount: 0, allowSell: true }),
+    );
     const sell = p.suggestions.find((s) => s.side === 'sell')!;
     expect(sell).toMatchObject({ symbol: '0050', quantity: 2000, exposureAdded: -200_000 });
     expect(p.sellProceeds).toBe(200_000);
@@ -251,7 +282,11 @@ describe('planAllocation: shortfall, sells, warnings', () => {
   it('rebalance mode leaves in-band indices alone', () => {
     const data = base();
     setTarget(data, 'tw50', 0.48, { tolerance: 0.05 });
-    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 0, allowSell: true }));
+    const p = planAllocation(
+      data,
+      val(data),
+      req({ source: 'internal', amount: 0, allowSell: true }),
+    );
     expect(p.suggestions).toHaveLength(0);
   });
 
@@ -309,7 +344,12 @@ describe('compareInstruments', () => {
     expect(by('VOO')).toMatchObject({ quantity: 200, cash: 100_000, isMargin: false });
     expect(by('SSO')).toMatchObject({ quantity: 500, cash: 50_000 });
     expect(by('UPRO')).toMatchObject({ quantity: 666, exposure: 666 * 150 * 30 });
-    expect(by('MES')).toMatchObject({ quantity: 3, cash: 6_000, cashBase: 180_000, isMargin: true });
+    expect(by('MES')).toMatchObject({
+      quantity: 3,
+      cash: 6_000,
+      cashBase: 180_000,
+      isMargin: true,
+    });
     expect(by('ES').quantity).toBe(0);
     expect(by('SSO').notes.join()).toContain('路徑相依');
     expect(by('MES').notes.join()).toContain('換月');

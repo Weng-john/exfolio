@@ -1,0 +1,7 @@
+dist/
+data/
+private/
+node_modules/
+gas/
+package-lock.json
+*.md

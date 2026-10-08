@@ -26,10 +26,10 @@
 export PATH=$HOME/miniconda3/envs/agent/bin:$PATH   # 這台機器的 Node 不在預設 PATH
 npm install
 npm run dev              # http://127.0.0.1:5173
-npm test && npm run typecheck && npm run build && npm run check:privacy
+npm test && npm run typecheck && npm run build && npm run check:privacy && npm run format:check
 ```
 
-四個指令全過才算完成。先讀 `SPEC.md`（驗收條件與共用檔案規則）、`README.md`（架構）、`docs/PRIVACY.md`。
+五個指令全過才算完成；提交前先跑 `npm run format`。先讀 `SPEC.md`（驗收條件與共用檔案規則）、`README.md`（架構）、`docs/PRIVACY.md`。
 
 ## 架構重點
 

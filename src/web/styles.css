@@ -57,7 +57,14 @@ body {
   color: var(--text);
   /* The bundled Noto Sans TC comes last: browsers only download it when no
      system font above has the glyph, e.g. on Linux without CJK fonts. */
-  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  font:
+    14px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang TC',
+    'Microsoft JhengHei',
+    'Noto Sans TC',
+    sans-serif;
 }
 
 h1 {

@@ -8,9 +8,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 
 const staged = process.argv.includes('--staged');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
-const files = (staged
-  ? git('diff', '--cached', '--name-only', '--diff-filter=ACMR')
-  : git('ls-files')
+const files = (
+  staged ? git('diff', '--cached', '--name-only', '--diff-filter=ACMR') : git('ls-files')
 )
   .split('\n')
   .filter(Boolean);
@@ -33,7 +32,10 @@ const CONTENT_RULES = [
   [/https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}/, 'Google Sheets 網址'],
   [/\b[A-Z][12]\d{8}\b/, '疑似身分證字號'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, '私鑰'],
-  [/\b(api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?token|password)\b\s*[:=]\s*['"][A-Za-z0-9+/_=-]{16,}['"]/i, '疑似寫死的金鑰'],
+  [
+    /\b(api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?token|password)\b\s*[:=]\s*['"][A-Za-z0-9+/_=-]{16,}['"]/i,
+    '疑似寫死的金鑰',
+  ],
   [/\b[A-Za-z0-9._%+-]+@(gmail|yahoo|hotmail|outlook|icloud)\.[a-z.]+\b/i, '個人電子郵件'],
 ];
 const SKIP_CONTENT = /^(package-lock\.json|scripts\/check-privacy\.mjs)$/;

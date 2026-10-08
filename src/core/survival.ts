@@ -115,11 +115,7 @@ export const SURVIVAL_CAVEATS: string[] = [
 // --------------------------------------------------------------- result
 
 export type SurvivalEventType =
-  | 'cash_shortfall'
-  | 'pledge_call'
-  | 'margin_shortfall'
-  | 'forced_reduction'
-  | 'nav_nonpositive';
+  'cash_shortfall' | 'pledge_call' | 'margin_shortfall' | 'forced_reduction' | 'nav_nonpositive';
 
 export interface SoldItem {
   instrumentId: ID;
@@ -282,7 +278,11 @@ interface PledgeState {
  * `portfolio` is the current ledger and valuation; `data` supplies loans,
  * cash-flow items, instruments and FX.
  */
-export function runSurvival(data: AppData, portfolio: Portfolio, params: SurvivalParams): SurvivalResult {
+export function runSurvival(
+  data: AppData,
+  portfolio: Portfolio,
+  params: SurvivalParams,
+): SurvivalResult {
   const { ledger, valuation } = portfolio;
   const base = valuation.baseCurrency;
   const today = params.today;
@@ -358,7 +358,15 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
     const k = cashKey(p.accountId, p.currency);
     let g = groups.get(k);
     if (!g) {
-      g = { key: k, accountId: p.accountId, currency: p.currency, u0: 0, positions: [], missing: false, inShort: false };
+      g = {
+        key: k,
+        accountId: p.accountId,
+        currency: p.currency,
+        u0: 0,
+        positions: [],
+        missing: false,
+        inShort: false,
+      };
       groups.set(k, g);
       cashAt(p.accountId, p.currency);
     }
@@ -366,9 +374,13 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
     g.positions.push(p);
     if (!(p.maint !== undefined && p.maint > 0)) g.missing = true;
   }
-  const missingMarginSpecs = [...new Set([...groups.values()].filter((g) => g.missing).map((g) => g.accountId))].sort();
+  const missingMarginSpecs = [
+    ...new Set([...groups.values()].filter((g) => g.missing).map((g) => g.accountId)),
+  ].sort();
   for (const a of missingMarginSpecs) {
-    warnings.push(`帳戶「${accounts.get(a)?.name ?? a}」有合約缺少維持保證金規格，保證金需求可能低估`);
+    warnings.push(
+      `帳戶「${accounts.get(a)?.name ?? a}」有合約缺少維持保證金規格，保證金需求可能低估`,
+    );
   }
 
   // ---- state: loans and pledges
@@ -406,7 +418,11 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
           ? st.remainingSchedule
           : amortizationSchedule(
               { ...loan, annualRate: rate },
-              { balance: st.balance, periods: st.remainingPeriods, firstDueDate: st.remainingSchedule[0].dueDate },
+              {
+                balance: st.balance,
+                periods: st.remainingPeriods,
+                firstDueDate: st.remainingSchedule[0].dueDate,
+              },
             );
       for (const r of rows) {
         addFlow(r.dueDate, {
@@ -513,7 +529,10 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
   const primaryKey = (currency: Currency): string => {
     const keys = poolKeys(currency);
     if (keys.length) {
-      return keys.reduce((best, k) => (cash.get(k)!.amount > cash.get(best)!.amount + EPS ? k : best), keys[0]);
+      return keys.reduce(
+        (best, k) => (cash.get(k)!.amount > cash.get(best)!.amount + EPS ? k : best),
+        keys[0],
+      );
     }
     const acct = data.accounts
       .filter((a) => a.baseCurrency === currency && !marginAccounts.has(a.id))
@@ -543,7 +562,12 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
   let curDay = 0;
   let curDate = today;
   const record = (e: Omit<SurvivalEvent, 'date' | 'day' | 'amountBase'>): SurvivalEvent => {
-    const ev: SurvivalEvent = { ...e, date: curDate, day: curDay, amountBase: e.amount * rateTo(e.currency) };
+    const ev: SurvivalEvent = {
+      ...e,
+      date: curDate,
+      day: curDay,
+      amountBase: e.amount * rateTo(e.currency),
+    };
     events.push(ev);
     return ev;
   };
@@ -556,7 +580,8 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
       .filter((p) => !p.derivative && p.bucket === CORE_BUCKET && p.qty > EPS)
       .map((p) => {
         const free = p.qty - pledgedQty(p.accountId, p.instrumentId);
-        const value = free > EPS ? free * (price.get(p.instrumentId) ?? 0) * p.mult * rateTo(p.currency) : 0;
+        const value =
+          free > EPS ? free * (price.get(p.instrumentId) ?? 0) * p.mult * rateTo(p.currency) : 0;
         return { p, free, value };
       })
       .filter((e) => e.value > EPS);
@@ -567,7 +592,12 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
     for (const e of eligible) {
       const q = e.free * f;
       e.p.qty -= q;
-      sold.push({ instrumentId: e.p.instrumentId, accountId: e.p.accountId, quantity: q, valueBase: e.value * f });
+      sold.push({
+        instrumentId: e.p.instrumentId,
+        accountId: e.p.accountId,
+        quantity: q,
+        valueBase: e.value * f,
+      });
     }
     return { proceeds: (total * f) / rate, sold };
   };
@@ -634,7 +664,10 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
   let navWasPositive = true;
 
   const requiredOf = (g: MarginGroup) =>
-    g.positions.reduce((s, p) => s + (p.maint !== undefined && p.maint > 0 ? Math.abs(p.qty) * p.maint : 0), 0);
+    g.positions.reduce(
+      (s, p) => s + (p.maint !== undefined && p.maint > 0 ? Math.abs(p.qty) * p.maint : 0),
+      0,
+    );
 
   const pledgeValue = (loan: Loan): number => {
     let v = 0;
@@ -662,7 +695,8 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
       if (raw > EPS) {
         const rate = rateTo(g.currency);
         const prev = marginNeed.get(g.key);
-        if (!prev || raw * rate > prev.value * prev.rate) marginNeed.set(g.key, { value: raw, rate });
+        if (!prev || raw * rate > prev.value * prev.rate)
+          marginNeed.set(g.key, { value: raw, rate });
         if (!g.inShort) {
           const ev = record({
             type: 'margin_shortfall',
@@ -719,7 +753,8 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
         const cure = bal - value / call;
         const rate = rateTo(pl.loan.currency);
         const prev = pledgeNeed.get(pl.loan.id);
-        if (!prev || cure * rate > prev.value * prev.rate) pledgeNeed.set(pl.loan.id, { value: cure, rate });
+        if (!prev || cure * rate > prev.value * prev.rate)
+          pledgeNeed.set(pl.loan.id, { value: cure, rate });
         if (!pl.inCall) {
           record({
             type: 'pledge_call',
@@ -768,7 +803,8 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
 
     if (!minNav || nav < minNav.value) minNav = { value: nav, date };
     if (!minCash || cashBase < minCash.value) minCash = { value: cashBase, date };
-    if (ratio !== undefined && (!minRatio || ratio < minRatio.value)) minRatio = { value: ratio, date, ref: ratioRef };
+    if (ratio !== undefined && (!minRatio || ratio < minRatio.value))
+      minRatio = { value: ratio, date, ref: ratioRef };
     if (headroom !== undefined && (!minHead || headroom < minHead.value)) {
       minHead = { value: headroom, date, ref: headRef };
     }
@@ -844,7 +880,8 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
         const c = cashAt(p.accountId, p.currency);
         c.amount += p.qty * p.mult * (px - prev);
         if (p.type === 'perpetual' && annual) c.amount -= (p.qty * px * p.mult * annual) / 365;
-        if (p.type === 'future' && rollDates.has(date)) c.amount -= Math.abs(p.qty) * (params.rollCostPerContract ?? 0);
+        if (p.type === 'future' && rollDates.has(date))
+          c.amount -= Math.abs(p.qty) * (params.rollCostPerContract ?? 0);
       }
     }
 
@@ -852,7 +889,10 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
     curDate = date;
     for (const f of (flows.get(date) ?? []).slice().sort((a, b) => a.order - b.order)) {
       if (f.loan) {
-        loanBalance.set(f.loan.loanId, Math.max(0, (loanBalance.get(f.loan.loanId) ?? 0) - f.loan.principal));
+        loanBalance.set(
+          f.loan.loanId,
+          Math.max(0, (loanBalance.get(f.loan.loanId) ?? 0) - f.loan.principal),
+        );
         if (f.loan.fromOutside) continue;
       }
       if (f.dir === 'in') receive(f.currency, f.amount);
@@ -863,14 +903,17 @@ export function runSurvival(data: AppData, portfolio: Portfolio, params: Surviva
   }
 
   // ---- summary
-  const shortfalls = events.filter((e) => e.type === 'cash_shortfall' || e.type === 'margin_shortfall');
+  const shortfalls = events.filter(
+    (e) => e.type === 'cash_shortfall' || e.type === 'margin_shortfall',
+  );
   const first = shortfalls[0];
   const cashNeed = [...shadowMin.values()].reduce((s, m) => s + Math.max(0, -m.value) * m.rate, 0);
   const marginNeedBase = [...marginNeed.values()].reduce((s, m) => s + m.value * m.rate, 0);
   const pledgeNeedBase = [...pledgeNeed.values()].reduce((s, m) => s + m.value * m.rate, 0);
   const last = days[days.length - 1];
   const cashEnough = !events.some(
-    (e) => e.type === 'cash_shortfall' || e.type === 'margin_shortfall' || e.type === 'forced_reduction',
+    (e) =>
+      e.type === 'cash_shortfall' || e.type === 'margin_shortfall' || e.type === 'forced_reduction',
   );
   const navPositiveThroughout = (minNav?.value ?? 0) > 0;
 

@@ -1,10 +1,6 @@
 import { FxTable } from './fx';
 import { effectiveSecuritiesRate } from './fees';
-import {
-  UNCLASSIFIED_INDEX,
-  type Valuation,
-  type ValuedPosition,
-} from './valuation';
+import { UNCLASSIFIED_INDEX, type Valuation, type ValuedPosition } from './valuation';
 import {
   CORE_BUCKET,
   getSettings,
@@ -117,7 +113,10 @@ export function compareAllocation(data: AppData, valuation: Valuation): Allocati
   if (!navValid) warnings.push('NAV 不為正，權重無法計算');
 
   // Merge duplicate target rows of one index: weights add, the tightest band wins.
-  const targets = new Map<ID, { weight: number; tolerance: number; preferred?: ID; note?: string }>();
+  const targets = new Map<
+    ID,
+    { weight: number; tolerance: number; preferred?: ID; note?: string }
+  >();
   for (const t of data.targets) {
     const cur = targets.get(t.indexId);
     if (cur) {
@@ -142,7 +141,9 @@ export function compareAllocation(data: AppData, valuation: Valuation): Allocati
     const idx = indexById.get(indexId);
     const target = targets.get(indexId);
     const positions = valuation.positions.filter((p) => p.indexId === indexId && p.quantity !== 0);
-    const core = positions.filter((p) => p.bucket === CORE_BUCKET).reduce((s, p) => s + p.exposure, 0);
+    const core = positions
+      .filter((p) => p.bucket === CORE_BUCKET)
+      .reduce((s, p) => s + p.exposure, 0);
     const total = positions.reduce((s, p) => s + p.exposure, 0);
     const strategy = total - core;
     const targetWeight = target?.weight ?? 0;
@@ -172,7 +173,13 @@ export function compareAllocation(data: AppData, valuation: Valuation): Allocati
       instruments: breakdown(positions, total),
     });
   }
-  rows.sort((a, b) => Math.abs(b.targetExposure) + Math.abs(b.totalExposure) - Math.abs(a.targetExposure) - Math.abs(a.totalExposure));
+  rows.sort(
+    (a, b) =>
+      Math.abs(b.targetExposure) +
+      Math.abs(b.totalExposure) -
+      Math.abs(a.targetExposure) -
+      Math.abs(a.totalExposure),
+  );
 
   const groups: MarketGroup[] = [];
   for (const market of MARKET_ORDER) {
@@ -301,13 +308,19 @@ export function compareInstruments(
       const notes: string[] = [];
       const derivative = isDerivative(i.type);
       if (i.leverage !== 1) {
-        notes.push(`${i.leverage}× 每日重設槓桿：長期報酬具路徑相依性（波動耗損），不等於指數 ${i.leverage} 倍的長期報酬；另有較高內扣費用`);
+        notes.push(
+          `${i.leverage}× 每日重設槓桿：長期報酬具路徑相依性（波動耗損），不等於指數 ${i.leverage} 倍的長期報酬；另有較高內扣費用`,
+        );
       }
       if (i.type === 'future') {
-        notes.push('期貨需定期換月（roll）並承擔轉倉價差；保證金為占用資金而非曝險或負債；未動用資金的機會成本／融資成本需自行評估');
+        notes.push(
+          '期貨需定期換月（roll）並承擔轉倉價差；保證金為占用資金而非曝險或負債；未動用資金的機會成本／融資成本需自行評估',
+        );
       }
-      if (i.type === 'perpetual') notes.push('永續合約不需換月，但需支付／收取資金費率（funding）；保證金為占用資金');
-      if (derivative && !(i.initialMargin && i.initialMargin > 0)) notes.push('缺少原始保證金設定，無法估算資金占用');
+      if (i.type === 'perpetual')
+        notes.push('永續合約不需換月，但需支付／收取資金費率（funding）；保證金為占用資金');
+      if (derivative && !(i.initialMargin && i.initialMargin > 0))
+        notes.push('缺少原始保證金設定，無法估算資金占用');
 
       const price = quoteOf(data, i.id);
       const rate = fx.rate(i.currency, base);
@@ -449,7 +462,9 @@ export function pickInstrument(
   const byId = (id?: ID) => (id ? data.instruments.find((i) => i.id === id) : undefined);
   const explicit = byId(override) ?? byId(preferred);
   if (explicit) return explicit;
-  const plain = data.instruments.filter((i) => i.active && i.indexId === indexId && i.leverage === 1);
+  const plain = data.instruments.filter(
+    (i) => i.active && i.indexId === indexId && i.leverage === 1,
+  );
   const cash = plain.filter((i) => !isDerivative(i.type));
   const pool = cash.length ? cash : plain;
   return pool.find((i) => quoteOf(data, i.id) !== undefined) ?? pool[0];
@@ -557,7 +572,13 @@ export function planAllocation(
     if (gap < 0) {
       let remaining = -gap;
       const held = valuation.positions
-        .filter((p) => p.indexId === row.indexId && p.bucket === CORE_BUCKET && p.quantity > 0 && p.exposure > 0)
+        .filter(
+          (p) =>
+            p.indexId === row.indexId &&
+            p.bucket === CORE_BUCKET &&
+            p.quantity > 0 &&
+            p.exposure > 0,
+        )
         .sort((a, b) => b.exposure - a.exposure);
       for (const p of held) {
         if (remaining <= EPS) break;
@@ -598,13 +619,20 @@ export function planAllocation(
         coreExposure.set(row.indexId, (coreExposure.get(row.indexId) ?? 0) - qty * unit);
       }
       if (remaining > EPS && remaining / postFundingNav > row.tolerance + EPS) {
-        warnings.push(`${row.name} 目標低於持有部位且無足夠持倉可賣；被動核心的建議不建立空頭部位。短期避險可自行以期貨建立並歸入主動策略，其曝險會計入整體 Gross / Net 槓桿`);
+        warnings.push(
+          `${row.name} 目標低於持有部位且無足夠持倉可賣；被動核心的建議不建立空頭部位。短期避險可自行以期貨建立並歸入主動策略，其曝險會計入整體 Gross / Net 槓桿`,
+        );
       }
       continue;
     }
 
     // Under-weight: pick an instrument and size the buy.
-    const inst = pickInstrument(data, row.indexId, row.preferredInstrumentId, request.overrides?.[row.indexId]);
+    const inst = pickInstrument(
+      data,
+      row.indexId,
+      row.preferredInstrumentId,
+      request.overrides?.[row.indexId],
+    );
     if (!inst) {
       warnings.push(`${row.name} 沒有可用的商品`);
       continue;
@@ -640,7 +668,8 @@ export function planAllocation(
 
   // 3. Fund the buys; scale proportionally to the gaps when cash is short.
   const available = pool + sellProceeds;
-  const costBase = (c: Candidate, q: number) => costOf(c.instrument, q, c.price, feeRate).cash * c.fx;
+  const costBase = (c: Candidate, q: number) =>
+    costOf(c.instrument, q, c.price, feeRate).cash * c.fx;
   const need = buys.reduce((s, c) => s + costBase(c, c.quantity), 0);
   const factor = need > available + EPS ? available / need : 1;
   if (factor < 1) warnings.push('可用資金不足以補足所有缺口，已依缺口比例分配');
@@ -651,7 +680,8 @@ export function planAllocation(
   let buyFees = 0;
   for (const c of buys) {
     const scalable = costBase(c, c.quantity) > 0;
-    const quantity = factor < 1 && scalable ? roundToLot(c.quantity * factor, c.instrument.lotSize) : c.quantity;
+    const quantity =
+      factor < 1 && scalable ? roundToLot(c.quantity * factor, c.instrument.lotSize) : c.quantity;
     if (!(quantity > 0)) {
       if (!scalable || factor === 1) {
         warnings.push(`${c.instrument.symbol} 最小交易單位大於缺口，湊整後無法下單`);
@@ -728,8 +758,14 @@ export function planAllocation(
   if (factor === 1) {
     for (const b of buys) {
       const left = residualGaps.find((r) => r.indexId === b.indexId);
-      if (left && left.gapWeight > ROUNDING_WARN_WEIGHT && buySuggestions.some((s) => s.indexId === b.indexId)) {
-        warnings.push(`${b.instrument.symbol} 受最小交易單位／整數口數限制，仍有 ${left.gap.toFixed(0)} ${base} 的缺口`);
+      if (
+        left &&
+        left.gapWeight > ROUNDING_WARN_WEIGHT &&
+        buySuggestions.some((s) => s.indexId === b.indexId)
+      ) {
+        warnings.push(
+          `${b.instrument.symbol} 受最小交易單位／整數口數限制，仍有 ${left.gap.toFixed(0)} ${base} 的缺口`,
+        );
       }
     }
   }

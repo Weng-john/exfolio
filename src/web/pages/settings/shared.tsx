@@ -23,10 +23,18 @@ export function describeRefs(refs: Reference[]): string {
   return refs.map((r) => `${r.table} ${r.count} 筆`).join('、');
 }
 
-export function Check(props: { label: ReactNode; checked: boolean; onChange: (v: boolean) => void }) {
+export function Check(props: {
+  label: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label className="settings-check">
-      <input type="checkbox" checked={props.checked} onChange={(e) => props.onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={(e) => props.onChange(e.target.checked)}
+      />
       {props.label}
     </label>
   );

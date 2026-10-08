@@ -13,8 +13,16 @@ const data = () => {
   const d = fresh();
   d.strategies.push({ id: 'st1', name: '策略一', status: 'active' });
   d.loans.push({
-    id: 'credit1', name: '信貸', kind: 'credit', lender: '銀行', currency: 'TWD',
-    principal: 100_000, annualRate: 0.03, method: 'annuity', startDate: '2026-01-01', active: true,
+    id: 'credit1',
+    name: '信貸',
+    kind: 'credit',
+    lender: '銀行',
+    currency: 'TWD',
+    principal: 100_000,
+    annualRate: 0.03,
+    method: 'annuity',
+    startDate: '2026-01-01',
+    active: true,
   });
   return d;
 };
@@ -22,7 +30,11 @@ const data = () => {
 describe('parseCsvRecords', () => {
   it('handles quotes, embedded commas, newlines and CRLF', () => {
     const rows = parseCsvRecords('a,b\r\n"x,1","he said ""hi""\nline2"\r\n\r\nlast,');
-    expect(rows).toEqual([['a', 'b'], ['x,1', 'he said "hi"\nline2'], ['last', '']]);
+    expect(rows).toEqual([
+      ['a', 'b'],
+      ['x,1', 'he said "hi"\nline2'],
+      ['last', ''],
+    ]);
   });
 
   it('strips a UTF-8 BOM', () => {
@@ -34,30 +46,72 @@ describe('transaction CSV round trip', () => {
   it('exports and re-imports every field', () => {
     const d = data();
     const txs: Transaction[] = [
-      tx({ id: 'a', type: 'buy', date: '2026-01-02', currency: 'TWD', instrumentId: 'tw_0050', quantity: 100, price: 50, fee: 20, tax: 0, note: '含逗號, "引號"\n換行', tags: ['x', 'y'] }),
-      tx({ id: 'b', type: 'transfer', date: '2026-01-03', currency: 'TWD', amount: 3200, toAccountId: 'sinopac_us', toCurrency: 'USD', toAmount: 100, fxRate: 1, toBucket: 'st1' }),
-      tx({ id: 'c', type: 'loan_repay', date: '2026-01-04', amount: 1000, loanId: 'credit1', principal: 900, interest: 100, source: 'external' }),
+      tx({
+        id: 'a',
+        type: 'buy',
+        date: '2026-01-02',
+        currency: 'TWD',
+        instrumentId: 'tw_0050',
+        quantity: 100,
+        price: 50,
+        fee: 20,
+        tax: 0,
+        note: '含逗號, "引號"\n換行',
+        tags: ['x', 'y'],
+      }),
+      tx({
+        id: 'b',
+        type: 'transfer',
+        date: '2026-01-03',
+        currency: 'TWD',
+        amount: 3200,
+        toAccountId: 'sinopac_us',
+        toCurrency: 'USD',
+        toAmount: 100,
+        fxRate: 1,
+        toBucket: 'st1',
+      }),
+      tx({
+        id: 'c',
+        type: 'loan_repay',
+        date: '2026-01-04',
+        amount: 1000,
+        loanId: 'credit1',
+        principal: 900,
+        interest: 100,
+        source: 'external',
+      }),
       tx({ id: 'd', type: 'adjust', date: '2026-01-05', amount: -12.5, bucket: 'st1' }),
     ];
     const res = parseTransactionsCsv(transactionsToCsv(txs), d);
     expect(res.errors).toEqual([]);
     // buy / sell amount is normalised to 0
-    expect(res.transactions).toEqual(txs.map((t) => ({ ...t, amount: t.type === 'buy' ? 0 : t.amount })));
+    expect(res.transactions).toEqual(
+      txs.map((t) => ({ ...t, amount: t.type === 'buy' ? 0 : t.amount })),
+    );
   });
 
   it('accepts a BOM and resolves accounts by name and instruments by symbol', () => {
-    const csv = '﻿' + readFileSync(new URL('./fixtures/transactions.sample.csv', import.meta.url), 'utf8');
+    const csv =
+      '﻿' + readFileSync(new URL('./fixtures/transactions.sample.csv', import.meta.url), 'utf8');
     const res = parseTransactionsCsv(csv, data());
     expect(res.transactions.map((t) => t.id)).toEqual(['fx1', 'fx2']);
     expect(res.transactions[0].accountId).toBe('kgi_tw');
-    expect(res.transactions[1]).toMatchObject({ instrumentId: 'tw_0050', currency: 'TWD', amount: 0 });
+    expect(res.transactions[1]).toMatchObject({
+      instrumentId: 'tw_0050',
+      currency: 'TWD',
+      amount: 0,
+    });
     expect(res.transactions[1].note).toBe('含逗號, 與"引號"');
   });
 });
 
 describe('validation', () => {
   it('reports row numbers and reasons instead of throwing', () => {
-    const csv = readFileSync(new URL('./fixtures/transactions.sample.csv', import.meta.url), 'utf8');
+    const csv = readFileSync(
+      new URL('./fixtures/transactions.sample.csv', import.meta.url),
+      'utf8',
+    );
     const res = parseTransactionsCsv(csv, data());
     expect(res.errors.map((e) => e.row)).toEqual([4, 5]);
     expect(res.errors[0].message).toContain('date');
@@ -68,7 +122,8 @@ describe('validation', () => {
     const d = data();
     expect(parseTransactionsCsv('foo\n1', d).errors[0].message).toContain('缺少必要欄位');
     expect(parseTransactionsCsv('', d).errors).toHaveLength(1);
-    const head = 'id,date,type,account,currency,amount,instrument,quantity,price,toAccount,loanId,source,bucket\n';
+    const head =
+      'id,date,type,account,currency,amount,instrument,quantity,price,toAccount,loanId,source,bucket\n';
     const rows = [
       'e1,2026-01-01,deposit,kgi_tw,TWD,abc,,,,,,,', // bad number
       'e2,2026-01-01,deposit,kgi_tw,TWD,-5,,,,,,,', // negative amount
@@ -87,7 +142,8 @@ describe('validation', () => {
   });
 
   it('allows signed amounts for adjust and funding_fee', () => {
-    const csv = 'date,type,account,currency,amount\n2026-01-01,adjust,kgi_tw,TWD,-5\n2026-01-01,funding_fee,binance_main,USDT,-0.2';
+    const csv =
+      'date,type,account,currency,amount\n2026-01-01,adjust,kgi_tw,TWD,-5\n2026-01-01,funding_fee,binance_main,USDT,-0.2';
     const res = parseTransactionsCsv(csv, data());
     expect(res.errors).toEqual([]);
     expect(res.transactions.map((t) => t.amount)).toEqual([-5, -0.2]);

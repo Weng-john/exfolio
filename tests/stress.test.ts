@@ -34,10 +34,22 @@ function book(): AppData {
   setPrice(data, 'us_VOO', 500, 'USD');
   patch(data, 'fut_MTX', { maintenanceMargin: 40_000 });
   data.loans.push({
-    id: 'L1', name: '質押借款', kind: 'pledge', lender: '示範銀行', currency: 'TWD', principal: 300_000,
-    annualRate: 0.03, method: 'interest_only', startDate: '2026-08-01', termMonths: 12, payDay: 1,
-    collateral: [{ instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 5000, loanableRatio: 0.6 }],
-    callRatio: 1.4, active: true,
+    id: 'L1',
+    name: '質押借款',
+    kind: 'pledge',
+    lender: '示範銀行',
+    currency: 'TWD',
+    principal: 300_000,
+    annualRate: 0.03,
+    method: 'interest_only',
+    startDate: '2026-08-01',
+    termMonths: 12,
+    payDay: 1,
+    collateral: [
+      { instrumentId: 'tw_0050', accountId: 'kgi_tw', quantity: 5000, loanableRatio: 0.6 },
+    ],
+    callRatio: 1.4,
+    active: true,
   });
   data.transactions.push(
     tx({ type: 'deposit', date: D, amount: 1_000_000 }),
@@ -45,9 +57,31 @@ function book(): AppData {
     tx({ type: 'buy', date: D, instrumentId: 'tw_0050', quantity: 5000, price: 100 }),
     tx({ type: 'buy', date: D, instrumentId: 'tw_00631L', quantity: 2000, price: 50 }),
     tx({ type: 'deposit', date: D, accountId: 'kgi_fut', amount: 300_000 }),
-    tx({ type: 'buy', date: D, accountId: 'kgi_fut', instrumentId: 'fut_MTX', quantity: 2, price: 20_000 }),
-    tx({ type: 'deposit', date: D, accountId: 'sinopac_us', currency: 'USD', amount: 10_000, fxRate: 30 }),
-    tx({ type: 'buy', date: D, accountId: 'sinopac_us', currency: 'USD', instrumentId: 'us_VOO', quantity: 10, price: 500 }),
+    tx({
+      type: 'buy',
+      date: D,
+      accountId: 'kgi_fut',
+      instrumentId: 'fut_MTX',
+      quantity: 2,
+      price: 20_000,
+    }),
+    tx({
+      type: 'deposit',
+      date: D,
+      accountId: 'sinopac_us',
+      currency: 'USD',
+      amount: 10_000,
+      fxRate: 30,
+    }),
+    tx({
+      type: 'buy',
+      date: D,
+      accountId: 'sinopac_us',
+      currency: 'USD',
+      instrumentId: 'us_VOO',
+      quantity: 10,
+      price: 500,
+    }),
   );
   return data;
 }
@@ -117,8 +151,23 @@ describe('floor, uniform default and presets', () => {
     setFx(data, 'USD', 'TWD', 30);
     setPrice(data, 'us_UPRO', 100, 'USD');
     data.transactions.push(
-      tx({ type: 'deposit', date: D, accountId: 'sinopac_us', currency: 'USD', amount: 1000, fxRate: 30 }),
-      tx({ type: 'buy', date: D, accountId: 'sinopac_us', currency: 'USD', instrumentId: 'us_UPRO', quantity: 5, price: 100 }),
+      tx({
+        type: 'deposit',
+        date: D,
+        accountId: 'sinopac_us',
+        currency: 'USD',
+        amount: 1000,
+        fxRate: 30,
+      }),
+      tx({
+        type: 'buy',
+        date: D,
+        accountId: 'sinopac_us',
+        currency: 'USD',
+        instrumentId: 'us_UPRO',
+        quantity: 5,
+        price: 100,
+      }),
     );
     const r = run(data, { indexMoves: { sp500: -0.4 }, currencyMoves: {} });
     const p = r.positions[0];

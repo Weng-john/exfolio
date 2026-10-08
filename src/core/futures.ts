@@ -1,7 +1,18 @@
 import { FxTable } from './fx';
 import { buildLedger, type Position } from './ledger';
 import { estimateFees } from './fees';
-import { getSettings, isDerivative, type AppData, type Currency, type ID, type Instrument, type ISODate, type PriceQuote, type RolloverRecord, type Transaction } from './types';
+import {
+  getSettings,
+  isDerivative,
+  type AppData,
+  type Currency,
+  type ID,
+  type Instrument,
+  type ISODate,
+  type PriceQuote,
+  type RolloverRecord,
+  type Transaction,
+} from './types';
 import { type Portfolio, type PriceStatus, type ValuedPosition } from './valuation';
 
 const DAY = 86_400_000;
@@ -137,12 +148,17 @@ function instrumentOf(data: AppData, id: ID): Instrument {
   return instrument;
 }
 
-function valuedFuturesPosition(p: ValuedPosition, nav: number, today: ISODate): FuturesPosition | undefined {
+function valuedFuturesPosition(
+  p: ValuedPosition,
+  nav: number,
+  today: ISODate,
+): FuturesPosition | undefined {
   const instrument = p.instrument;
   if (!isDerivative(instrument.type) || p.quantity === 0) return undefined;
   const initial = instrument.initialMargin;
   const maintenance = instrument.maintenanceMargin;
-  const missing = !(initial !== undefined && initial > 0) || !(maintenance !== undefined && maintenance > 0);
+  const missing =
+    !(initial !== undefined && initial > 0) || !(maintenance !== undefined && maintenance > 0);
   return {
     key: p.key,
     accountId: p.accountId,
@@ -174,7 +190,8 @@ function valuedFuturesPosition(p: ValuedPosition, nav: number, today: ISODate): 
     daysToExpiry: instrument.expiry ? daysBetween(today, instrument.expiry) : undefined,
     initialMargin: instrument.initialMargin,
     maintenanceMargin: instrument.maintenanceMargin,
-    initialMarginRequired: initial !== undefined && initial > 0 ? Math.abs(p.quantity) * initial : undefined,
+    initialMarginRequired:
+      initial !== undefined && initial > 0 ? Math.abs(p.quantity) * initial : undefined,
     maintenanceMarginRequired:
       maintenance !== undefined && maintenance > 0 ? Math.abs(p.quantity) * maintenance : undefined,
     marginSpecMissing: missing,
@@ -182,11 +199,19 @@ function valuedFuturesPosition(p: ValuedPosition, nav: number, today: ISODate): 
 }
 
 /** Open futures and perpetual positions, marked with the portfolio's quotes. */
-export function futuresPositions(_data: AppData, portfolio: Portfolio, today: ISODate): FuturesPosition[] {
+export function futuresPositions(
+  _data: AppData,
+  portfolio: Portfolio,
+  today: ISODate,
+): FuturesPosition[] {
   return portfolio.valuation.positions
     .map((p) => valuedFuturesPosition(p, portfolio.valuation.nav, today))
     .filter((p): p is FuturesPosition => p !== undefined)
-    .sort((a, b) => (a.expiry ?? '9999-12-31').localeCompare(b.expiry ?? '9999-12-31') || a.symbol.localeCompare(b.symbol));
+    .sort(
+      (a, b) =>
+        (a.expiry ?? '9999-12-31').localeCompare(b.expiry ?? '9999-12-31') ||
+        a.symbol.localeCompare(b.symbol),
+    );
 }
 
 function convert(fx: FxTable, amount: number, from: Currency, to: Currency): number {
@@ -220,7 +245,8 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
     };
     row.unrealizedPnl += convert(fx, p.unrealizedPnlInstrument, p.currency, base);
     if (p.initialMarginRequired === undefined) row.initialMarginRequired = undefined;
-    else if (row.initialMarginRequired !== undefined) row.initialMarginRequired += convert(fx, p.initialMarginRequired, p.currency, base);
+    else if (row.initialMarginRequired !== undefined)
+      row.initialMarginRequired += convert(fx, p.initialMarginRequired, p.currency, base);
     if (p.maintenanceMarginRequired === undefined) row.maintenanceMarginRequired = undefined;
     else if (row.maintenanceMarginRequired !== undefined)
       row.maintenanceMarginRequired += convert(fx, p.maintenanceMarginRequired, p.currency, base);
@@ -251,21 +277,29 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
 
 /** Follow one futures strategy across every contract month in a series. */
 export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
-  const instruments = data.instruments.filter((i) => i.seriesId === seriesId && isDerivative(i.type));
+  const instruments = data.instruments.filter(
+    (i) => i.seriesId === seriesId && isDerivative(i.type),
+  );
   const ids = new Set(instruments.map((i) => i.id));
   const ledger = buildLedger(data);
   const byInstrument = new Map<ID, number>();
-  for (const p of ledger.positions) if (ids.has(p.instrumentId)) byInstrument.set(p.instrumentId, (byInstrument.get(p.instrumentId) ?? 0) + p.realizedPnl);
+  for (const p of ledger.positions)
+    if (ids.has(p.instrumentId))
+      byInstrument.set(p.instrumentId, (byInstrument.get(p.instrumentId) ?? 0) + p.realizedPnl);
   const contracts = instruments
     .map((instrument) => ({
       instrumentId: instrument.id,
       symbol: instrument.symbol,
       expiry: instrument.expiry,
-      trades: data.transactions.filter((t) => t.instrumentId === instrument.id && (t.type === 'buy' || t.type === 'sell')),
+      trades: data.transactions.filter(
+        (t) => t.instrumentId === instrument.id && (t.type === 'buy' || t.type === 'sell'),
+      ),
       realizedPnl: byInstrument.get(instrument.id) ?? 0,
     }))
     .sort((a, b) => (a.expiry ?? '9999-12-31').localeCompare(b.expiry ?? '9999-12-31'));
-  const rollovers = data.rollovers.filter((r) => r.seriesId === seriesId).sort((a, b) => a.date.localeCompare(b.date));
+  const rollovers = data.rollovers
+    .filter((r) => r.seriesId === seriesId)
+    .sort((a, b) => a.date.localeCompare(b.date));
   const base = getSettings(data).baseCurrency;
   const fx = new FxTable(data.fxRates);
   const cumulativeRealizedPnl = contracts.reduce((s, c) => {
@@ -274,7 +308,10 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
   }, 0);
   const cumulativeRollCost = rollovers.reduce((s, r) => {
     const from = instrumentOf(data, r.fromInstrumentId);
-    return s + convert(fx, (r.openPrice - r.closePrice) * from.multiplier * r.quantity, from.currency, base);
+    return (
+      s +
+      convert(fx, (r.openPrice - r.closePrice) * from.multiplier * r.quantity, from.currency, base)
+    );
   }, 0);
   const transactionIds = new Set(rollovers.flatMap((r) => r.transactionIds ?? []));
   const tradeFees = data.transactions
@@ -300,7 +337,10 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
   };
 }
 
-function positionInstrument(data: AppData, position: FuturesPosition | ValuedPosition | Position): Instrument {
+function positionInstrument(
+  data: AppData,
+  position: FuturesPosition | ValuedPosition | Position,
+): Instrument {
   return instrumentOf(data, position.instrumentId);
 }
 
@@ -324,8 +364,10 @@ export function planRollover(
   const from = positionInstrument(data, position);
   const to = instrumentOf(data, toInstrumentId);
   const quantity = positionQuantity(position);
-  if (!isDerivative(from.type) || !isDerivative(to.type)) throw new Error('轉倉只適用於期貨或永續合約');
-  if (!from.seriesId || from.seriesId !== to.seriesId) throw new Error('目標合約必須屬於同一 series');
+  if (!isDerivative(from.type) || !isDerivative(to.type))
+    throw new Error('轉倉只適用於期貨或永續合約');
+  if (!from.seriesId || from.seriesId !== to.seriesId)
+    throw new Error('目標合約必須屬於同一 series');
   if (!quantity) throw new Error('沒有可轉倉的部位');
   const fromPrice = priceOf(prices, from.id) ?? positionPrice(position);
   const toPrice = priceOf(prices, to.id);
@@ -339,8 +381,11 @@ export function planRollover(
   const contracts = Math.abs(quantity);
   const closeFee = estimateFees(broker, from, closeSide, contracts, fromPrice);
   const openFee = estimateFees(broker, to, openSide, contracts, toPrice);
-  const marginMissing = !(from.initialMargin && from.initialMargin > 0) || !(to.initialMargin && to.initialMargin > 0);
-  const marginChange = marginMissing ? undefined : contracts * (to.initialMargin! - from.initialMargin!);
+  const marginMissing =
+    !(from.initialMargin && from.initialMargin > 0) || !(to.initialMargin && to.initialMargin > 0);
+  const marginChange = marginMissing
+    ? undefined
+    : contracts * (to.initialMargin! - from.initialMargin!);
   const base = getSettings(data).baseCurrency;
   const fx = new FxTable(data.fxRates);
   return {
@@ -360,7 +405,8 @@ export function planRollover(
     estimatedTax: closeFee.tax + openFee.tax,
     estimatedCosts: closeFee.fee + closeFee.tax + openFee.fee + openFee.tax,
     marginChange,
-    marginChangeBase: marginChange === undefined ? undefined : convert(fx, marginChange, to.currency, base),
+    marginChangeBase:
+      marginChange === undefined ? undefined : convert(fx, marginChange, to.currency, base),
     marginSpecMissing: marginMissing,
     currency: from.currency,
   };

@@ -28,7 +28,11 @@ export function portfolioAlerts(data: AppData, v: Valuation): Alert[] {
       detail: '負債已超過資產，槓桿與權重比率無法計算。',
     });
   }
-  if (t.grossLeverage !== undefined && v.grossLeverage !== undefined && v.grossLeverage > t.grossLeverage) {
+  if (
+    t.grossLeverage !== undefined &&
+    v.grossLeverage !== undefined &&
+    v.grossLeverage > t.grossLeverage
+  ) {
     alerts.push({
       id: 'gross-leverage',
       level: 'warn',

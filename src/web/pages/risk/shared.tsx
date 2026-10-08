@@ -4,7 +4,8 @@ import { Field } from '../../components/ui';
 import { removeRow, upsertRow } from '../../store';
 
 /** Fraction <-> percent text for the inputs: 0.125 shows as "12.5". */
-const toText = (v: number | undefined) => (v === undefined ? '' : String(Math.round(v * 1e6) / 1e4));
+const toText = (v: number | undefined) =>
+  v === undefined ? '' : String(Math.round(v * 1e6) / 1e4);
 const parse = (t: string): number | undefined => {
   if (t.trim() === '' || t === '-' || t === '.') return undefined;
   const n = Number(t);

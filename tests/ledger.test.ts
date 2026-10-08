@@ -22,8 +22,16 @@ describe('spec 4.2: leverage moves with gains and external repayment', () => {
   const build = () => {
     const data = fresh();
     data.loans.push({
-      id: 'credit1', name: '信貸', kind: 'credit', lender: '銀行', currency: 'TWD',
-      principal: 100_000, annualRate: 0.03, method: 'annuity', startDate: '2026-01-01', active: true,
+      id: 'credit1',
+      name: '信貸',
+      kind: 'credit',
+      lender: '銀行',
+      currency: 'TWD',
+      principal: 100_000,
+      annualRate: 0.03,
+      method: 'annuity',
+      startDate: '2026-01-01',
+      active: true,
     });
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 100_000 }),
@@ -57,7 +65,13 @@ describe('spec 4.2: leverage moves with gains and external repayment', () => {
     const data = build();
     setPrice(data, 'tw_0050', 125);
     data.transactions.push(
-      tx({ type: 'loan_repay', date: '2026-06-01', amount: 50_000, loanId: 'credit1', source: 'external' }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-06-01',
+        amount: 50_000,
+        loanId: 'credit1',
+        source: 'external',
+      }),
     );
     const { ledger, valuation: v } = computePortfolio(data, opts);
     expect(v.liabilities).toBe(50_000);
@@ -73,7 +87,13 @@ describe('spec 4.2: leverage moves with gains and external repayment', () => {
     data.transactions.push(tx({ type: 'deposit', date: '2026-03-01', amount: 50_000 }));
     const before = computePortfolio(data, opts).valuation;
     data.transactions.push(
-      tx({ type: 'loan_repay', date: '2026-06-01', amount: 50_000, loanId: 'credit1', source: 'portfolio' }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-06-01',
+        amount: 50_000,
+        loanId: 'credit1',
+        source: 'portfolio',
+      }),
     );
     const after = computePortfolio(data, opts).valuation;
     expect(after.nav).toBe(before.nav);
@@ -87,9 +107,31 @@ describe('trades', () => {
     const data = fresh();
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 100_000 }),
-      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'tw_0050', quantity: 100, price: 100, fee: 10 }),
-      tx({ type: 'buy', date: '2026-01-03', instrumentId: 'tw_0050', quantity: 100, price: 120, fee: 10 }),
-      tx({ type: 'sell', date: '2026-01-04', instrumentId: 'tw_0050', quantity: 150, price: 130, fee: 10, tax: 20 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        instrumentId: 'tw_0050',
+        quantity: 100,
+        price: 100,
+        fee: 10,
+      }),
+      tx({
+        type: 'buy',
+        date: '2026-01-03',
+        instrumentId: 'tw_0050',
+        quantity: 100,
+        price: 120,
+        fee: 10,
+      }),
+      tx({
+        type: 'sell',
+        date: '2026-01-04',
+        instrumentId: 'tw_0050',
+        quantity: 150,
+        price: 130,
+        fee: 10,
+        tax: 20,
+      }),
     );
     const ledger = buildLedger(data);
     const pos = ledger.positions[0];
@@ -128,7 +170,15 @@ describe('futures', () => {
     const data = fresh();
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', accountId: 'kgi_fut', amount: 500_000 }),
-      tx({ type: 'buy', date: '2026-01-02', accountId: 'kgi_fut', instrumentId: 'fut_MTX', quantity: 2, price: 20_000, fee: 40 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        accountId: 'kgi_fut',
+        instrumentId: 'fut_MTX',
+        quantity: 2,
+        price: 20_000,
+        fee: 40,
+      }),
     );
     return data;
   };
@@ -155,7 +205,14 @@ describe('futures', () => {
   it('settles realized P&L to cash and nets long against short', () => {
     const data = build();
     data.transactions.push(
-      tx({ type: 'sell', date: '2026-01-05', accountId: 'kgi_fut', instrumentId: 'fut_MTX', quantity: 3, price: 20_500 }),
+      tx({
+        type: 'sell',
+        date: '2026-01-05',
+        accountId: 'kgi_fut',
+        instrumentId: 'fut_MTX',
+        quantity: 3,
+        price: 20_500,
+      }),
     );
     setPrice(data, 'fut_MTX', 20_500);
     const { ledger, valuation: v } = computePortfolio(data, opts);
@@ -169,7 +226,14 @@ describe('futures', () => {
   it('shows gross and net separately when long and short offset', () => {
     const data = build();
     data.transactions.push(
-      tx({ type: 'sell', date: '2026-01-05', accountId: 'kgi_fut', instrumentId: 'fut_TMF', quantity: 10, price: 20_000 }),
+      tx({
+        type: 'sell',
+        date: '2026-01-05',
+        accountId: 'kgi_fut',
+        instrumentId: 'fut_TMF',
+        quantity: 10,
+        price: 20_000,
+      }),
     );
     setPrice(data, 'fut_MTX', 20_000);
     setPrice(data, 'fut_TMF', 20_000);
@@ -189,10 +253,23 @@ describe('multi-currency and transfers', () => {
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', accountId: 'sinopac_tw', amount: 320_000 }),
       tx({
-        type: 'transfer', date: '2026-01-02', accountId: 'sinopac_tw', amount: 320_000,
-        toAccountId: 'sinopac_us', toCurrency: 'USD', toAmount: 10_000,
+        type: 'transfer',
+        date: '2026-01-02',
+        accountId: 'sinopac_tw',
+        amount: 320_000,
+        toAccountId: 'sinopac_us',
+        toCurrency: 'USD',
+        toAmount: 10_000,
       }),
-      tx({ type: 'buy', date: '2026-01-03', accountId: 'sinopac_us', currency: 'USD', instrumentId: 'us_SSO', quantity: 100, price: 90 }),
+      tx({
+        type: 'buy',
+        date: '2026-01-03',
+        accountId: 'sinopac_us',
+        currency: 'USD',
+        instrumentId: 'us_SSO',
+        quantity: 100,
+        price: 90,
+      }),
     );
     setPrice(data, 'us_SSO', 90, 'USD');
     const { ledger, valuation: v } = computePortfolio(data, opts);

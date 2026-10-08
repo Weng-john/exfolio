@@ -18,12 +18,16 @@ describe('pickTaifexQuote', () => {
   });
 
   it('prefers a later after-hours trade', () => {
-    const night = [{ SymbolID: 'TMFA6-M', CLastPrice: '19950.00', CDate: '20260105', CTime: '213000' }];
+    const night = [
+      { SymbolID: 'TMFA6-M', CLastPrice: '19950.00', CDate: '20260105', CTime: '213000' },
+    ];
     expect(pickTaifexQuote('TMF', { '0': regular, '1': night })?.price).toBe(19950);
   });
 
   it('dates after-hours trades past midnight on the next calendar day', () => {
-    const night = [{ SymbolID: 'TMFA6-M', CLastPrice: '19900.00', CDate: '20260105', CTime: '040823' }];
+    const night = [
+      { SymbolID: 'TMFA6-M', CLastPrice: '19900.00', CDate: '20260105', CTime: '040823' },
+    ];
     expect(pickTaifexQuote('TMF', { '0': regular, '1': night })).toEqual({
       price: 19900,
       at: at('2026-01-06T04:08:23+08:00'),
@@ -36,7 +40,9 @@ describe('pickTaifexQuote', () => {
   });
 
   it('matches an exact contract in either session', () => {
-    const night = [{ SymbolID: 'TMFB6-M', CLastPrice: '20050.00', CDate: '20260105', CTime: '220000' }];
+    const night = [
+      { SymbolID: 'TMFB6-M', CLastPrice: '20050.00', CDate: '20260105', CTime: '220000' },
+    ];
     expect(pickTaifexQuote('TMFB6-F', { '0': regular, '1': night })?.price).toBe(20050);
     expect(pickTaifexQuote('TMFC6-F', { '0': regular, '1': night })).toBeUndefined();
   });

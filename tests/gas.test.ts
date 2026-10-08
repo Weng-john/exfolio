@@ -13,10 +13,19 @@ const CLIENT_ID = 'fictional-client-id.apps.example';
 const DAY = 86_400_000;
 
 class FakeRange {
-  constructor(private sheet: FakeSheet, private row: number, private col: number, private rows: number, private cols: number) {}
+  constructor(
+    private sheet: FakeSheet,
+    private row: number,
+    private col: number,
+    private rows: number,
+    private cols: number,
+  ) {}
   getValues() {
     return Array.from({ length: this.rows }, (_, r) =>
-      Array.from({ length: this.cols }, (_, c) => this.sheet.cells[this.row - 1 + r]?.[this.col - 1 + c] ?? ''),
+      Array.from(
+        { length: this.cols },
+        (_, c) => this.sheet.cells[this.row - 1 + r]?.[this.col - 1 + c] ?? '',
+      ),
     );
   }
   getValue() {
@@ -37,7 +46,10 @@ class FakeRange {
 
 class FakeSheet {
   cells: unknown[][] = [];
-  constructor(public name: string, public guard: () => void) {}
+  constructor(
+    public name: string,
+    public guard: () => void,
+  ) {}
   getLastRow() {
     return this.cells.length;
   }
@@ -56,7 +68,11 @@ class FakeSheet {
 
 class FakeSpreadsheet {
   sheets = new Map<string, FakeSheet>();
-  constructor(public id: string, public guard: () => void, defaultSheet: boolean) {
+  constructor(
+    public id: string,
+    public guard: () => void,
+    defaultSheet: boolean,
+  ) {
     if (defaultSheet) this.sheets.set('Sheet1', new FakeSheet('Sheet1', guard));
   }
   getId() {
@@ -83,7 +99,8 @@ class FakeSpreadsheet {
 type FetchReply = { code: number; text: string };
 type Bytes = number[];
 
-const toBuffer = (v: string | Bytes) => (typeof v === 'string' ? Buffer.from(v, 'utf8') : Buffer.from(v.map((b) => b & 0xff)));
+const toBuffer = (v: string | Bytes) =>
+  typeof v === 'string' ? Buffer.from(v, 'utf8') : Buffer.from(v.map((b) => b & 0xff));
 const signed = (buf: Buffer): Bytes => Array.from(buf, (b) => (b > 127 ? b - 256 : b));
 
 function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = () => []) {
@@ -129,7 +146,10 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
     }
   }
 
-  const reply = (r: FetchReply) => ({ getResponseCode: () => r.code, getContentText: () => r.text });
+  const reply = (r: FetchReply) => ({
+    getResponseCode: () => r.code,
+    getContentText: () => r.text,
+  });
   const context = vm.createContext({
     Date: FakeDate,
     SpreadsheetApp: {
@@ -165,7 +185,8 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
           if (hit && hit.expires <= clock.now) cacheStore.delete(k);
           return cacheStore.get(k)?.value ?? null;
         },
-        put: (k: string, v: string, seconds = 600) => cacheStore.set(k, { value: v, expires: clock.now + seconds * 1000 }),
+        put: (k: string, v: string, seconds = 600) =>
+          cacheStore.set(k, { value: v, expires: clock.now + seconds * 1000 }),
         remove: (k: string) => cacheStore.delete(k),
       }),
     },
@@ -183,7 +204,12 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
     },
     ContentService: {
       MimeType: { JSON: 'json' },
-      createTextOutput: (text: string) => ({ text, setMimeType() { return this; } }),
+      createTextOutput: (text: string) => ({
+        text,
+        setMimeType() {
+          return this;
+        },
+      }),
     },
     UrlFetchApp: {
       fetchAll: (reqs: Array<{ url: string }>) => fetchAll(reqs).map(reply),
@@ -192,7 +218,11 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
           const token = decodeURIComponent(url.split('id_token=')[1]);
           tokeninfoCalls.push(token);
           const info = googleTokens.get(token);
-          return reply(info ? { code: 200, text: JSON.stringify(info) } : { code: 400, text: '{"error":"invalid_token"}' });
+          return reply(
+            info
+              ? { code: 200, text: JSON.stringify(info) }
+              : { code: 400, text: '{"error":"invalid_token"}' },
+          );
         }
         return reply(fetchAll([{ url }])[0]);
       },
@@ -219,8 +249,10 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
 
   /** Every cell of every fake spreadsheet, as text, for secret scans. */
   const everyCell = () =>
-    [...spreadsheets.values()].flatMap((ss) => [...ss.sheets.values()].flatMap((s) => s.cells.flat().map(String)));
-  const withLock = <T,>(fn: () => T): T => {
+    [...spreadsheets.values()].flatMap((ss) =>
+      [...ss.sheets.values()].flatMap((s) => s.cells.flat().map(String)),
+    );
+  const withLock = <T>(fn: () => T): T => {
     state.locked = true;
     try {
       return fn();
@@ -229,7 +261,17 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
     }
   };
   return {
-    post, props, clock, state, control, spreadsheets, trashed, idToken, tokeninfoCalls, everyCell, withLock,
+    post,
+    props,
+    clock,
+    state,
+    control,
+    spreadsheets,
+    trashed,
+    idToken,
+    tokeninfoCalls,
+    everyCell,
+    withLock,
     sheets: control.sheets,
     call: (name: string, ...args: unknown[]) => (context as any)[name](...args),
     advance: (ms: number) => (clock.now += ms),
@@ -244,7 +286,10 @@ const key = (n: number) => n.toString(16).padStart(64, '0');
 describe('GAS source', () => {
   it('lists the same tables as the core data model', () => {
     const source = readFileSync('gas/Code.gs', 'utf8');
-    const listed = /var TABLES = \[([\s\S]*?)\]/.exec(source)![1].match(/'(\w+)'/g)!.map((s) => s.slice(1, -1));
+    const listed = /var TABLES = \[([\s\S]*?)\]/
+      .exec(source)![1]
+      .match(/'(\w+)'/g)!
+      .map((s) => s.slice(1, -1));
     expect(listed).toEqual(TABLE_NAMES);
   });
 
@@ -290,14 +335,28 @@ describe('GAS backend', () => {
     const amy = users.find((u) => u.username === 'amy')!;
     ok({ action: 'adminUpdateUser', session: admin.session, userId: amy.id, status: 'active' });
     const login = ok({ action: 'login', username: 'amy', passwordKey: key(2) });
-    return { admin: admin.session as string, adminId: admin.user.id as string, amy: login.session as string, amyId: amy.id as string };
+    return {
+      admin: admin.session as string,
+      adminId: admin.user.id as string,
+      amy: login.session as string,
+      amyId: amy.id as string,
+    };
   }
 
   describe('registration and login', () => {
     it('makes the first account an active admin and later ones pending', () => {
-      expect(ok({ action: 'config' }).config).toMatchObject({ authRequired: true, hasUsers: false, registration: 'approval' });
+      expect(ok({ action: 'config' }).config).toMatchObject({
+        authRequired: true,
+        hasUsers: false,
+        registration: 'approval',
+      });
       const first = ok({ action: 'register', username: 'Admin', passwordKey: key(1) });
-      expect(first.user).toMatchObject({ username: 'admin', role: 'admin', status: 'active', allowAdminView: true });
+      expect(first.user).toMatchObject({
+        username: 'admin',
+        role: 'admin',
+        status: 'active',
+        allowAdminView: true,
+      });
       expect(first.session).toBeTruthy();
       const second = ok({ action: 'register', username: 'amy', passwordKey: key(2) });
       expect(second.user).toMatchObject({ role: 'member', status: 'pending' });
@@ -315,15 +374,21 @@ describe('GAS backend', () => {
 
     it('rejects duplicate names, bad names and malformed keys', () => {
       ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-      expect(fail({ action: 'register', username: 'ADMIN', passwordKey: key(2) })).toBe('username_taken');
+      expect(fail({ action: 'register', username: 'ADMIN', passwordKey: key(2) })).toBe(
+        'username_taken',
+      );
       expect(isErr({ action: 'register', username: 'a b', passwordKey: key(2) })).toBe(true);
       expect(isErr({ action: 'register', username: 'carol', passwordKey: 'plaintext' })).toBe(true);
     });
 
     it('gives the same answer for a wrong password and an unknown account', () => {
       ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-      expect(fail({ action: 'login', username: 'admin', passwordKey: key(9) })).toBe('invalid_credentials');
-      expect(fail({ action: 'login', username: 'nobody', passwordKey: key(9) })).toBe('invalid_credentials');
+      expect(fail({ action: 'login', username: 'admin', passwordKey: key(9) })).toBe(
+        'invalid_credentials',
+      );
+      expect(fail({ action: 'login', username: 'nobody', passwordKey: key(9) })).toBe(
+        'invalid_credentials',
+      );
     });
 
     it('does the same hashing work for an unknown account as for a known one', () => {
@@ -339,18 +404,26 @@ describe('GAS backend', () => {
 
     it('locks an account name after repeated failures, then releases it after the window', () => {
       ok({ action: 'register', username: 'locked', passwordKey: key(1) });
-      for (let i = 0; i < 8; i++) fail({ action: 'login', username: 'locked', passwordKey: key(9) });
-      expect(fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe('rate_limited');
+      for (let i = 0; i < 8; i++)
+        fail({ action: 'login', username: 'locked', passwordKey: key(9) });
+      expect(fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe(
+        'rate_limited',
+      );
       rt.advance(14 * 60_000);
-      expect(fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe('rate_limited');
+      expect(fail({ action: 'login', username: 'locked', passwordKey: key(1) })).toBe(
+        'rate_limited',
+      );
       rt.advance(2 * 60_000);
       ok({ action: 'login', username: 'locked', passwordKey: key(1) });
     });
 
     it('does not count a locked-out name against other accounts', () => {
       ok({ action: 'register', username: 'locked', passwordKey: key(1) });
-      for (let i = 0; i < 8; i++) fail({ action: 'login', username: 'locked', passwordKey: key(9) });
-      expect(fail({ action: 'login', username: 'someone', passwordKey: key(9) })).toBe('invalid_credentials');
+      for (let i = 0; i < 8; i++)
+        fail({ action: 'login', username: 'locked', passwordKey: key(9) });
+      expect(fail({ action: 'login', username: 'someone', passwordKey: key(9) })).toBe(
+        'invalid_credentials',
+      );
     });
 
     it('stores neither the password key nor the session token', () => {
@@ -365,16 +438,29 @@ describe('GAS backend', () => {
     it('keeps password hashes, salts, session hashes and Google ids out of readable columns', () => {
       const admin = ok({ action: 'register', username: 'admin', passwordKey: key(1) });
       ok({ action: 'adminSetConfig', session: admin.session, googleClientId: CLIENT_ID });
-      ok({ action: 'linkGoogle', session: admin.session, idToken: rt.idToken('g-secret-sub', 'admin@example.com') });
+      ok({
+        action: 'linkGoogle',
+        session: admin.session,
+        idToken: rt.idToken('g-secret-sub', 'admin@example.com'),
+      });
       for (const name of ['_users', '_sessions']) {
         const rows = rt.sheets.get(name)!.cells;
         const header = rows[0] as string[];
         const jsonAt = header.indexOf('_json');
         expect(jsonAt).toBeGreaterThan(0);
-        for (const hidden of ['passwordSalt', 'passwordHash', 'passwordRounds', 'googleSub', 'tokenHash']) {
+        for (const hidden of [
+          'passwordSalt',
+          'passwordHash',
+          'passwordRounds',
+          'googleSub',
+          'tokenHash',
+        ]) {
           expect(header).not.toContain(hidden);
         }
-        const mirror = rows.slice(1).flatMap((r) => r.filter((_, i) => i !== jsonAt)).join('\n');
+        const mirror = rows
+          .slice(1)
+          .flatMap((r) => r.filter((_, i) => i !== jsonAt))
+          .join('\n');
         const record = JSON.parse(String(rows[1][jsonAt]));
         for (const field of ['passwordSalt', 'passwordHash', 'tokenHash', 'googleSub']) {
           if (record[field]) expect(mirror).not.toContain(record[field]);
@@ -388,11 +474,20 @@ describe('GAS backend', () => {
     it('hashes with a standard PBKDF2 and a per-member salt', () => {
       ok({ action: 'register', username: 'admin', passwordKey: key(1) });
       ok({ action: 'register', username: 'amy', passwordKey: key(1) });
-      const [a, b] = rt.sheets.get('_users')!.cells.slice(1).map((r) => JSON.parse(String(r.at(-1))));
+      const [a, b] = rt.sheets
+        .get('_users')!
+        .cells.slice(1)
+        .map((r) => JSON.parse(String(r.at(-1))));
       expect(a.passwordSalt).not.toBe(b.passwordSalt);
       expect(a.passwordHash).not.toBe(b.passwordHash);
       expect(a.passwordHash).toBe(
-        pbkdf2Sync(Buffer.from(key(1), 'hex'), Buffer.from(a.passwordSalt, 'hex'), a.passwordRounds, 32, 'sha256').toString('hex'),
+        pbkdf2Sync(
+          Buffer.from(key(1), 'hex'),
+          Buffer.from(a.passwordSalt, 'hex'),
+          a.passwordRounds,
+          32,
+          'sha256',
+        ).toString('hex'),
       );
       expect(a.passwordRounds).toBeGreaterThanOrEqual(1000);
     });
@@ -458,8 +553,12 @@ describe('GAS backend', () => {
     });
 
     it('refuses garbage request bodies without throwing', () => {
-      expect((rt.call('doPost', { postData: { contents: 'null' } }) as any).text).toContain('unauthenticated');
-      expect(JSON.parse((rt.call('doPost', { postData: { contents: '{not json' } }) as any).text).ok).toBe(false);
+      expect((rt.call('doPost', { postData: { contents: 'null' } }) as any).text).toContain(
+        'unauthenticated',
+      );
+      expect(
+        JSON.parse((rt.call('doPost', { postData: { contents: '{not json' } }) as any).text).ok,
+      ).toBe(false);
       expect(JSON.parse((rt.call('doGet') as any).text).ok).toBe(false);
     });
 
@@ -470,8 +569,12 @@ describe('GAS backend', () => {
         return reqs.map(() => ({ code: 200, text: '{}' }));
       });
       ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-      expect(fail({ action: 'quotes', items: [{ source: 'yahoo', symbol: 'X' }] })).toBe('unauthenticated');
-      expect(fail({ action: 'history', items: [{ source: 'yahoo', symbol: 'X' }], from: '2026-01-01' })).toBe('unauthenticated');
+      expect(fail({ action: 'quotes', items: [{ source: 'yahoo', symbol: 'X' }] })).toBe(
+        'unauthenticated',
+      );
+      expect(
+        fail({ action: 'history', items: [{ source: 'yahoo', symbol: 'X' }], from: '2026-01-01' }),
+      ).toBe('unauthenticated');
       expect(calls).toBe(0);
     });
 
@@ -504,12 +607,27 @@ describe('GAS backend', () => {
 
     it('keeps each member in their own spreadsheet', () => {
       const s = twoMembers();
-      ok({ action: 'save', session: s.admin, tables: { brokers: [{ id: 'a', name: '示範券商甲' }] } });
-      ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
-      expect(ok({ action: 'load', session: s.admin }).tables.brokers).toEqual([{ id: 'a', name: '示範券商甲' }]);
-      expect(ok({ action: 'load', session: s.amy }).tables.brokers).toEqual([{ id: 'b', name: '示範券商乙' }]);
+      ok({
+        action: 'save',
+        session: s.admin,
+        tables: { brokers: [{ id: 'a', name: '示範券商甲' }] },
+      });
+      ok({
+        action: 'save',
+        session: s.amy,
+        tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+      });
+      expect(ok({ action: 'load', session: s.admin }).tables.brokers).toEqual([
+        { id: 'a', name: '示範券商甲' },
+      ]);
+      expect(ok({ action: 'load', session: s.amy }).tables.brokers).toEqual([
+        { id: 'b', name: '示範券商乙' },
+      ]);
 
-      const users = rt.sheets.get('_users')!.cells.slice(1).map((r) => JSON.parse(String(r.at(-1))));
+      const users = rt.sheets
+        .get('_users')!
+        .cells.slice(1)
+        .map((r) => JSON.parse(String(r.at(-1))));
       const ids = users.map((u) => u.dataSheetId);
       expect(new Set(ids).size).toBe(2);
       const [adminSs, amySs] = ids.map((id) => rt.spreadsheets.get(id)!);
@@ -517,7 +635,8 @@ describe('GAS backend', () => {
       expect(adminSs.sheets.has('brokers')).toBe(true);
       expect(adminSs.sheets.has('_meta')).toBe(true);
       expect(adminSs.sheets.has('Sheet1')).toBe(false);
-      const text = (ss: FakeSpreadsheet) => [...ss.sheets.values()].flatMap((sh) => sh.cells.flat().map(String)).join('\n');
+      const text = (ss: FakeSpreadsheet) =>
+        [...ss.sheets.values()].flatMap((sh) => sh.cells.flat().map(String)).join('\n');
       expect(text(adminSs)).toContain('示範券商甲');
       expect(text(adminSs)).not.toContain('示範券商乙');
       expect(text(amySs)).not.toContain('示範券商甲');
@@ -545,18 +664,32 @@ describe('GAS backend', () => {
       expect(fail({ action: 'load', session: s.amy, asUser: s.adminId })).toBe('forbidden');
       expect(fail({ action: 'adminUsers', session: s.amy })).toBe('forbidden');
       expect(fail({ action: 'adminAudit', session: s.amy })).toBe('forbidden');
-      expect(fail({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'admin' })).toBe('forbidden');
-      expect(fail({ action: 'adminDeleteUser', session: s.amy, userId: s.adminId })).toBe('forbidden');
-      expect(fail({ action: 'adminSetConfig', session: s.amy, registration: 'open' })).toBe('forbidden');
+      expect(
+        fail({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'admin' }),
+      ).toBe('forbidden');
+      expect(fail({ action: 'adminDeleteUser', session: s.amy, userId: s.adminId })).toBe(
+        'forbidden',
+      );
+      expect(fail({ action: 'adminSetConfig', session: s.amy, registration: 'open' })).toBe(
+        'forbidden',
+      );
     });
 
     it('lets an admin read a consenting member read-only, and logs it', () => {
       const s = twoMembers();
-      ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
+      ok({
+        action: 'save',
+        session: s.amy,
+        tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+      });
       const view = ok({ action: 'load', session: s.admin, asUser: s.amyId });
       expect(view.tables.brokers).toHaveLength(1);
       const audit = ok({ action: 'adminAudit', session: s.admin }).audit as Res[];
-      expect(audit[0]).toMatchObject({ action: 'view-data', targetId: s.amyId, actorId: s.adminId });
+      expect(audit[0]).toMatchObject({
+        action: 'view-data',
+        targetId: s.amyId,
+        actorId: s.adminId,
+      });
       // A save always goes to the caller's own data: there is no way to name another.
       ok({ action: 'save', session: s.admin, tables: { brokers: [] }, asUser: s.amyId });
       expect(ok({ action: 'load', session: s.amy }).tables.brokers).toHaveLength(1);
@@ -590,7 +723,9 @@ describe('GAS backend', () => {
       expect(amy.tables.brokers).toEqual([]);
       expect(amy.revision).toBe(0);
       // A save on the handed-over data continues the revision count.
-      expect(ok({ action: 'save', session: s.admin, tables: {}, baseRevision: 3 }).revision).toBe(4);
+      expect(ok({ action: 'save', session: s.admin, tables: {}, baseRevision: 3 }).revision).toBe(
+        4,
+      );
       // The hand-over happened once: a later admin changing nothing does not repeat it.
       const config = JSON.parse(String(rt.sheets.get('_config')!.cells[1].at(-1)));
       expect(config.legacyHandedOver).toBeTruthy();
@@ -607,11 +742,25 @@ describe('GAS backend', () => {
     it('changes a password only with the old one, and signs out other sessions', () => {
       const s = twoMembers();
       const other = ok({ action: 'login', username: 'amy', passwordKey: key(2) }).session;
-      expect(fail({ action: 'changePassword', session: s.amy, oldPasswordKey: key(9), newPasswordKey: key(3) })).toBe('invalid_credentials');
-      ok({ action: 'changePassword', session: s.amy, oldPasswordKey: key(2), newPasswordKey: key(3) });
+      expect(
+        fail({
+          action: 'changePassword',
+          session: s.amy,
+          oldPasswordKey: key(9),
+          newPasswordKey: key(3),
+        }),
+      ).toBe('invalid_credentials');
+      ok({
+        action: 'changePassword',
+        session: s.amy,
+        oldPasswordKey: key(2),
+        newPasswordKey: key(3),
+      });
       ok({ action: 'me', session: s.amy });
       expect(fail({ action: 'me', session: other })).toBe('unauthenticated');
-      expect(fail({ action: 'login', username: 'amy', passwordKey: key(2) })).toBe('invalid_credentials');
+      expect(fail({ action: 'login', username: 'amy', passwordKey: key(2) })).toBe(
+        'invalid_credentials',
+      );
       ok({ action: 'login', username: 'amy', passwordKey: key(3) });
     });
 
@@ -631,27 +780,52 @@ describe('GAS backend', () => {
 
     it('never leaves the system without an active admin', () => {
       const s = twoMembers();
-      expect(isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, role: 'member' })).toBe(true);
-      expect(isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, status: 'disabled' })).toBe(true);
+      expect(
+        isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, role: 'member' }),
+      ).toBe(true);
+      expect(
+        isErr({
+          action: 'adminUpdateUser',
+          session: s.admin,
+          userId: s.adminId,
+          status: 'disabled',
+        }),
+      ).toBe(true);
       expect(isErr({ action: 'adminDeleteUser', session: s.admin, userId: s.adminId })).toBe(true);
       ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, role: 'admin' });
       ok({ action: 'adminUpdateUser', session: s.admin, userId: s.adminId, role: 'member' });
       // amy is now the only admin and cannot be removed or demoted by herself.
-      expect(isErr({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'member' })).toBe(true);
+      expect(
+        isErr({ action: 'adminUpdateUser', session: s.amy, userId: s.amyId, role: 'member' }),
+      ).toBe(true);
     });
 
     it('deletes a member together with their data', () => {
       const s = twoMembers();
-      ok({ action: 'save', session: s.amy, tables: { brokers: [{ id: 'b', name: '示範券商乙' }] } });
+      ok({
+        action: 'save',
+        session: s.amy,
+        tables: { brokers: [{ id: 'b', name: '示範券商乙' }] },
+      });
       const users = ok({ action: 'adminUsers', session: s.admin }).users as Res[];
       expect(users).toHaveLength(2);
-      const amyRow = rt.sheets.get('_users')!.cells.slice(1).map((r) => JSON.parse(String(r.at(-1)))).find((u) => u.id === s.amyId);
+      const amyRow = rt.sheets
+        .get('_users')!
+        .cells.slice(1)
+        .map((r) => JSON.parse(String(r.at(-1))))
+        .find((u) => u.id === s.amyId);
       ok({ action: 'adminDeleteUser', session: s.admin, userId: s.amyId });
       expect(rt.trashed).toEqual([amyRow.dataSheetId]);
       expect(fail({ action: 'load', session: s.amy })).toBe('unauthenticated');
-      expect((ok({ action: 'adminUsers', session: s.admin }).users as Res[]).map((u) => u.id)).toEqual([s.adminId]);
+      expect(
+        (ok({ action: 'adminUsers', session: s.admin }).users as Res[]).map((u) => u.id),
+      ).toEqual([s.adminId]);
       const audit = ok({ action: 'adminAudit', session: s.admin }).audit as Res[];
-      expect(audit[0]).toMatchObject({ action: 'delete-user', targetId: s.amyId, detail: 'account and data removed' });
+      expect(audit[0]).toMatchObject({
+        action: 'delete-user',
+        targetId: s.amyId,
+        detail: 'account and data removed',
+      });
     });
 
     it('deletes a member who never saved without touching Drive', () => {
@@ -677,26 +851,68 @@ describe('GAS backend', () => {
 
     it('rejects bad status, role and registration values', () => {
       const s = twoMembers();
-      expect(isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, status: 'weird' })).toBe(true);
-      expect(isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, role: 'root' })).toBe(true);
-      expect(isErr({ action: 'adminUpdateUser', session: s.admin, userId: 'nope', role: 'admin' })).toBe(true);
-      expect(isErr({ action: 'adminSetConfig', session: s.admin, registration: 'wild' })).toBe(true);
-      expect(isErr({ action: 'adminSetConfig', session: s.admin, googleClientId: 'bad id!' })).toBe(true);
+      expect(
+        isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, status: 'weird' }),
+      ).toBe(true);
+      expect(
+        isErr({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, role: 'root' }),
+      ).toBe(true);
+      expect(
+        isErr({ action: 'adminUpdateUser', session: s.admin, userId: 'nope', role: 'admin' }),
+      ).toBe(true);
+      expect(isErr({ action: 'adminSetConfig', session: s.admin, registration: 'wild' })).toBe(
+        true,
+      );
+      expect(isErr({ action: 'adminSetConfig', session: s.admin, googleClientId: 'bad id!' })).toBe(
+        true,
+      );
     });
 
     it('writes every kind of audit entry and caps the log at 1000', () => {
       const s = twoMembers();
       ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, role: 'admin' });
       ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, status: 'disabled' });
-      ok({ action: 'adminUpdateUser', session: s.admin, userId: s.amyId, status: 'active', newPasswordKey: key(5) });
-      ok({ action: 'adminSetConfig', session: s.admin, registration: 'open', googleClientId: CLIENT_ID });
-      ok({ action: 'linkGoogle', session: s.admin, idToken: rt.idToken('g1', 'admin@example.com') });
-      ok({ action: 'changePassword', session: s.admin, oldPasswordKey: key(1), newPasswordKey: key(4) });
-      const kinds = new Set((ok({ action: 'adminAudit', session: s.admin }).audit as Res[]).map((e) => e.action));
-      for (const kind of ['register', 'set-status', 'set-role', 'reset-password', 'change-password', 'set-registration', 'set-google-client', 'link-google']) {
+      ok({
+        action: 'adminUpdateUser',
+        session: s.admin,
+        userId: s.amyId,
+        status: 'active',
+        newPasswordKey: key(5),
+      });
+      ok({
+        action: 'adminSetConfig',
+        session: s.admin,
+        registration: 'open',
+        googleClientId: CLIENT_ID,
+      });
+      ok({
+        action: 'linkGoogle',
+        session: s.admin,
+        idToken: rt.idToken('g1', 'admin@example.com'),
+      });
+      ok({
+        action: 'changePassword',
+        session: s.admin,
+        oldPasswordKey: key(1),
+        newPasswordKey: key(4),
+      });
+      const kinds = new Set(
+        (ok({ action: 'adminAudit', session: s.admin }).audit as Res[]).map((e) => e.action),
+      );
+      for (const kind of [
+        'register',
+        'set-status',
+        'set-role',
+        'reset-password',
+        'change-password',
+        'set-registration',
+        'set-google-client',
+        'link-google',
+      ]) {
         expect(kinds.has(kind)).toBe(true);
       }
-      for (let i = 0; i < 1005; i++) ok({ action: 'updateProfile', session: s.admin, allowAdminView: i % 2 === 1 });
+      for (let i = 0; i < 1005; i++)
+        ok({ action: 'updateProfile', session: s.admin, allowAdminView: i % 2 === 1 });
       const audit = ok({ action: 'adminAudit', session: s.admin }).audit as Res[];
       expect(audit).toHaveLength(1000);
       expect(audit[0].action).toBe('set-admin-view');
@@ -712,7 +928,9 @@ describe('GAS backend', () => {
 
     it('is refused until a client id is configured, and for bad tokens', () => {
       const admin = ok({ action: 'register', username: 'admin', passwordKey: key(1) });
-      expect(isErr({ action: 'loginGoogle', idToken: rt.idToken('g1', 'amy@example.com') })).toBe(true);
+      expect(isErr({ action: 'loginGoogle', idToken: rt.idToken('g1', 'amy@example.com') })).toBe(
+        true,
+      );
       expect(rt.tokeninfoCalls).toHaveLength(0);
       ok({ action: 'adminSetConfig', session: admin.session, googleClientId: CLIENT_ID });
       expect(fail({ action: 'loginGoogle', idToken: 'forged' })).toBe('invalid_credentials');
@@ -723,7 +941,12 @@ describe('GAS backend', () => {
       const admin = setup();
       const token = rt.idToken('g1', 'Amy@Example.com');
       const first = ok({ action: 'loginGoogle', idToken: token });
-      expect(first.user).toMatchObject({ username: 'amy@example.com', status: 'pending', googleLinked: true, hasPassword: false });
+      expect(first.user).toMatchObject({
+        username: 'amy@example.com',
+        status: 'pending',
+        googleLinked: true,
+        hasPassword: false,
+      });
       expect(first.session).toBeUndefined();
       ok({ action: 'adminUpdateUser', session: admin, userId: first.user.id, status: 'active' });
       const again = ok({ action: 'loginGoogle', idToken: token });
@@ -733,8 +956,18 @@ describe('GAS backend', () => {
 
     it('accepts both Google issuer spellings', () => {
       setup();
-      expect(ok({ action: 'loginGoogle', idToken: rt.idToken('g1', 'a@example.com', { iss: 'accounts.google.com' }) }).user.googleLinked).toBe(true);
-      expect(ok({ action: 'loginGoogle', idToken: rt.idToken('g2', 'b@example.com', { iss: 'https://accounts.google.com' }) }).user.googleLinked).toBe(true);
+      expect(
+        ok({
+          action: 'loginGoogle',
+          idToken: rt.idToken('g1', 'a@example.com', { iss: 'accounts.google.com' }),
+        }).user.googleLinked,
+      ).toBe(true);
+      expect(
+        ok({
+          action: 'loginGoogle',
+          idToken: rt.idToken('g2', 'b@example.com', { iss: 'https://accounts.google.com' }),
+        }).user.googleLinked,
+      ).toBe(true);
     });
 
     it('rejects tokens for another app, issuer, expiry, unverified email or missing subject', () => {
@@ -749,9 +982,21 @@ describe('GAS backend', () => {
         { sub: '' },
       ];
       bad.forEach((override, i) => {
-        expect(fail({ action: 'loginGoogle', idToken: rt.idToken(`bad${i}`, `bad${i}@example.com`, override) })).toBe('invalid_credentials');
+        expect(
+          fail({
+            action: 'loginGoogle',
+            idToken: rt.idToken(`bad${i}`, `bad${i}@example.com`, override),
+          }),
+        ).toBe('invalid_credentials');
       });
-      expect((ok({ action: 'adminUsers', session: ok({ action: 'login', username: 'admin', passwordKey: key(1) }).session }).users as Res[]).length).toBe(1);
+      expect(
+        (
+          ok({
+            action: 'adminUsers',
+            session: ok({ action: 'login', username: 'admin', passwordKey: key(1) }).session,
+          }).users as Res[]
+        ).length,
+      ).toBe(1);
     });
 
     it('treats a token that expires later as expired once the clock passes it', () => {
@@ -788,7 +1033,9 @@ describe('GAS backend', () => {
 
     it('requires a valid token to link', () => {
       const admin = setup();
-      expect(fail({ action: 'linkGoogle', session: admin, idToken: 'forged' })).toBe('invalid_credentials');
+      expect(fail({ action: 'linkGoogle', session: admin, idToken: 'forged' })).toBe(
+        'invalid_credentials',
+      );
     });
   });
 
@@ -800,7 +1047,14 @@ describe('GAS backend', () => {
 
     it('round-trips rows without losing types or leading zeros', () => {
       const instruments = [
-        { id: 'tw_0050', symbol: '0050', leverage: 1, active: true, brokerIds: ['a', 'b'], note: 'x, "y"' },
+        {
+          id: 'tw_0050',
+          symbol: '0050',
+          leverage: 1,
+          active: true,
+          brokerIds: ['a', 'b'],
+          note: 'x, "y"',
+        },
         { id: 'n', symbol: '123', leverage: -2, active: false },
       ];
       const saved = ok({ action: 'save', session, tables: { instruments }, baseRevision: 0 });
@@ -811,11 +1065,18 @@ describe('GAS backend', () => {
       expect(loaded.tables.transactions).toEqual([]);
       // Mirror columns are text, so Sheets cannot reinterpret them.
       const user = JSON.parse(String(rt.sheets.get('_users')!.cells[1].at(-1)));
-      expect(rt.spreadsheets.get(user.dataSheetId)!.sheets.get('instruments')!.cells[1][1]).toBe('0050');
+      expect(rt.spreadsheets.get(user.dataSheetId)!.sheets.get('instruments')!.cells[1][1]).toBe(
+        '0050',
+      );
     });
 
     it('rejects a stale revision and leaves data untouched', () => {
-      ok({ action: 'save', session, tables: { brokers: [{ id: 'a', name: 'A' }] }, baseRevision: 0 });
+      ok({
+        action: 'save',
+        session,
+        tables: { brokers: [{ id: 'a', name: 'A' }] },
+        baseRevision: 0,
+      });
       const stale = rt.post({ action: 'save', session, tables: { brokers: [] }, baseRevision: 0 });
       expect(stale).toEqual({ ok: false, error: 'conflict', revision: 1 });
       expect(ok({ action: 'load', session }).tables.brokers).toHaveLength(1);
@@ -823,7 +1084,9 @@ describe('GAS backend', () => {
 
     it('reports a conflict for a member with no data yet without creating a spreadsheet', () => {
       const before = rt.spreadsheets.size;
-      expect(rt.post({ action: 'save', session, tables: { brokers: [] }, baseRevision: 5 })).toEqual({ ok: false, error: 'conflict', revision: 0 });
+      expect(
+        rt.post({ action: 'save', session, tables: { brokers: [] }, baseRevision: 5 }),
+      ).toEqual({ ok: false, error: 'conflict', revision: 0 });
       expect(rt.spreadsheets.size).toBe(before);
     });
 
@@ -836,7 +1099,11 @@ describe('GAS backend', () => {
 
     it('rejects rows without an id, and writes nothing from that request', () => {
       ok({ action: 'save', session, tables: { brokers: [{ id: 'a' }] } });
-      const res = rt.post({ action: 'save', session, tables: { accounts: [{ id: 'x' }], brokers: [{ name: 'no id' }] } });
+      const res = rt.post({
+        action: 'save',
+        session,
+        tables: { accounts: [{ id: 'x' }], brokers: [{ name: 'no id' }] },
+      });
       expect(res.ok).toBe(false);
       const loaded = ok({ action: 'load', session });
       expect(loaded.revision).toBe(1);
@@ -849,7 +1116,22 @@ describe('GAS backend', () => {
         calls += reqs.length;
         return reqs.map((r) =>
           r.url.includes('yahoo')
-            ? { code: 200, text: JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 100.5, currency: 'TWD', regularMarketTime: 1_700_000_000 } }] } }) }
+            ? {
+                code: 200,
+                text: JSON.stringify({
+                  chart: {
+                    result: [
+                      {
+                        meta: {
+                          regularMarketPrice: 100.5,
+                          currency: 'TWD',
+                          regularMarketTime: 1_700_000_000,
+                        },
+                      },
+                    ],
+                  },
+                }),
+              }
             : r.url.includes('BTCUSDT')
               ? { code: 200, text: JSON.stringify({ price: '50000.10' }) }
               : { code: 451, text: '' },
@@ -863,7 +1145,12 @@ describe('GAS backend', () => {
         { source: 'manual', symbol: 'TX' },
       ];
       const { quotes } = ok({ action: 'quotes', session, items });
-      expect(quotes[0]).toMatchObject({ symbol: '0050.TW', price: 100.5, currency: 'TWD', status: 'delayed' });
+      expect(quotes[0]).toMatchObject({
+        symbol: '0050.TW',
+        price: 100.5,
+        currency: 'TWD',
+        status: 'delayed',
+      });
       expect(quotes[1]).toMatchObject({ price: 50000.1, status: 'realtime' });
       expect(quotes[2].error).toBe('HTTP 451');
       expect(quotes[3].error).toMatch(/Manual/);
@@ -880,7 +1167,12 @@ describe('GAS backend', () => {
         })),
       );
       session = ok({ action: 'register', username: 'admin', passwordKey: key(1) }).session;
-      const { history } = ok({ action: 'history', session, items: [{ source: 'binance', symbol: 'BTCUSDT' }], from: '2026-01-01' });
+      const { history } = ok({
+        action: 'history',
+        session,
+        items: [{ source: 'binance', symbol: 'BTCUSDT' }],
+        from: '2026-01-01',
+      });
       expect(history[0].points).toEqual([{ date: '2026-01-02', close: 123.5 }]);
       expect(isErr({ action: 'history', session, items: [], from: 'yesterday' })).toBe(true);
     });
@@ -903,4 +1195,3 @@ describe('GAS backend', () => {
     });
   });
 });
-

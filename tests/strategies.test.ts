@@ -29,7 +29,15 @@ function twoBuckets(): AppData {
     tx({ type: 'deposit', date: '2026-01-01', amount: 1_000_000 }),
     tx({ type: 'transfer', date: '2026-01-02', amount: 200_000, toBucket: 's1' }),
     tx({ type: 'buy', date: '2026-01-03', instrumentId: 'tw_0050', quantity: 1000, price: 100 }),
-    tx({ type: 'buy', date: '2026-01-03', instrumentId: 'tw_0050', quantity: 500, price: 100, fee: 20, bucket: 's1' }),
+    tx({
+      type: 'buy',
+      date: '2026-01-03',
+      instrumentId: 'tw_0050',
+      quantity: 500,
+      price: 100,
+      fee: 20,
+      bucket: 's1',
+    }),
   );
   setPrice(data, 'tw_0050', 110);
   return data;
@@ -71,14 +79,39 @@ describe('strategySummaries', () => {
   it('reconciles with loans attributed to the bucket of the draw', () => {
     const data = twoBuckets();
     data.loans.push({
-      id: 'credit1', name: '信貸', kind: 'credit', lender: '示範銀行', currency: 'TWD',
-      principal: 300_000, annualRate: 0.03, method: 'annuity', startDate: '2026-02-01', active: true,
+      id: 'credit1',
+      name: '信貸',
+      kind: 'credit',
+      lender: '示範銀行',
+      currency: 'TWD',
+      principal: 300_000,
+      annualRate: 0.03,
+      method: 'annuity',
+      startDate: '2026-02-01',
+      active: true,
     });
     data.transactions.push(
       tx({ type: 'loan_draw', date: '2026-02-01', amount: 300_000, loanId: 'credit1' }),
       tx({ type: 'transfer', date: '2026-02-02', amount: 100_000, toBucket: 's1' }),
-      tx({ type: 'loan_repay', date: '2026-03-01', amount: 50_000, interest: 1_000, principal: 49_000, loanId: 'credit1', source: 'portfolio', bucket: 's1' }),
-      tx({ type: 'loan_repay', date: '2026-03-02', amount: 20_000, principal: 20_000, interest: 0, loanId: 'credit1', source: 'external' }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-03-01',
+        amount: 50_000,
+        interest: 1_000,
+        principal: 49_000,
+        loanId: 'credit1',
+        source: 'portfolio',
+        bucket: 's1',
+      }),
+      tx({
+        type: 'loan_repay',
+        date: '2026-03-02',
+        amount: 20_000,
+        principal: 20_000,
+        interest: 0,
+        loanId: 'credit1',
+        source: 'external',
+      }),
     );
     const s = summaries(data);
     const v = computePortfolio(data, opts).valuation;
@@ -100,7 +133,15 @@ describe('strategySummaries', () => {
     data.transactions.push(
       tx({ type: 'transfer', date: '2026-02-01', amount: 50_000, toBucket: 's1' }),
       tx({ type: 'transfer', date: '2026-02-02', amount: 20_000, bucket: 's1', toBucket: 'core' }),
-      tx({ type: 'transfer', date: '2026-02-03', amount: 10_000, accountId: 'kgi_tw', toAccountId: 'sinopac_tw', bucket: 's1', toBucket: 's1' }),
+      tx({
+        type: 'transfer',
+        date: '2026-02-03',
+        amount: 10_000,
+        accountId: 'kgi_tw',
+        toAccountId: 'sinopac_tw',
+        bucket: 's1',
+        toBucket: 's1',
+      }),
     );
     const after = summaries(data);
     expect(computePortfolio(data, opts).valuation.nav).toBe(navBefore);
@@ -116,8 +157,21 @@ describe('strategySummaries', () => {
   it('books realized P&L, dividends and funding cost per bucket', () => {
     const data = twoBuckets();
     data.transactions.push(
-      tx({ type: 'sell', date: '2026-02-01', instrumentId: 'tw_0050', quantity: 200, price: 120, bucket: 's1' }),
-      tx({ type: 'dividend', date: '2026-02-02', instrumentId: 'tw_0050', amount: 300, bucket: 's1' }),
+      tx({
+        type: 'sell',
+        date: '2026-02-01',
+        instrumentId: 'tw_0050',
+        quantity: 200,
+        price: 120,
+        bucket: 's1',
+      }),
+      tx({
+        type: 'dividend',
+        date: '2026-02-02',
+        instrumentId: 'tw_0050',
+        amount: 300,
+        bucket: 's1',
+      }),
       tx({ type: 'interest', date: '2026-02-03', amount: 50, bucket: 's1' }),
     );
     const s1 = summaries(data).strategies[0];
@@ -131,8 +185,22 @@ describe('strategySummaries', () => {
   it('values derivative equity into strategy equity', () => {
     const data = withStrategy();
     data.transactions.push(
-      tx({ type: 'deposit', date: '2026-01-01', amount: 500_000, accountId: 'kgi_fut', bucket: 's1' }),
-      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'fut_MTX', quantity: 2, price: 20_000, accountId: 'kgi_fut', bucket: 's1' }),
+      tx({
+        type: 'deposit',
+        date: '2026-01-01',
+        amount: 500_000,
+        accountId: 'kgi_fut',
+        bucket: 's1',
+      }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        instrumentId: 'fut_MTX',
+        quantity: 2,
+        price: 20_000,
+        accountId: 'kgi_fut',
+        bucket: 's1',
+      }),
     );
     setPrice(data, 'fut_MTX', 20_100);
     const s1 = summaries(data).strategies[0];
@@ -153,10 +221,22 @@ describe('strategyCapitalFlows', () => {
       tx({ type: 'deposit', date: '2026-01-10', amount: 10_000, bucket: 's1' }),
       tx({ type: 'transfer', date: '2026-01-20', amount: 15_000, bucket: 's1', toBucket: 'core' }),
       tx({ type: 'withdraw', date: '2026-01-25', amount: 5_000, bucket: 's1' }),
-      tx({ type: 'buy', date: '2026-01-26', instrumentId: 'tw_0050', quantity: 10, price: 100, bucket: 's1' }),
+      tx({
+        type: 'buy',
+        date: '2026-01-26',
+        instrumentId: 'tw_0050',
+        quantity: 10,
+        price: 100,
+        bucket: 's1',
+      }),
     );
     const flows = strategyCapitalFlows(data, 's1');
-    expect(flows.map((f) => f.kind)).toEqual(['transfer_in', 'external_deposit', 'transfer_out', 'external_withdrawal']);
+    expect(flows.map((f) => f.kind)).toEqual([
+      'transfer_in',
+      'external_deposit',
+      'transfer_out',
+      'external_withdrawal',
+    ]);
     expect(flows.map((f) => f.runningCapital)).toEqual([40_000, 50_000, 35_000, 30_000]);
     expect(flows[0].counterparty).toBe('core');
     expect(flows[2].counterparty).toBe('core');
@@ -166,7 +246,11 @@ describe('strategyCapitalFlows', () => {
     expect(s1.totalPnl).toBe(0);
     // core is the mirror image
     const coreFlows = strategyCapitalFlows(data, 'core');
-    expect(coreFlows.map((f) => f.kind)).toEqual(['external_deposit', 'transfer_out', 'transfer_in']);
+    expect(coreFlows.map((f) => f.kind)).toEqual([
+      'external_deposit',
+      'transfer_out',
+      'transfer_in',
+    ]);
     expect(coreFlows[2].runningCapital).toBe(100_000 - 40_000 + 15_000);
   });
 
@@ -174,8 +258,23 @@ describe('strategyCapitalFlows', () => {
     const data = withStrategy();
     setFx(data, 'USD', 'TWD', 30);
     data.transactions.push(
-      tx({ type: 'deposit', date: '2026-01-01', amount: 3_000, currency: 'USD', accountId: 'sinopac_us', fxRate: 30 }),
-      tx({ type: 'transfer', date: '2026-01-02', amount: 1_000, currency: 'USD', accountId: 'sinopac_us', toBucket: 's1', fxRate: 30 }),
+      tx({
+        type: 'deposit',
+        date: '2026-01-01',
+        amount: 3_000,
+        currency: 'USD',
+        accountId: 'sinopac_us',
+        fxRate: 30,
+      }),
+      tx({
+        type: 'transfer',
+        date: '2026-01-02',
+        amount: 1_000,
+        currency: 'USD',
+        accountId: 'sinopac_us',
+        toBucket: 's1',
+        fxRate: 30,
+      }),
     );
     const f = strategyCapitalFlows(data, 's1');
     expect(f[0].baseAmount).toBe(30_000);
@@ -190,7 +289,12 @@ describe('strategyCapitalFlows', () => {
 describe('validation helpers', () => {
   it('treats an empty allowed list as unrestricted', () => {
     const data = withStrategy();
-    data.strategies.push({ id: 's2', name: '只做美股', status: 'active', allowedInstrumentIds: ['us_SSO'] });
+    data.strategies.push({
+      id: 's2',
+      name: '只做美股',
+      status: 'active',
+      allowedInstrumentIds: ['us_SSO'],
+    });
     expect(strategiesAllowingInstrument(data, 'us_SSO').map((s) => s.id)).toEqual(['s1', 's2']);
     expect(strategiesAllowingInstrument(data, 'tw_0050').map((s) => s.id)).toEqual(['s1']);
   });
@@ -202,10 +306,21 @@ describe('validation helpers', () => {
     data.transactions.push(tx({ type: 'transfer', date: '2026-01-01', amount: 1, toBucket: 's1' }));
     data.tradeGroups.push({ id: 'g1', strategyId: 's1', name: 'g', status: 'open' });
     data.rotationCycles.push({
-      id: 'c1', strategyId: 's1', name: 'c', fromInstrumentId: 'us_SSO', toInstrumentId: 'us_QLD',
-      benchmarkInstrumentId: 'us_SSO', status: 'open', openedAt: '2026-01-01',
+      id: 'c1',
+      strategyId: 's1',
+      name: 'c',
+      fromInstrumentId: 'us_SSO',
+      toInstrumentId: 'us_QLD',
+      benchmarkInstrumentId: 'us_SSO',
+      status: 'open',
+      openedAt: '2026-01-01',
     });
-    expect(strategyReferences(data, 's1')).toEqual({ transactions: 2, tradeGroups: 1, rotationCycles: 1, total: 4 });
+    expect(strategyReferences(data, 's1')).toEqual({
+      transactions: 2,
+      tradeGroups: 1,
+      rotationCycles: 1,
+      total: 4,
+    });
   });
 });
 
@@ -219,8 +334,15 @@ describe('rotation cycle SSO -> QLD -> SSO', () => {
   //  benchmark: SSO adj 60 -> 65 gives 100 units -> 6,500, pnl 500, 8.3333%
   //  excess 75 / 6,000 = 1.25 pp
   const cycle: RotationCycle = {
-    id: 'rc1', strategyId: 's1', name: '示範輪動', fromInstrumentId: 'us_SSO', toInstrumentId: 'us_QLD',
-    benchmarkInstrumentId: 'us_SSO', status: 'closed', openedAt: '2026-03-02', closedAt: '2026-04-01',
+    id: 'rc1',
+    strategyId: 's1',
+    name: '示範輪動',
+    fromInstrumentId: 'us_SSO',
+    toInstrumentId: 'us_QLD',
+    benchmarkInstrumentId: 'us_SSO',
+    status: 'closed',
+    openedAt: '2026-03-02',
+    closedAt: '2026-04-01',
   };
 
   const build = (withHistory: boolean): AppData => {
@@ -233,17 +355,69 @@ describe('rotation cycle SSO -> QLD -> SSO', () => {
     const c = { bucket: 's1', rotationCycleId: 'rc1' };
     data.transactions.push(
       tx({ type: 'deposit', date: '2026-01-01', amount: 100_000, bucket: 's1' }),
-      tx({ type: 'buy', date: '2026-01-02', instrumentId: 'us_SSO', quantity: 100, price: 50, bucket: 's1' }),
-      tx({ type: 'sell', date: '2026-03-02', instrumentId: 'us_SSO', quantity: 100, price: 60, fee: 6, ...c, reason: '大盤急跌，切到 QLD' }),
-      tx({ type: 'buy', date: '2026-03-02', instrumentId: 'us_QLD', quantity: 60, price: 100, fee: 6, ...c }),
-      tx({ type: 'sell', date: '2026-04-01', instrumentId: 'us_QLD', quantity: 60, price: 110, fee: 7, ...c }),
-      tx({ type: 'buy', date: '2026-04-01', instrumentId: 'us_SSO', quantity: 100, price: 65, fee: 6, ...c }),
+      tx({
+        type: 'buy',
+        date: '2026-01-02',
+        instrumentId: 'us_SSO',
+        quantity: 100,
+        price: 50,
+        bucket: 's1',
+      }),
+      tx({
+        type: 'sell',
+        date: '2026-03-02',
+        instrumentId: 'us_SSO',
+        quantity: 100,
+        price: 60,
+        fee: 6,
+        ...c,
+        reason: '大盤急跌，切到 QLD',
+      }),
+      tx({
+        type: 'buy',
+        date: '2026-03-02',
+        instrumentId: 'us_QLD',
+        quantity: 60,
+        price: 100,
+        fee: 6,
+        ...c,
+      }),
+      tx({
+        type: 'sell',
+        date: '2026-04-01',
+        instrumentId: 'us_QLD',
+        quantity: 60,
+        price: 110,
+        fee: 7,
+        ...c,
+      }),
+      tx({
+        type: 'buy',
+        date: '2026-04-01',
+        instrumentId: 'us_SSO',
+        quantity: 100,
+        price: 65,
+        fee: 6,
+        ...c,
+      }),
     );
     if (withHistory) {
       data.priceHistory.push(
         // Start day has no row: the nearest earlier date (Fri 02-27) is used.
-        { id: 'us_SSO|2026-02-27', instrumentId: 'us_SSO', date: '2026-02-27', close: 61, adjClose: 60 },
-        { id: 'us_SSO|2026-04-01', instrumentId: 'us_SSO', date: '2026-04-01', close: 65, adjClose: 65 },
+        {
+          id: 'us_SSO|2026-02-27',
+          instrumentId: 'us_SSO',
+          date: '2026-02-27',
+          close: 61,
+          adjClose: 60,
+        },
+        {
+          id: 'us_SSO|2026-04-01',
+          instrumentId: 'us_SSO',
+          date: '2026-04-01',
+          close: 65,
+          adjClose: 65,
+        },
       );
     }
     return data;
@@ -271,7 +445,15 @@ describe('rotation cycle SSO -> QLD -> SSO', () => {
   it('applies the same external flow to both sides', () => {
     const data = build(true);
     // 1,300 deposited on 04-01 and kept as cash by the cycle; benchmark buys 20 SSO units at 65.
-    data.transactions.push(tx({ type: 'deposit', date: '2026-04-01', amount: 1_300, bucket: 's1', rotationCycleId: 'rc1' }));
+    data.transactions.push(
+      tx({
+        type: 'deposit',
+        date: '2026-04-01',
+        amount: 1_300,
+        bucket: 's1',
+        rotationCycleId: 'rc1',
+      }),
+    );
     const r = rotationCycleReport(data, cycle, makePriceLookup(data));
     expect(r.netFlows).toBe(1_300);
     expect(r.investedCapital).toBe(7_300);
@@ -295,7 +477,13 @@ describe('rotation cycle SSO -> QLD -> SSO', () => {
 
   it('does not use a price older than the allowed gap', () => {
     const data = build(true);
-    data.priceHistory[0] = { id: 'us_SSO|2026-02-01', instrumentId: 'us_SSO', date: '2026-02-01', close: 61, adjClose: 60 };
+    data.priceHistory[0] = {
+      id: 'us_SSO|2026-02-01',
+      instrumentId: 'us_SSO',
+      date: '2026-02-01',
+      close: 61,
+      adjClose: 60,
+    };
     const r = rotationCycleReport(data, cycle, makePriceLookup(data));
     expect(r.missing.map((m) => m.date)).toEqual(['2026-03-02']);
     expect(r.excessPp).toBeUndefined();
@@ -318,11 +506,23 @@ describe('rotation cycle SSO -> QLD -> SSO', () => {
 
   it('summarises cycles: cumulative result, beat share, drawdown', () => {
     const mk = (id: string, start: string, ret: number, bench: number): RotationCycleReport => ({
-      cycleId: id, strategyId: 's1', open: false, hasTrades: true, startDate: start,
-      startCapital: 1000, netFlows: 0, investedCapital: 1000, tradingCosts: 0,
-      pnl: 1000 * ret, returnPct: ret, benchmarkInstrumentId: 'us_SSO',
-      benchmarkReturnPct: bench, excessPp: (ret - bench) * 100, beatBenchmark: ret > bench,
-      missing: [], notes: [],
+      cycleId: id,
+      strategyId: 's1',
+      open: false,
+      hasTrades: true,
+      startDate: start,
+      startCapital: 1000,
+      netFlows: 0,
+      investedCapital: 1000,
+      tradingCosts: 0,
+      pnl: 1000 * ret,
+      returnPct: ret,
+      benchmarkInstrumentId: 'us_SSO',
+      benchmarkReturnPct: bench,
+      excessPp: (ret - bench) * 100,
+      beatBenchmark: ret > bench,
+      missing: [],
+      notes: [],
     });
     const s = summarizeRotationCycles([
       mk('c3', '2026-03-01', 0.1, 0.05),

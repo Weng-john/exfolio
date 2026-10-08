@@ -106,7 +106,9 @@ function equalHex(a: string, b: string): boolean {
 }
 
 export function normalizeUsername(raw: unknown): string {
-  const username = String(raw ?? '').trim().toLowerCase();
+  const username = String(raw ?? '')
+    .trim()
+    .toLowerCase();
   if (!/^[a-z0-9._@+-]{3,64}$/.test(username)) {
     throw new ApiError('帳號需為 3–64 個字元，只能使用英數字與 . _ @ + -');
   }
@@ -120,7 +122,9 @@ function requireKey(raw: unknown): string {
 }
 
 function cleanName(raw: unknown, fallback: string): string {
-  const name = String(raw ?? '').trim().slice(0, 80);
+  const name = String(raw ?? '')
+    .trim()
+    .slice(0, 80);
   return name || fallback;
 }
 
@@ -139,7 +143,13 @@ export function toPublic(u: UserRecord): PublicUser {
   };
 }
 
-function audit(file: AuthFile, actor: UserRecord, action: string, target?: UserRecord, detail?: string) {
+function audit(
+  file: AuthFile,
+  actor: UserRecord,
+  action: string,
+  target?: UserRecord,
+  detail?: string,
+) {
   file.audit.push({
     id: newId('audit'),
     at: new Date().toISOString(),
@@ -163,7 +173,10 @@ function openSession(file: AuthFile, user: UserRecord): string {
 }
 
 /** Create a member. The first one becomes an active admin. */
-async function createUser(file: AuthFile, fields: Partial<UserRecord> & { username: string }): Promise<UserRecord> {
+async function createUser(
+  file: AuthFile,
+  fields: Partial<UserRecord> & { username: string },
+): Promise<UserRecord> {
   const first = file.users.length === 0;
   const user: UserRecord = {
     id: newId('u'),
@@ -198,7 +211,8 @@ function checkThrottle(key: string) {
 
 function recordFailure(key: string) {
   const f = failures.get(key);
-  if (!f || Date.now() - f.since > FAILURE_WINDOW_MS) failures.set(key, { count: 1, since: Date.now() });
+  if (!f || Date.now() - f.since > FAILURE_WINDOW_MS)
+    failures.set(key, { count: 1, since: Date.now() });
   else f.count += 1;
 }
 
@@ -222,7 +236,13 @@ const verifyWithGoogle: GoogleVerifier = async (idToken, clientId) => {
   const info = (await res.json()) as Record<string, string>;
   const issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com';
   const fresh = Number(info.exp) * 1000 > Date.now();
-  if (info.aud !== clientId || !issuerOk || !fresh || String(info.email_verified) !== 'true' || !info.sub) {
+  if (
+    info.aud !== clientId ||
+    !issuerOk ||
+    !fresh ||
+    String(info.email_verified) !== 'true' ||
+    !info.sub
+  ) {
     throw new ApiError('invalid_credentials');
   }
   return { sub: info.sub, email: info.email, name: info.name };
@@ -266,7 +286,11 @@ export interface LoginResult {
   session?: string;
 }
 
-export function register(input: { username: unknown; displayName?: unknown; passwordKey: unknown }): Promise<LoginResult> {
+export function register(input: {
+  username: unknown;
+  displayName?: unknown;
+  passwordKey: unknown;
+}): Promise<LoginResult> {
   const username = normalizeUsername(input.username);
   const key = requireKey(input.passwordKey);
   return mutate(async (file) => {
@@ -278,7 +302,10 @@ export function register(input: { username: unknown; displayName?: unknown; pass
       passwordSalt,
       passwordHash: await hashKey(key, passwordSalt),
     });
-    return { user: toPublic(user), ...(user.status === 'active' ? { session: openSession(file, user) } : {}) };
+    return {
+      user: toPublic(user),
+      ...(user.status === 'active' ? { session: openSession(file, user) } : {}),
+    };
   });
 }
 
@@ -288,7 +315,9 @@ function requireActive(user: UserRecord) {
 }
 
 export function login(input: { username: unknown; passwordKey: unknown }): Promise<LoginResult> {
-  const username = String(input.username ?? '').trim().toLowerCase();
+  const username = String(input.username ?? '')
+    .trim()
+    .toLowerCase();
   const key = requireKey(input.passwordKey);
   checkThrottle(username);
   return mutate(async (file) => {
@@ -334,7 +363,8 @@ export async function authenticate(session: unknown): Promise<UserRecord> {
   const file = await read();
   const tokenHash = sha256(session);
   const record = file.sessions.find((s) => s.tokenHash === tokenHash);
-  if (!record || new Date(record.expiresAt).getTime() <= Date.now()) throw new ApiError('unauthenticated');
+  if (!record || new Date(record.expiresAt).getTime() <= Date.now())
+    throw new ApiError('unauthenticated');
   const user = file.users.find((u) => u.id === record.userId);
   if (!user) throw new ApiError('unauthenticated');
   requireActive(user);
@@ -360,7 +390,8 @@ export function updateProfile(
 ): Promise<PublicUser> {
   return mutate((file) => {
     const user = find(file, actor.id);
-    if (input.displayName !== undefined) user.displayName = cleanName(input.displayName, user.username);
+    if (input.displayName !== undefined)
+      user.displayName = cleanName(input.displayName, user.username);
     if (typeof input.allowAdminView === 'boolean' && input.allowAdminView !== user.allowAdminView) {
       user.allowAdminView = input.allowAdminView;
       audit(file, user, 'set-admin-view', undefined, input.allowAdminView ? 'allowed' : 'refused');
@@ -429,14 +460,16 @@ export function adminUpdateUser(
     const user = find(file, String(input.userId));
     const status = input.status as UserStatus | undefined;
     const role = input.role as UserRole | undefined;
-    if (status !== undefined && !['pending', 'active', 'disabled'].includes(status)) throw new ApiError('狀態不正確');
+    if (status !== undefined && !['pending', 'active', 'disabled'].includes(status))
+      throw new ApiError('狀態不正確');
     if (role !== undefined && !['admin', 'member'].includes(role)) throw new ApiError('角色不正確');
 
     const losesAdmin =
       user.role === 'admin' &&
       user.status === 'active' &&
       ((role !== undefined && role !== 'admin') || (status !== undefined && status !== 'active'));
-    if (losesAdmin && activeAdmins(file).length <= 1) throw new ApiError('至少要保留一位啟用中的管理員');
+    if (losesAdmin && activeAdmins(file).length <= 1)
+      throw new ApiError('至少要保留一位啟用中的管理員');
 
     if (status !== undefined && status !== user.status) {
       audit(file, actor, 'set-status', user, `${user.status} -> ${status}`);
@@ -479,7 +512,8 @@ export function adminSetConfig(
   requireAdmin(actor);
   return mutate((file) => {
     if (input.registration !== undefined) {
-      if (input.registration !== 'approval' && input.registration !== 'open') throw new ApiError('註冊模式不正確');
+      if (input.registration !== 'approval' && input.registration !== 'open')
+        throw new ApiError('註冊模式不正確');
       if (input.registration !== file.config.registration) {
         audit(file, actor, 'set-registration', undefined, input.registration);
         file.config.registration = input.registration;
@@ -487,7 +521,8 @@ export function adminSetConfig(
     }
     if (input.googleClientId !== undefined) {
       const id = String(input.googleClientId).trim();
-      if (id && !/^[A-Za-z0-9._-]{10,200}$/.test(id)) throw new ApiError('Google 用戶端 ID 格式不正確');
+      if (id && !/^[A-Za-z0-9._-]{10,200}$/.test(id))
+        throw new ApiError('Google 用戶端 ID 格式不正確');
       if (id) file.config.googleClientId = id;
       else delete file.config.googleClientId;
       audit(file, actor, 'set-google-client', undefined, id ? 'set' : 'cleared');
@@ -511,7 +546,8 @@ export async function listAudit(actor: UserRecord): Promise<AuditEntry[]> {
  * the admin role and that member's standing consent, and is always logged.
  */
 export async function resolveReadTarget(actor: UserRecord, asUser: unknown): Promise<string> {
-  if (asUser === undefined || asUser === null || asUser === '' || asUser === actor.id) return actor.id;
+  if (asUser === undefined || asUser === null || asUser === '' || asUser === actor.id)
+    return actor.id;
   requireAdmin(actor);
   return mutate((file) => {
     const target = find(file, String(asUser));

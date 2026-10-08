@@ -7,7 +7,11 @@ export type Theme = 'system' | 'light' | 'dark';
 
 const KEY = 'exfolio.theme';
 const ORDER: Theme[] = ['system', 'light', 'dark'];
-export const THEME_LABELS: Record<Theme, string> = { system: '跟隨系統', light: '明亮', dark: '黑色' };
+export const THEME_LABELS: Record<Theme, string> = {
+  system: '跟隨系統',
+  light: '明亮',
+  dark: '黑色',
+};
 
 export function loadTheme(): Theme {
   try {

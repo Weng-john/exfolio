@@ -1,19 +1,34 @@
 import { useState } from 'react';
-import { INSTITUTION_CATALOG, newId, type Loan, type LoanKind, type RepaymentMethod } from '@core/index';
+import {
+  INSTITUTION_CATALOG,
+  newId,
+  type Loan,
+  type LoanKind,
+  type RepaymentMethod,
+} from '@core/index';
 import { Field, Modal } from '../../components/ui';
 import { upsertRow, useData } from '../../store';
 import { KIND_LABEL, METHOD_LABEL, num } from './shared';
 
-const pct = (x: number | undefined) => (x === undefined ? '' : String(Number((x * 100).toFixed(6))));
+const pct = (x: number | undefined) =>
+  x === undefined ? '' : String(Number((x * 100).toFixed(6)));
 const frac = (s: string) => Number((num(s) / 100).toFixed(8));
 
 /** Add / edit a loan. Fields adapt to the loan kind and repayment method. */
-export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSaved?: (id: string) => void }) {
+export default function LoanForm(props: {
+  loan?: Loan;
+  onClose: () => void;
+  onSaved?: (id: string) => void;
+}) {
   const { loan } = props;
   const data = useData();
   // The user's own institutions first, then the catalog's banks and brokers.
   const lenderOptions = [
-    ...new Set([...data.brokers, ...INSTITUTION_CATALOG.filter((b) => b.kind !== 'exchange')].map((b) => b.name)),
+    ...new Set(
+      [...data.brokers, ...INSTITUTION_CATALOG.filter((b) => b.kind !== 'exchange')].map(
+        (b) => b.name,
+      ),
+    ),
   ];
   const [name, setName] = useState(loan?.name ?? '');
   const [kind, setKind] = useState<LoanKind>(loan?.kind ?? 'credit');
@@ -22,7 +37,9 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
   const [principal, setPrincipal] = useState(String(loan?.principal ?? ''));
   const [rate, setRate] = useState(pct(loan?.annualRate));
   const [method, setMethod] = useState<RepaymentMethod>(loan?.method ?? 'annuity');
-  const [startDate, setStartDate] = useState(loan?.startDate ?? new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(
+    loan?.startDate ?? new Date().toISOString().slice(0, 10),
+  );
   const [term, setTerm] = useState(String(loan?.termMonths ?? ''));
   const [payDay, setPayDay] = useState(String(loan?.payDay ?? ''));
   const [callRatio, setCallRatio] = useState(pct(loan?.callRatio));
@@ -100,7 +117,11 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
             </select>
           </Field>
           <Field label="貸款機構">
-            <input list="lender-options" value={lender} onChange={(e) => setLender(e.target.value)} />
+            <input
+              list="lender-options"
+              value={lender}
+              onChange={(e) => setLender(e.target.value)}
+            />
             <datalist id="lender-options">
               {lenderOptions.map((name) => (
                 <option key={name} value={name} />
@@ -114,7 +135,12 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
             <input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
           </Field>
           <Field label="年利率（%）">
-            <input type="number" step="any" value={rate} onChange={(e) => setRate(e.target.value)} />
+            <input
+              type="number"
+              step="any"
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+            />
           </Field>
           <Field label="還款方式">
             <select value={method} onChange={(e) => setMethod(e.target.value as RepaymentMethod)}>
@@ -134,11 +160,22 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
             </Field>
           )}
           <Field label="繳款日（每月幾號）" hint="超過當月天數時以月底計">
-            <input type="number" min={1} max={31} value={payDay} onChange={(e) => setPayDay(e.target.value)} />
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={payDay}
+              onChange={(e) => setPayDay(e.target.value)}
+            />
           </Field>
           {secured && (
             <Field label="追繳維持率門檻（%）" hint="僅提示，不會限制任何操作">
-              <input type="number" step="any" value={callRatio} onChange={(e) => setCallRatio(e.target.value)} />
+              <input
+                type="number"
+                step="any"
+                value={callRatio}
+                onChange={(e) => setCallRatio(e.target.value)}
+              />
             </Field>
           )}
         </div>
@@ -146,7 +183,8 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
           <input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         <label>
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> 使用中
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />{' '}
+          使用中
         </label>
         {secured && <p className="loans-explain">擔保品請於借款明細的「擔保品」區塊設定。</p>}
         {errors.length > 0 && <div className="notice warn">{errors.join('；')}</div>}

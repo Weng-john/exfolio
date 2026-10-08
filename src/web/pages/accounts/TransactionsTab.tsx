@@ -33,12 +33,15 @@ export default function TransactionsTab() {
   const base = getSettings(data).baseCurrency;
 
   const rows = filterTransactions(data.transactions, filter);
-  const accountName = (id?: string) => (id ? (data.accounts.find((a) => a.id === id)?.name ?? id) : '');
-  const instSymbol = (id?: string) => (id ? (data.instruments.find((i) => i.id === id)?.symbol ?? id) : '');
+  const accountName = (id?: string) =>
+    id ? (data.accounts.find((a) => a.id === id)?.name ?? id) : '';
+  const instSymbol = (id?: string) =>
+    id ? (data.instruments.find((i) => i.id === id)?.symbol ?? id) : '';
   const patch = (p: Partial<TxFilter>) => setFilter((f) => ({ ...f, ...p }));
 
   const remove = (t: Transaction) => {
-    if (window.confirm(`刪除 ${t.date} ${TX_LABELS[t.type]} 交易？此動作無法復原。`)) removeRow('transactions', t.id);
+    if (window.confirm(`刪除 ${t.date} ${TX_LABELS[t.type]} 交易？此動作無法復原。`))
+      removeRow('transactions', t.id);
   };
 
   const exportCsv = () => {
@@ -55,7 +58,11 @@ export default function TransactionsTab() {
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     const result = parseTransactionsCsv(await file.text(), data);
-    setPreview({ fileName: file.name, result, ...splitExisting(result.transactions, data.transactions) });
+    setPreview({
+      fileName: file.name,
+      result,
+      ...splitExisting(result.transactions, data.transactions),
+    });
     setMessage('');
     if (fileRef.current) fileRef.current.value = '';
   };
@@ -63,7 +70,9 @@ export default function TransactionsTab() {
   const confirmImport = () => {
     if (!preview) return;
     if (preview.fresh.length) setTable('transactions', [...data.transactions, ...preview.fresh]);
-    setMessage(`已匯入 ${preview.fresh.length} 筆，略過 ${preview.skipped.length} 筆（id 已存在）。`);
+    setMessage(
+      `已匯入 ${preview.fresh.length} 筆，略過 ${preview.skipped.length} 筆（id 已存在）。`,
+    );
     setPreview(undefined);
   };
 
@@ -76,8 +85,18 @@ export default function TransactionsTab() {
             匯出 CSV
           </button>
           <button onClick={() => fileRef.current?.click()}>匯入 CSV</button>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
-          <button className="primary" onClick={() => setEditing('new')} disabled={!data.accounts.length}>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            onChange={(e) => void onFile(e.target.files?.[0])}
+          />
+          <button
+            className="primary"
+            onClick={() => setEditing('new')}
+            disabled={!data.accounts.length}
+          >
             新增交易
           </button>
         </>
@@ -85,7 +104,11 @@ export default function TransactionsTab() {
     >
       {message && <div className="notice">{message}</div>}
       <div className="acct-filters">
-        <select aria-label="帳戶" value={filter.accountId ?? ''} onChange={(e) => patch({ accountId: e.target.value || undefined })}>
+        <select
+          aria-label="帳戶"
+          value={filter.accountId ?? ''}
+          onChange={(e) => patch({ accountId: e.target.value || undefined })}
+        >
           <option value="">全部帳戶</option>
           {data.accounts.map((a) => (
             <option key={a.id} value={a.id}>
@@ -93,7 +116,11 @@ export default function TransactionsTab() {
             </option>
           ))}
         </select>
-        <select aria-label="類型" value={filter.type ?? ''} onChange={(e) => patch({ type: (e.target.value || undefined) as TxType | undefined })}>
+        <select
+          aria-label="類型"
+          value={filter.type ?? ''}
+          onChange={(e) => patch({ type: (e.target.value || undefined) as TxType | undefined })}
+        >
           <option value="">全部類型</option>
           {(Object.keys(TX_LABELS) as TxType[]).map((t) => (
             <option key={t} value={t}>
@@ -101,7 +128,11 @@ export default function TransactionsTab() {
             </option>
           ))}
         </select>
-        <select aria-label="商品" value={filter.instrumentId ?? ''} onChange={(e) => patch({ instrumentId: e.target.value || undefined })}>
+        <select
+          aria-label="商品"
+          value={filter.instrumentId ?? ''}
+          onChange={(e) => patch({ instrumentId: e.target.value || undefined })}
+        >
           <option value="">全部商品</option>
           {data.instruments.map((i) => (
             <option key={i.id} value={i.id}>
@@ -109,8 +140,18 @@ export default function TransactionsTab() {
             </option>
           ))}
         </select>
-        <input type="date" aria-label="起日" value={filter.from ?? ''} onChange={(e) => patch({ from: e.target.value || undefined })} />
-        <input type="date" aria-label="迄日" value={filter.to ?? ''} onChange={(e) => patch({ to: e.target.value || undefined })} />
+        <input
+          type="date"
+          aria-label="起日"
+          value={filter.from ?? ''}
+          onChange={(e) => patch({ from: e.target.value || undefined })}
+        />
+        <input
+          type="date"
+          aria-label="迄日"
+          value={filter.to ?? ''}
+          onChange={(e) => patch({ to: e.target.value || undefined })}
+        />
         <button className="ghost" onClick={() => setFilter({})}>
           清除篩選
         </button>
@@ -141,20 +182,35 @@ export default function TransactionsTab() {
                   <td>{TX_LABELS[t.type]}</td>
                   <td>
                     {accountName(t.accountId)}
-                    {t.toAccountId && <span className="muted"> → {accountName(t.toAccountId)}</span>}
-                    {t.bucket !== 'core' && <span className="muted"> · {data.strategies.find((s) => s.id === t.bucket)?.name ?? t.bucket}</span>}
+                    {t.toAccountId && (
+                      <span className="muted"> → {accountName(t.toAccountId)}</span>
+                    )}
+                    {t.bucket !== 'core' && (
+                      <span className="muted">
+                        {' '}
+                        · {data.strategies.find((s) => s.id === t.bucket)?.name ?? t.bucket}
+                      </span>
+                    )}
                   </td>
                   <td>{instSymbol(t.instrumentId)}</td>
                   <td className="num">{fmtNum(t.quantity, 4)}</td>
                   <td className="num">{fmtNum(t.price, 4)}</td>
-                  <td className={`num ${t.type === 'adjust' || t.type === 'funding_fee' ? signClass(t.amount) : ''}`}>
-                    {t.type === 'buy' || t.type === 'sell' ? '—' : `${fmtMoney(t.amount, t.currency)} ${t.currency}`}
+                  <td
+                    className={`num ${t.type === 'adjust' || t.type === 'funding_fee' ? signClass(t.amount) : ''}`}
+                  >
+                    {t.type === 'buy' || t.type === 'sell'
+                      ? '—'
+                      : `${fmtMoney(t.amount, t.currency)} ${t.currency}`}
                     {t.type === 'transfer' && t.toCurrency && t.toCurrency !== t.currency && (
                       <div className="muted">
                         → {fmtMoney(t.toAmount, t.toCurrency)} {t.toCurrency}
                       </div>
                     )}
-                    {t.type === 'loan_repay' && t.source && <div className="muted">{t.source === 'external' ? '外部資金' : '投資組合'}</div>}
+                    {t.type === 'loan_repay' && t.source && (
+                      <div className="muted">
+                        {t.source === 'external' ? '外部資金' : '投資組合'}
+                      </div>
+                    )}
                   </td>
                   <td>{t.note}</td>
                   <td className="actions">
@@ -171,7 +227,9 @@ export default function TransactionsTab() {
           </table>
         </div>
       )}
-      <p className="muted">金額欄為現金金額（{base} 以外幣別另標示）；買賣的現金影響由數量 × 價格推算。</p>
+      <p className="muted">
+        金額欄為現金金額（{base} 以外幣別另標示）；買賣的現金影響由數量 × 價格推算。
+      </p>
 
       {editing && (
         <TxForm
@@ -202,8 +260,9 @@ export default function TransactionsTab() {
           }
         >
           <p>
-            有效 {preview.result.transactions.length} 筆（新增 {preview.fresh.length}、id 已存在將略過 {preview.skipped.length}），錯誤{' '}
-            {preview.result.errors.length} 筆。錯誤的列不會匯入。
+            有效 {preview.result.transactions.length} 筆（新增 {preview.fresh.length}、id
+            已存在將略過 {preview.skipped.length}），錯誤 {preview.result.errors.length}{' '}
+            筆。錯誤的列不會匯入。
           </p>
           {preview.result.errors.length > 0 && (
             <ul className="acct-errors">
@@ -237,7 +296,11 @@ export default function TransactionsTab() {
                       <td>{instSymbol(t.instrumentId)}</td>
                       <td className="num">{fmtNum(t.quantity, 4)}</td>
                       <td className="num">{fmtNum(t.price, 4)}</td>
-                      <td className="num">{t.type === 'buy' || t.type === 'sell' ? '—' : `${fmtMoney(t.amount, t.currency)} ${t.currency}`}</td>
+                      <td className="num">
+                        {t.type === 'buy' || t.type === 'sell'
+                          ? '—'
+                          : `${fmtMoney(t.amount, t.currency)} ${t.currency}`}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 // configured a client id, so sites without Google sign-in never contact Google.
 
 interface GoogleId {
-  initialize(options: { client_id: string; callback: (response: { credential?: string }) => void }): void;
+  initialize(options: {
+    client_id: string;
+    callback: (response: { credential?: string }) => void;
+  }): void;
   renderButton(element: HTMLElement, options: Record<string, unknown>): void;
 }
 
@@ -31,7 +34,11 @@ function loadScript(): Promise<void> {
   return loading;
 }
 
-export function GoogleButton(props: { clientId: string; onToken: (idToken: string) => void; label?: 'signin_with' | 'continue_with' }) {
+export function GoogleButton(props: {
+  clientId: string;
+  onToken: (idToken: string) => void;
+  label?: 'signin_with' | 'continue_with';
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const { clientId, onToken, label } = props;
@@ -45,7 +52,11 @@ export function GoogleButton(props: { clientId: string; onToken: (idToken: strin
           client_id: clientId,
           callback: (response) => response.credential && onToken(response.credential),
         });
-        window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large', text: label ?? 'signin_with' });
+        window.google.accounts.id.renderButton(ref.current, {
+          theme: 'outline',
+          size: 'large',
+          text: label ?? 'signin_with',
+        });
       })
       .catch((err: Error) => !cancelled && setError(err.message));
     return () => {

@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { SEED_FX_PAIRS, type FxRate, type PriceQuote, type QuoteRequestItem, type QuoteSource } from '@core/index';
+import {
+  SEED_FX_PAIRS,
+  type FxRate,
+  type PriceQuote,
+  type QuoteRequestItem,
+  type QuoteSource,
+} from '@core/index';
 import { getBackend, getState, setTable } from './store';
 
 // Market quotes are refreshed separately from account data: on page open,
@@ -45,9 +51,13 @@ export async function refreshQuotes(): Promise<void> {
   );
   const items = new Map<string, QuoteRequestItem>();
   for (const i of instruments) {
-    items.set(key(i.quoteSource, i.quoteSymbol!), { source: i.quoteSource, symbol: i.quoteSymbol! });
+    items.set(key(i.quoteSource, i.quoteSymbol!), {
+      source: i.quoteSource,
+      symbol: i.quoteSymbol!,
+    });
   }
-  for (const [, , source, symbol] of SEED_FX_PAIRS) items.set(key(source, symbol), { source, symbol });
+  for (const [, , source, symbol] of SEED_FX_PAIRS)
+    items.set(key(source, symbol), { source, symbol });
   if (!items.size) return;
 
   setSync({ refreshing: true, lastAttemptAt: new Date().toISOString() });

@@ -1,5 +1,13 @@
 import { useSyncExternalStore } from 'react';
-import { demoData, emptyData, SEED_INSTRUMENTS, seedData, TABLE_NAMES, type AppData, type TableName } from '@core/index';
+import {
+  demoData,
+  emptyData,
+  SEED_INSTRUMENTS,
+  seedData,
+  TABLE_NAMES,
+  type AppData,
+  type TableName,
+} from '@core/index';
 import { connectBackend, type Backend } from './backend';
 
 // Single in-memory copy of the dataset. Pages read it with useData() and
@@ -20,7 +28,13 @@ export interface StoreState {
   lastSavedAt?: string;
 }
 
-let state: StoreState = { data: emptyData(), status: 'loading', backendLabel: '', readOnly: false, demo: false };
+let state: StoreState = {
+  data: emptyData(),
+  status: 'loading',
+  backendLabel: '',
+  readOnly: false,
+  demo: false,
+};
 let backend: Backend | undefined;
 let revision = 0;
 const dirty = new Set<TableName>();
@@ -146,7 +160,8 @@ function adoptSeedQuoteSources(data: AppData): boolean {
   let changed = false;
   data.instruments = data.instruments.map((i) => {
     const seed = SEED_INSTRUMENTS.find((s) => s.id === i.id);
-    if (!seed || i.quoteSource !== 'manual' || i.quoteSymbol || seed.quoteSource === 'manual') return i;
+    if (!seed || i.quoteSource !== 'manual' || i.quoteSymbol || seed.quoteSource === 'manual')
+      return i;
     changed = true;
     return { ...i, quoteSource: seed.quoteSource, quoteSymbol: seed.quoteSymbol };
   });

@@ -3,10 +3,12 @@ import { xirr } from '@core/index';
 
 describe('xirr', () => {
   it('returns 100% for a one-year doubling', () => {
-    expect(xirr([
-      { date: '2025-01-01', amount: -100 },
-      { date: '2026-01-01', amount: 200 },
-    ])).toBeCloseTo(1, 8);
+    expect(
+      xirr([
+        { date: '2025-01-01', amount: -100 },
+        { date: '2026-01-01', amount: 200 },
+      ]),
+    ).toBeCloseTo(1, 8);
   });
 
   it('solves a hand-checkable multi-flow series with Actual/365', () => {
@@ -19,11 +21,18 @@ describe('xirr', () => {
   });
 
   it('supports losses and rejects series without a sign change', () => {
-    expect(xirr([
-      { date: '2025-01-01', amount: -100 },
-      { date: '2026-01-01', amount: 80 },
-    ])).toBeCloseTo(-0.2, 8);
-    expect(xirr([{ date: '2025-01-01', amount: -100 }, { date: '2026-01-01', amount: -80 }])).toBeUndefined();
+    expect(
+      xirr([
+        { date: '2025-01-01', amount: -100 },
+        { date: '2026-01-01', amount: 80 },
+      ]),
+    ).toBeCloseTo(-0.2, 8);
+    expect(
+      xirr([
+        { date: '2025-01-01', amount: -100 },
+        { date: '2026-01-01', amount: -80 },
+      ]),
+    ).toBeUndefined();
     expect(xirr([{ date: '2025-01-01', amount: -100 }])).toBeUndefined();
   });
 });

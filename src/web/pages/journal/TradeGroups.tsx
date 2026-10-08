@@ -61,12 +61,17 @@ export default function TradeGroups(props: { base: string }) {
     <Card
       title="交易群組（多腿交易）"
       actions={
-        <button onClick={() => (editing ? setEditing(undefined) : begin('new'))} disabled={!data.strategies.length}>
+        <button
+          onClick={() => (editing ? setEditing(undefined) : begin('new'))}
+          disabled={!data.strategies.length}
+        >
           {editing ? '取消' : '新增群組'}
         </button>
       }
     >
-      <p className="jr-note">把同一個策略交易的多筆委託歸成一組（例如價差、對沖、分批進出），合併看損益與成本。</p>
+      <p className="jr-note">
+        把同一個策略交易的多筆委託歸成一組（例如價差、對沖、分批進出），合併看損益與成本。
+      </p>
       {editing && (
         <div className="jr-inline">
           <Field label="名稱">
@@ -82,7 +87,10 @@ export default function TradeGroups(props: { base: string }) {
             </select>
           </Field>
           <Field label="狀態">
-            <select value={status} onChange={(e) => setStatus(e.target.value as TradeGroup['status'])}>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TradeGroup['status'])}
+            >
               <option value="open">進行中</option>
               <option value="closed">已結束</option>
             </select>
@@ -119,19 +127,31 @@ export default function TradeGroups(props: { base: string }) {
                   <td title={r.group?.note}>{r.group?.name ?? r.groupId}</td>
                   <td>{bucketName(data, r.group?.strategyId)}</td>
                   <td>
-                    <Badge tone={r.status === 'open' ? 'ok' : 'info'}>{r.status === 'open' ? '進行中' : '已結束'}</Badge>
-                    {r.status === 'closed' && !r.fullyClosed && r.legs.length > 0 && <span className="neg"> 仍有未平倉</span>}
+                    <Badge tone={r.status === 'open' ? 'ok' : 'info'}>
+                      {r.status === 'open' ? '進行中' : '已結束'}
+                    </Badge>
+                    {r.status === 'closed' && !r.fullyClosed && r.legs.length > 0 && (
+                      <span className="neg"> 仍有未平倉</span>
+                    )}
                   </td>
                   <td className="num">{r.legs.length}</td>
                   <td>{r.firstDate ? `${r.firstDate} ~ ${r.lastDate}` : '—'}</td>
-                  <td className={`num ${signClass(r.realizedPnlBase)}`}>{fmtMoney(r.realizedPnlBase, base)}</td>
+                  <td className={`num ${signClass(r.realizedPnlBase)}`}>
+                    {fmtMoney(r.realizedPnlBase, base)}
+                  </td>
                   <td className="num">{fmtMoney(r.costsBase, base)}</td>
-                  <td className={`num ${signClass(r.netPnlBase)}`}>{fmtMoney(r.netPnlBase, base)}</td>
+                  <td className={`num ${signClass(r.netPnlBase)}`}>
+                    {fmtMoney(r.netPnlBase, base)}
+                  </td>
                   <td>
                     {r.group && (
                       <>
-                        <button className="ghost" onClick={() => begin(r.group!)}>編輯</button>
-                        <button className="ghost danger" onClick={() => remove(r.group!)}>刪除</button>
+                        <button className="ghost" onClick={() => begin(r.group!)}>
+                          編輯
+                        </button>
+                        <button className="ghost danger" onClick={() => remove(r.group!)}>
+                          刪除
+                        </button>
                       </>
                     )}
                   </td>

@@ -40,12 +40,17 @@ export default function LoansPage() {
 
   const active = rows.filter((r) => r.loan.active);
   const totalDebt = valuation.loans.reduce((s, l) => s + l.value, 0);
-  const monthlyInterest = active.reduce((s, r) => s + r.status.projectedMonthlyInterest * r.rate, 0);
+  const monthlyInterest = active.reduce(
+    (s, r) => s + r.status.projectedMonthlyInterest * r.rate,
+    0,
+  );
   const nextDue = active
     .filter((r) => r.status.nextDueDate && r.status.nextPayment)
     .sort((a, b) => (a.status.nextDueDate! < b.status.nextDueDate! ? -1 : 1))[0];
   const ratios = active.filter((r) => r.collateral?.maintenanceRatio !== undefined);
-  const lowest = ratios.sort((a, b) => a.collateral!.maintenanceRatio! - b.collateral!.maintenanceRatio!)[0];
+  const lowest = ratios.sort(
+    (a, b) => a.collateral!.maintenanceRatio! - b.collateral!.maintenanceRatio!,
+  )[0];
 
   const selected = rows.find((r) => r.loan.id === selectedId) ?? rows[0];
 
@@ -59,7 +64,9 @@ export default function LoansPage() {
     if (window.confirm(`確定刪除「${loan.name}」？`)) removeRow('loans', loan.id);
   };
 
-  const forecastLoans = data.loans.filter((l) => forecast.some((f) => f.byLoan.some((b) => b.loanId === l.id)));
+  const forecastLoans = data.loans.filter((l) =>
+    forecast.some((f) => f.byLoan.some((b) => b.loanId === l.id)),
+  );
   const forecastTotal = forecast.reduce((s, f) => s + f.total, 0);
 
   return (
@@ -67,16 +74,32 @@ export default function LoansPage() {
       <PageHeader
         title="Loans & Collateral"
         subtitle="信貸、質押、利息、還款與維持率"
-        actions={<button className="primary" onClick={() => setForm({})}>新增借款</button>}
+        actions={
+          <button className="primary" onClick={() => setForm({})}>
+            新增借款
+          </button>
+        }
       />
       {form && (
-        <LoanForm loan={form.loan} onClose={() => setForm(undefined)} onSaved={(id) => setSelectedId(id)} />
+        <LoanForm
+          loan={form.loan}
+          onClose={() => setForm(undefined)}
+          onSaved={(id) => setSelectedId(id)}
+        />
       )}
 
       <div className="stats">
         <Stat label={`總負債（${base}）`} value={fmtMoney(totalDebt, base)} hint="僅借款餘額" />
-        <Stat label="負債 / NAV" value={fmtX(valuation.debtToNav)} hint={`${fmtPct(valuation.debtToNav, 1)} · 含透支現金`} />
-        <Stat label={`預估月息（${base}）`} value={fmtMoney(monthlyInterest, base)} hint="使用中借款，以目前餘額計" />
+        <Stat
+          label="負債 / NAV"
+          value={fmtX(valuation.debtToNav)}
+          hint={`${fmtPct(valuation.debtToNav, 1)} · 含透支現金`}
+        />
+        <Stat
+          label={`預估月息（${base}）`}
+          value={fmtMoney(monthlyInterest, base)}
+          hint="使用中借款，以目前餘額計"
+        />
         <Stat
           label="下一筆應繳"
           value={nextDue ? fmtMoney(nextDue.status.nextPayment!.total, nextDue.loan.currency) : '—'}
@@ -127,7 +150,9 @@ export default function LoansPage() {
                     <td>{status.nextDueDate ?? '—'}</td>
                     <td className="num">
                       {collateral ? (
-                        <span className={collateral.belowCall ? 'neg' : ''}>{fmtPct(collateral.maintenanceRatio, 1)}</span>
+                        <span className={collateral.belowCall ? 'neg' : ''}>
+                          {fmtPct(collateral.maintenanceRatio, 1)}
+                        </span>
                       ) : (
                         '—'
                       )}
@@ -199,8 +224,18 @@ export default function LoansPage() {
               <tfoot>
                 <tr>
                   <td colSpan={forecastLoans.length + 1}>12 個月合計</td>
-                  <td className="num">{fmtMoney(forecast.reduce((s, f) => s + f.principal, 0), base)}</td>
-                  <td className="num">{fmtMoney(forecast.reduce((s, f) => s + f.interest, 0), base)}</td>
+                  <td className="num">
+                    {fmtMoney(
+                      forecast.reduce((s, f) => s + f.principal, 0),
+                      base,
+                    )}
+                  </td>
+                  <td className="num">
+                    {fmtMoney(
+                      forecast.reduce((s, f) => s + f.interest, 0),
+                      base,
+                    )}
+                  </td>
                   <td className="num">{fmtMoney(forecastTotal, base)}</td>
                 </tr>
               </tfoot>

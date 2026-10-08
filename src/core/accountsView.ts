@@ -17,7 +17,8 @@ export function filterTransactions(txs: Transaction[], f: TxFilter): Transaction
   return txs
     .map((tx, i) => ({ tx, i }))
     .filter(({ tx }) => {
-      if (f.accountId && tx.accountId !== f.accountId && tx.toAccountId !== f.accountId) return false;
+      if (f.accountId && tx.accountId !== f.accountId && tx.toAccountId !== f.accountId)
+        return false;
       if (f.type && tx.type !== f.type) return false;
       if (f.instrumentId && tx.instrumentId !== f.instrumentId) return false;
       if (f.from && tx.date < f.from) return false;
@@ -49,7 +50,13 @@ export function positionTotals(positions: ValuedPosition[], nav: number): Positi
     unrealizedPnl += p.unrealizedPnl;
     realizedPnl += p.realizedPnl * p.fxRate;
   }
-  return { marketValue, exposure, unrealizedPnl, realizedPnl, exposureToNav: nav > 0 ? exposure / nav : undefined };
+  return {
+    marketValue,
+    exposure,
+    unrealizedPnl,
+    realizedPnl,
+    exposureToNav: nav > 0 ? exposure / nav : undefined,
+  };
 }
 
 /** Base-currency cash total and the amount that is overdrawn (a liability). */
@@ -64,15 +71,26 @@ export function cashTotals(cash: CashValue[]): { total: number; overdrawn: numbe
 }
 
 /** What still references an account; deleting it is refused while any count is non-zero. */
-export function accountReferences(data: AppData, accountId: ID): { transactions: number; collateral: number } {
+export function accountReferences(
+  data: AppData,
+  accountId: ID,
+): { transactions: number; collateral: number } {
   return {
-    transactions: data.transactions.filter((t) => t.accountId === accountId || t.toAccountId === accountId).length,
-    collateral: data.loans.reduce((n, l) => n + (l.collateral ?? []).filter((c) => c.accountId === accountId).length, 0),
+    transactions: data.transactions.filter(
+      (t) => t.accountId === accountId || t.toAccountId === accountId,
+    ).length,
+    collateral: data.loans.reduce(
+      (n, l) => n + (l.collateral ?? []).filter((c) => c.accountId === accountId).length,
+      0,
+    ),
   };
 }
 
 /** What still references a broker. */
-export function brokerReferences(data: AppData, brokerId: ID): { accounts: number; instruments: number } {
+export function brokerReferences(
+  data: AppData,
+  brokerId: ID,
+): { accounts: number; instruments: number } {
   return {
     accounts: data.accounts.filter((a) => a.brokerId === brokerId).length,
     instruments: data.instruments.filter((i) => i.brokerIds?.includes(brokerId)).length,

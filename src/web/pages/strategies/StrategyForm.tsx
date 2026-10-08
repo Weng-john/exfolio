@@ -27,7 +27,8 @@ export default function StrategyForm(props: {
   const visible = data.instruments.filter(
     (i) => allowed.includes(i.id) || !q || `${i.symbol} ${i.name}`.toLowerCase().includes(q),
   );
-  const toggle = (id: string) => setAllowed((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
+  const toggle = (id: string) =>
+    setAllowed((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
   const save = () => {
     if (!name.trim()) return;
@@ -67,10 +68,18 @@ export default function StrategyForm(props: {
     >
       <div className="form-grid">
         <Field label="名稱">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：S&P 500 主觀輪動" />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例如：S&P 500 主觀輪動"
+          />
         </Field>
         <Field label="分類（選填）">
-          <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="例如：輪動、波段、期貨" />
+          <input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="例如：輪動、波段、期貨"
+          />
         </Field>
         <Field label="狀態">
           <select value={status} onChange={(e) => setStatus(e.target.value as StrategyStatus)}>
@@ -105,7 +114,11 @@ export default function StrategyForm(props: {
       <div className="form-grid" style={{ marginTop: 12 }}>
         <div className="str-wide">
           <Field label="描述（選填）">
-            <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </Field>
         </div>
         <div className="str-wide">
@@ -113,12 +126,20 @@ export default function StrategyForm(props: {
             label={`允許商品（已選 ${allowed.length}）`}
             hint="不選 = 不限制。只在交易歸屬時提醒，不會阻擋交易。"
           >
-            <input placeholder="搜尋代號或名稱" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <input
+              placeholder="搜尋代號或名稱"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
           </Field>
           <div className="str-checklist" style={{ marginTop: 6 }}>
             {visible.map((i) => (
               <label key={i.id}>
-                <input type="checkbox" checked={allowed.includes(i.id)} onChange={() => toggle(i.id)} />
+                <input
+                  type="checkbox"
+                  checked={allowed.includes(i.id)}
+                  onChange={() => toggle(i.id)}
+                />
                 {i.symbol} {i.name}
               </label>
             ))}

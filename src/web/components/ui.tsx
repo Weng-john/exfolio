@@ -12,7 +12,12 @@ export function PageHeader(props: { title: string; subtitle?: string; actions?: 
   );
 }
 
-export function Card(props: { title?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
+export function Card(props: {
+  title?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <section className={`card ${props.className ?? ''}`}>
       {(props.title || props.actions) && (
@@ -26,7 +31,12 @@ export function Card(props: { title?: string; actions?: ReactNode; children: Rea
   );
 }
 
-export function Stat(props: { label: string; value: ReactNode; hint?: ReactNode; tone?: 'pos' | 'neg' | 'warn' }) {
+export function Stat(props: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  tone?: 'pos' | 'neg' | 'warn';
+}) {
   return (
     <div className="stat">
       <div className="stat-label">{props.label}</div>
@@ -70,7 +80,12 @@ export function Modal(props: {
   }, [onClose]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${props.wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={props.title}>
+      <div
+        className={`modal ${props.wide ? 'wide' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={props.title}
+      >
         <div className="modal-head">
           <h2>{props.title}</h2>
           <button className="ghost" onClick={onClose} aria-label="關閉">

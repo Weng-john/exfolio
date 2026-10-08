@@ -23,8 +23,13 @@ export default function StructureTab() {
   const removeBroker = (b: Broker) => {
     const ref = brokerReferences(data, b.id);
     if (ref.accounts || ref.instruments) {
-      const parts = [ref.accounts && `${ref.accounts} 個帳戶`, ref.instruments && `${ref.instruments} 個商品的可交易券商設定`].filter(Boolean);
-      setNotice(`無法刪除機構「${b.name}」：仍被 ${parts.join('、')} 引用。請先刪除或改掛這些項目。`);
+      const parts = [
+        ref.accounts && `${ref.accounts} 個帳戶`,
+        ref.instruments && `${ref.instruments} 個商品的可交易券商設定`,
+      ].filter(Boolean);
+      setNotice(
+        `無法刪除機構「${b.name}」：仍被 ${parts.join('、')} 引用。請先刪除或改掛這些項目。`,
+      );
       return;
     }
     if (window.confirm(`刪除機構「${b.name}」？`)) {
@@ -36,8 +41,13 @@ export default function StructureTab() {
   const removeAccount = (a: Account) => {
     const ref = accountReferences(data, a.id);
     if (ref.transactions || ref.collateral) {
-      const parts = [ref.transactions && `${ref.transactions} 筆交易`, ref.collateral && `${ref.collateral} 筆貸款擔保品`].filter(Boolean);
-      setNotice(`無法刪除帳戶「${a.name}」：仍被 ${parts.join('、')} 引用，刪除會破壞帳本。若不再使用，請改為停用。`);
+      const parts = [
+        ref.transactions && `${ref.transactions} 筆交易`,
+        ref.collateral && `${ref.collateral} 筆貸款擔保品`,
+      ].filter(Boolean);
+      setNotice(
+        `無法刪除帳戶「${a.name}」：仍被 ${parts.join('、')} 引用，刪除會破壞帳本。若不再使用，請改為停用。`,
+      );
       return;
     }
     if (window.confirm(`刪除帳戶「${a.name}」？`)) {
@@ -49,7 +59,14 @@ export default function StructureTab() {
   return (
     <>
       {notice && <div className="notice warn">{notice}</div>}
-      <Card title="券商 / 銀行 / 交易所" actions={<button className="primary" onClick={() => setBroker({ id: '', name: '' })}>新增機構</button>}>
+      <Card
+        title="券商 / 銀行 / 交易所"
+        actions={
+          <button className="primary" onClick={() => setBroker({ id: '', name: '' })}>
+            新增機構
+          </button>
+        }
+      >
         {data.brokers.length === 0 ? (
           <Empty>尚無機構。按「新增機構」從常用清單挑選，或自行輸入任何券商、銀行、交易所。</Empty>
         ) : (
@@ -74,8 +91,12 @@ export default function StructureTab() {
                     <td>{feeSummary(b)}</td>
                     <td>{b.note}</td>
                     <td className="actions">
-                      <button className="ghost" onClick={() => setBroker(b)}>編輯</button>
-                      <button className="danger" onClick={() => removeBroker(b)}>刪除</button>
+                      <button className="ghost" onClick={() => setBroker(b)}>
+                        編輯
+                      </button>
+                      <button className="danger" onClick={() => removeBroker(b)}>
+                        刪除
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -92,7 +113,14 @@ export default function StructureTab() {
             className="primary"
             disabled={!data.brokers.length}
             onClick={() =>
-              setAccount({ id: '', brokerId: data.brokers[0]?.id ?? '', name: '', type: 'securities', baseCurrency: getSettings(data).baseCurrency, active: true })
+              setAccount({
+                id: '',
+                brokerId: data.brokers[0]?.id ?? '',
+                name: '',
+                type: 'securities',
+                baseCurrency: getSettings(data).baseCurrency,
+                active: true,
+              })
             }
           >
             新增帳戶
@@ -122,11 +150,17 @@ export default function StructureTab() {
                     <td>{brokerName(a.brokerId)}</td>
                     <td>{ACCOUNT_TYPE_LABELS[a.type]}</td>
                     <td>{a.baseCurrency}</td>
-                    <td>{a.active ? <Badge tone="ok">使用中</Badge> : <Badge tone="warn">停用</Badge>}</td>
+                    <td>
+                      {a.active ? <Badge tone="ok">使用中</Badge> : <Badge tone="warn">停用</Badge>}
+                    </td>
                     <td className="num">{accountReferences(data, a.id).transactions}</td>
                     <td className="actions">
-                      <button className="ghost" onClick={() => setAccount(a)}>編輯</button>
-                      <button className="danger" onClick={() => removeAccount(a)}>刪除</button>
+                      <button className="ghost" onClick={() => setAccount(a)}>
+                        編輯
+                      </button>
+                      <button className="danger" onClick={() => removeAccount(a)}>
+                        刪除
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -168,18 +202,29 @@ function feeSummary(b: Broker): string {
   if (!rule) return b.fees ? '已設定' : '—';
   const parts: string[] = [];
   if (rule.rate !== undefined) parts.push(`${Number((rule.rate * 100).toPrecision(6))}%`);
-  if (rule.discount !== undefined && rule.discount !== 1) parts.push(`${Number((rule.discount * 100).toPrecision(6))} 折`);
+  if (rule.discount !== undefined && rule.discount !== 1)
+    parts.push(`${Number((rule.discount * 100).toPrecision(6))} 折`);
   if (rule.minFee) parts.push(`最低 ${rule.minFee}`);
   return parts.join(' · ') || '已設定';
 }
 
-function AccountForm(props: { account: Account; brokers: Broker[]; onSave: (a: Account) => void; onClose: () => void }) {
+function AccountForm(props: {
+  account: Account;
+  brokers: Broker[];
+  onSave: (a: Account) => void;
+  onClose: () => void;
+}) {
   const [a, setA] = useState(props.account);
   const set = (p: Partial<Account>) => setA((s) => ({ ...s, ...p }));
   const valid = a.name.trim() && a.brokerId && a.baseCurrency.trim();
   const save = () => {
     if (!valid) return;
-    const out: Account = { ...a, id: a.id || newId('acct'), name: a.name.trim(), baseCurrency: a.baseCurrency.trim().toUpperCase() };
+    const out: Account = {
+      ...a,
+      id: a.id || newId('acct'),
+      name: a.name.trim(),
+      baseCurrency: a.baseCurrency.trim().toUpperCase(),
+    };
     if (!out.note?.trim()) delete out.note;
     props.onSave(out);
   };
@@ -189,31 +234,52 @@ function AccountForm(props: { account: Account; brokers: Broker[]; onSave: (a: A
       onClose={props.onClose}
       footer={
         <>
-          <button className="ghost" onClick={props.onClose}>取消</button>
-          <button className="primary" onClick={save} disabled={!valid}>儲存</button>
+          <button className="ghost" onClick={props.onClose}>
+            取消
+          </button>
+          <button className="primary" onClick={save} disabled={!valid}>
+            儲存
+          </button>
         </>
       }
     >
       <div className="form-grid">
-        <Field label="名稱"><input value={a.name} onChange={(e) => set({ name: e.target.value })} /></Field>
+        <Field label="名稱">
+          <input value={a.name} onChange={(e) => set({ name: e.target.value })} />
+        </Field>
         <Field label="機構">
           <select value={a.brokerId} onChange={(e) => set({ brokerId: e.target.value })}>
             {props.brokers.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
             ))}
           </select>
         </Field>
         <Field label="類型">
           <select value={a.type} onChange={(e) => set({ type: e.target.value as AccountType })}>
             {(Object.keys(ACCOUNT_TYPE_LABELS) as AccountType[]).map((t) => (
-              <option key={t} value={t}>{ACCOUNT_TYPE_LABELS[t]}</option>
+              <option key={t} value={t}>
+                {ACCOUNT_TYPE_LABELS[t]}
+              </option>
             ))}
           </select>
         </Field>
-        <Field label="帳戶幣別"><input value={a.baseCurrency} onChange={(e) => set({ baseCurrency: e.target.value })} /></Field>
-        <Field label="備註"><input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value })} /></Field>
+        <Field label="帳戶幣別">
+          <input value={a.baseCurrency} onChange={(e) => set({ baseCurrency: e.target.value })} />
+        </Field>
+        <Field label="備註">
+          <input value={a.note ?? ''} onChange={(e) => set({ note: e.target.value })} />
+        </Field>
         <Field label="狀態">
-          <label><input type="checkbox" checked={a.active} onChange={(e) => set({ active: e.target.checked })} /> 使用中</label>
+          <label>
+            <input
+              type="checkbox"
+              checked={a.active}
+              onChange={(e) => set({ active: e.target.checked })}
+            />{' '}
+            使用中
+          </label>
         </Field>
       </div>
     </Modal>

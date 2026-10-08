@@ -1,6 +1,14 @@
 import { FxTable } from './fx';
 import { buildLedger, type Position } from './ledger';
-import { CORE_BUCKET, getSettings, isDerivative, type AppData, type ID, type ISODate, type Transaction } from './types';
+import {
+  CORE_BUCKET,
+  getSettings,
+  isDerivative,
+  type AppData,
+  type ID,
+  type ISODate,
+  type Transaction,
+} from './types';
 import { xirr } from './xirr';
 
 export type PerformanceScope = 'total' | 'core' | 'strategies' | ID | { positionKey: string };
@@ -118,13 +126,13 @@ function previousDay(date: ISODate): ISODate {
   // Inverse Gregorian conversion, kept numeric so engine calculations never
   // read the wall clock or construct a Date.
   let z = dayNumber(date) - 1 + 719468;
-  const era = (z >= 0 ? z : z - 146096) / 146097 | 0;
+  const era = ((z >= 0 ? z : z - 146096) / 146097) | 0;
   const doe = z - era * 146097;
-  const yoe = (doe - (doe / 1460 | 0) + (doe / 36524 | 0) - (doe / 146096 | 0)) / 365 | 0;
+  const yoe = ((doe - ((doe / 1460) | 0) + ((doe / 36524) | 0) - ((doe / 146096) | 0)) / 365) | 0;
   let year = yoe + era * 400;
-  const doy = doe - (365 * yoe + (yoe / 4 | 0) - (yoe / 100 | 0));
-  const mp = (5 * doy + 2) / 153 | 0;
-  const day = doy - (153 * mp + 2) / 5 | 0;
+  const doy = doe - (365 * yoe + ((yoe / 4) | 0) - ((yoe / 100) | 0));
+  const mp = ((5 * doy + 2) / 153) | 0;
+  const day = (doy - (153 * mp + 2) / 5) | 0;
   const month = mp + (mp < 10 ? 3 : -9);
   year += month <= 2 ? 1 : 0;
   return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${(day + 1).toString().padStart(2, '0')}`;
@@ -136,7 +144,13 @@ function isPositionScope(scope: PerformanceScope): scope is { positionKey: strin
 
 function bucketFor(scope: PerformanceScope): ID | undefined {
   if (scope === 'core') return CORE_BUCKET;
-  if (typeof scope === 'string' && scope !== 'total' && scope !== 'strategies' && scope !== CORE_BUCKET) return scope;
+  if (
+    typeof scope === 'string' &&
+    scope !== 'total' &&
+    scope !== 'strategies' &&
+    scope !== CORE_BUCKET
+  )
+    return scope;
   return undefined;
 }
 
@@ -154,7 +168,12 @@ function positionInScope(position: Position, scope: PerformanceScope): boolean {
 
 function addMissing(target: MissingClose[], additions: MissingClose[]) {
   for (const next of additions) {
-    if (!target.some((existing) => existing.instrumentId === next.instrumentId && existing.date === next.date)) target.push(next);
+    if (
+      !target.some(
+        (existing) => existing.instrumentId === next.instrumentId && existing.date === next.date,
+      )
+    )
+      target.push(next);
   }
 }
 
@@ -171,14 +190,20 @@ function closesOf(data: AppData, instrumentId: ID): AppData['priceHistory'] {
       if (rows) rows.push(point);
       else index.set(point.instrumentId, [point]);
     }
-    for (const rows of index.values()) rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    for (const rows of index.values())
+      rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     priceIndex.set(data.priceHistory, index);
   }
   return index.get(instrumentId) ?? [];
 }
 
 /** Latest close on or before `date`. */
-function historicalPrice(data: AppData, instrumentId: ID, date: ISODate, adjusted = false): number | undefined {
+function historicalPrice(
+  data: AppData,
+  instrumentId: ID,
+  date: ISODate,
+  adjusted = false,
+): number | undefined {
   const rows = closesOf(data, instrumentId);
   let lo = 0;
   let hi = rows.length - 1;
@@ -194,11 +219,16 @@ function historicalPrice(data: AppData, instrumentId: ID, date: ISODate, adjuste
   }
   if (found < 0) return undefined;
   const point = rows[found];
-  return adjusted ? point.adjClose ?? point.close : point.close;
+  return adjusted ? (point.adjClose ?? point.close) : point.close;
 }
 
 /** Earliest adjusted close after `from`, no later than `to`. */
-function firstCloseAfter(data: AppData, instrumentId: ID, from: ISODate, to: ISODate): number | undefined {
+function firstCloseAfter(
+  data: AppData,
+  instrumentId: ID,
+  from: ISODate,
+  to: ISODate,
+): number | undefined {
   const point = closesOf(data, instrumentId).find((row) => row.date > from && row.date <= to);
   return point && (point.adjClose ?? point.close);
 }
@@ -217,7 +247,13 @@ function loanBuckets(data: AppData, asOf: ISODate): Map<ID, ID> {
   return buckets;
 }
 
-function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: ISODate, ledgerDate = date): HistoricalValue {
+function valueAt(
+  data: AppData,
+  date: ISODate,
+  scope: PerformanceScope,
+  today: ISODate,
+  ledgerDate = date,
+): HistoricalValue {
   const ledger = buildLedger(data, { asOf: ledgerDate });
   const instruments = new Map(data.instruments.map((instrument) => [instrument.id, instrument]));
   const currentQuotes = new Map(data.prices.map((quote) => [quote.id, quote.price]));
@@ -232,7 +268,10 @@ function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: I
     if (!positionInScope(position, scope) || position.quantity === 0) continue;
     const instrument = instruments.get(position.instrumentId);
     if (!instrument) continue;
-    const price = date === today ? currentQuotes.get(instrument.id) : historicalPrice(data, instrument.id, date);
+    const price =
+      date === today
+        ? currentQuotes.get(instrument.id)
+        : historicalPrice(data, instrument.id, date);
     if (!(price && price > 0)) {
       missing.push({ instrumentId: instrument.id, date });
       continue;
@@ -249,9 +288,10 @@ function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: I
   }
 
   if (!isPositionScope(scope)) {
-    const cash = scope === 'total'
-      ? ledger.cash
-      : ledger.bucketCash.filter((entry) => inScopeBucket(entry.bucket, scope));
+    const cash =
+      scope === 'total'
+        ? ledger.cash
+        : ledger.bucketCash.filter((entry) => inScopeBucket(entry.bucket, scope));
     for (const entry of cash) {
       const rate = fx.rate(entry.currency, base);
       if (rate === undefined) {
@@ -263,7 +303,8 @@ function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: I
     }
     const buckets = loanBuckets(data, ledgerDate);
     for (const loan of ledger.loans) {
-      if (scope !== 'total' && !inScopeBucket(buckets.get(loan.loanId) ?? CORE_BUCKET, scope)) continue;
+      if (scope !== 'total' && !inScopeBucket(buckets.get(loan.loanId) ?? CORE_BUCKET, scope))
+        continue;
       const rate = fx.rate(loan.currency, base);
       if (rate === undefined) {
         notes.push(`缺少 ${loan.currency}/${base} 匯率，貸款未計入估值`);
@@ -278,7 +319,12 @@ function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: I
 }
 
 /** Value a total portfolio, bucket, combined strategies, or a position at a historical close. */
-export function valueAsOf(data: AppData, date: ISODate, scope: PerformanceScope, today = date): HistoricalValue {
+export function valueAsOf(
+  data: AppData,
+  date: ISODate,
+  scope: PerformanceScope,
+  today = date,
+): HistoricalValue {
   return valueAt(data, date, scope, today);
 }
 
@@ -291,11 +337,20 @@ function txBaseAmount(data: AppData, tx: Transaction, amount: number): number {
 
 function transactionMatchesPosition(tx: Transaction, key: string): boolean {
   const [accountId, instrumentId, bucket] = key.split('|');
-  return tx.accountId === accountId && tx.instrumentId === instrumentId && (tx.bucket || CORE_BUCKET) === bucket;
+  return (
+    tx.accountId === accountId &&
+    tx.instrumentId === instrumentId &&
+    (tx.bucket || CORE_BUCKET) === bucket
+  );
 }
 
 /** Cash flows that change the measured capital, expressed in base currency. */
-export function externalFlows(data: AppData, scope: PerformanceScope, from: ISODate, to: ISODate): ExternalFlow[] {
+export function externalFlows(
+  data: AppData,
+  scope: PerformanceScope,
+  from: ISODate,
+  to: ISODate,
+): ExternalFlow[] {
   const flows = new Map<ISODate, number>();
   const add = (date: ISODate, amount: number) => flows.set(date, (flows.get(date) ?? 0) + amount);
   for (const tx of data.transactions) {
@@ -303,17 +358,32 @@ export function externalFlows(data: AppData, scope: PerformanceScope, from: ISOD
     const bucket = tx.bucket || CORE_BUCKET;
     if (isPositionScope(scope)) {
       if (!transactionMatchesPosition(tx, scope.positionKey)) continue;
-      const gross = (tx.quantity ?? 0) * (tx.price ?? 0) * (data.instruments.find((i) => i.id === tx.instrumentId)?.multiplier ?? 1);
+      const gross =
+        (tx.quantity ?? 0) *
+        (tx.price ?? 0) *
+        (data.instruments.find((i) => i.id === tx.instrumentId)?.multiplier ?? 1);
       const costs = (tx.fee ?? 0) + (tx.tax ?? 0);
       if (tx.type === 'buy') add(tx.date, txBaseAmount(data, tx, gross + costs));
       if (tx.type === 'sell') add(tx.date, -txBaseAmount(data, tx, gross - costs));
       if (tx.type === 'dividend') add(tx.date, -txBaseAmount(data, tx, tx.amount - costs));
       continue;
     }
-    if (tx.type === 'deposit' && inScopeBucket(bucket, scope)) add(tx.date, txBaseAmount(data, tx, tx.amount));
-    if (tx.type === 'withdraw' && inScopeBucket(bucket, scope)) add(tx.date, -txBaseAmount(data, tx, tx.amount));
+    if (tx.type === 'deposit' && inScopeBucket(bucket, scope))
+      add(tx.date, txBaseAmount(data, tx, tx.amount));
+    if (tx.type === 'withdraw' && inScopeBucket(bucket, scope))
+      add(tx.date, -txBaseAmount(data, tx, tx.amount));
     if (tx.type === 'loan_repay' && tx.source === 'external' && inScopeBucket(bucket, scope)) {
-      add(tx.date, txBaseAmount(data, tx, (tx.principal ?? tx.amount - (tx.interest ?? 0)) + (tx.interest ?? 0) + (tx.fee ?? 0) + (tx.tax ?? 0)));
+      add(
+        tx.date,
+        txBaseAmount(
+          data,
+          tx,
+          (tx.principal ?? tx.amount - (tx.interest ?? 0)) +
+            (tx.interest ?? 0) +
+            (tx.fee ?? 0) +
+            (tx.tax ?? 0),
+        ),
+      );
     }
     if (tx.type === 'transfer' && scope !== 'total') {
       const destination = tx.toBucket ?? bucket;
@@ -362,7 +432,13 @@ export function timeWeightedReturn(
   let cumulative = 1;
   for (const flow of flows) {
     const before = collect(valueAt(data, flow.date, scope, today, previousDay(flow.date)));
-    const period: ReturnPeriod = { from: startDate, to: flow.date, startValue, endValue: before, flow: flow.amount };
+    const period: ReturnPeriod = {
+      from: startDate,
+      to: flow.date,
+      startValue,
+      endValue: before,
+      flow: flow.amount,
+    };
     if (startValue === 0 && before === 0) {
       // Nothing was invested yet: the window opens before the first money
       // arrived, so measurement starts at this flow.
@@ -395,7 +471,10 @@ export function timeWeightedReturn(
   const result = undefinedPeriods ? undefined : cumulative - 1;
   return {
     cumulative: result,
-    annualized: result !== undefined && days > 0 && cumulative >= 0 ? cumulative ** (365 / days) - 1 : undefined,
+    annualized:
+      result !== undefined && days > 0 && cumulative >= 0
+        ? cumulative ** (365 / days) - 1
+        : undefined,
     days,
     shortPeriod: days < 365,
     undefinedPeriods,
@@ -442,13 +521,20 @@ function scopedTotals(data: AppData, scope: PerformanceScope, from: ISODate, to:
     const costs = (tx.fee ?? 0) + (tx.tax ?? 0);
     feesAndTaxes += txBaseAmount(data, tx, costs + (tx.type === 'fee' ? tx.amount : 0));
     if (tx.type === 'dividend') dividends += txBaseAmount(data, tx, tx.amount);
-    if (tx.type === 'interest' || tx.type === 'funding_fee') fundingCost += txBaseAmount(data, tx, tx.amount);
+    if (tx.type === 'interest' || tx.type === 'funding_fee')
+      fundingCost += txBaseAmount(data, tx, tx.amount);
     if (tx.type === 'loan_repay') fundingCost += txBaseAmount(data, tx, tx.interest ?? 0);
   }
   return { dividends, feesAndTaxes, fundingCost };
 }
 
-function scopedPositionMetric(data: AppData, scope: PerformanceScope, date: ISODate, today: ISODate, metric: 'realizedPnl' | 'unrealized'): number {
+function scopedPositionMetric(
+  data: AppData,
+  scope: PerformanceScope,
+  date: ISODate,
+  today: ISODate,
+  metric: 'realizedPnl' | 'unrealized',
+): number {
   const ledger = buildLedger(data, { asOf: date });
   const instruments = new Map(data.instruments.map((instrument) => [instrument.id, instrument]));
   let total = 0;
@@ -459,17 +545,31 @@ function scopedPositionMetric(data: AppData, scope: PerformanceScope, date: ISOD
     const rate = rateToBase(data, instrument.currency) ?? 0;
     if (metric === 'realizedPnl') total += position.realizedPnl * rate;
     else {
-      const price = date === today ? data.prices.find((quote) => quote.id === instrument.id)?.price : historicalPrice(data, instrument.id, date);
-      if (price !== undefined) total += (price - position.avgCost) * position.quantity * instrument.multiplier * rate;
+      const price =
+        date === today
+          ? data.prices.find((quote) => quote.id === instrument.id)?.price
+          : historicalPrice(data, instrument.id, date);
+      if (price !== undefined)
+        total += (price - position.avgCost) * position.quantity * instrument.multiplier * rate;
     }
   }
   return total;
 }
 
-export function pnlBreakdown(data: AppData, scope: PerformanceScope, from: ISODate, to: ISODate, today: ISODate): PnlBreakdown {
+export function pnlBreakdown(
+  data: AppData,
+  scope: PerformanceScope,
+  from: ISODate,
+  to: ISODate,
+  today: ISODate,
+): PnlBreakdown {
   const totals = scopedTotals(data, scope, from, to);
-  const realized = scopedPositionMetric(data, scope, to, today, 'realizedPnl') - scopedPositionMetric(data, scope, previousDay(from), today, 'realizedPnl');
-  const unrealized = scopedPositionMetric(data, scope, to, today, 'unrealized') - scopedPositionMetric(data, scope, previousDay(from), today, 'unrealized');
+  const realized =
+    scopedPositionMetric(data, scope, to, today, 'realizedPnl') -
+    scopedPositionMetric(data, scope, previousDay(from), today, 'realizedPnl');
+  const unrealized =
+    scopedPositionMetric(data, scope, to, today, 'unrealized') -
+    scopedPositionMetric(data, scope, previousDay(from), today, 'unrealized');
   const gross = realized + unrealized + totals.dividends - totals.feesAndTaxes;
   return {
     realized,
@@ -492,7 +592,9 @@ export function benchmarkReturn(
 ): BenchmarkResult {
   // A window may open on a holiday or before the downloaded history begins:
   // then the first close inside the window is the benchmark's starting price.
-  const start = historicalPrice(data, instrumentId, from, true) ?? firstCloseAfter(data, instrumentId, from, to);
+  const start =
+    historicalPrice(data, instrumentId, from, true) ??
+    firstCloseAfter(data, instrumentId, from, to);
   const end = historicalPrice(data, instrumentId, to, true);
   const missing: MissingClose[] = [];
   if (!(start && start > 0)) missing.push({ instrumentId, date: from });
@@ -508,9 +610,13 @@ export function benchmarkReturn(
     units += flow.amount / price;
   }
   const endingValue = end === undefined ? undefined : units * end;
-  const mwr = endingValue === undefined
-    ? undefined
-    : xirr([...flows.map((flow) => ({ date: flow.date, amount: -flow.amount })), { date: to, amount: endingValue }]);
+  const mwr =
+    endingValue === undefined
+      ? undefined
+      : xirr([
+          ...flows.map((flow) => ({ date: flow.date, amount: -flow.amount })),
+          { date: to, amount: endingValue },
+        ]);
   return { instrumentId, buyAndHold, flowMatched: { twr: buyAndHold, mwr, endingValue }, missing };
 }
 
@@ -523,10 +629,16 @@ export function riskStatistics(
   riskFreeRate = 0,
 ): RiskStatistics {
   const dates = new Set<ISODate>([from, to]);
-  data.snapshots.forEach((snapshot) => snapshot.date >= from && snapshot.date <= to && dates.add(snapshot.date));
-  data.priceHistory.forEach((point) => point.date >= from && point.date <= to && dates.add(point.date));
+  data.snapshots.forEach(
+    (snapshot) => snapshot.date >= from && snapshot.date <= to && dates.add(snapshot.date),
+  );
+  data.priceHistory.forEach(
+    (point) => point.date >= from && point.date <= to && dates.add(point.date),
+  );
   const ordered = [...dates].sort();
-  const flowByDate = new Map(externalFlows(data, scope, from, to).map((flow) => [flow.date, flow.amount]));
+  const flowByDate = new Map(
+    externalFlows(data, scope, from, to).map((flow) => [flow.date, flow.amount]),
+  );
   const missing: MissingClose[] = [];
   const returns: Array<{ date: ISODate; value: number }> = [];
   let prior = valueAt(data, ordered[0], scope, today);
@@ -534,7 +646,11 @@ export function riskStatistics(
   for (const date of ordered.slice(1)) {
     const current = valueAt(data, date, scope, today);
     addMissing(missing, current.missing);
-    if (prior.value > 0) returns.push({ date, value: (current.value - (flowByDate.get(date) ?? 0)) / prior.value - 1 });
+    if (prior.value > 0)
+      returns.push({
+        date,
+        value: (current.value - (flowByDate.get(date) ?? 0)) / prior.value - 1,
+      });
     prior = current;
   }
   let index = 1;
@@ -555,9 +671,10 @@ export function riskStatistics(
     }
   }
   const mean = returns.reduce((sum, row) => sum + row.value, 0) / returns.length;
-  const variance = returns.length > 1
-    ? returns.reduce((sum, row) => sum + (row.value - mean) ** 2, 0) / (returns.length - 1)
-    : undefined;
+  const variance =
+    returns.length > 1
+      ? returns.reduce((sum, row) => sum + (row.value - mean) ** 2, 0) / (returns.length - 1)
+      : undefined;
   const volatility = variance === undefined ? undefined : Math.sqrt(variance * 252);
   const twr = timeWeightedReturn(data, scope, from, to, today);
   return {
@@ -566,7 +683,10 @@ export function riskStatistics(
     troughDate,
     volatility,
     sampling: 'daily',
-    riskAdjusted: volatility && twr.annualized !== undefined ? (twr.annualized - riskFreeRate) / volatility : undefined,
+    riskAdjusted:
+      volatility && twr.annualized !== undefined
+        ? (twr.annualized - riskFreeRate) / volatility
+        : undefined,
     observations: returns.length,
     missing,
   };
@@ -574,13 +694,26 @@ export function riskStatistics(
 
 function strategyBenchmark(data: AppData, scope: PerformanceScope): ID | undefined {
   const bucket = isPositionScope(scope) ? scope.positionKey.split('|')[2] : bucketFor(scope);
-  const strategy = bucket && bucket !== CORE_BUCKET ? data.strategies.find((row) => row.id === bucket) : undefined;
+  const strategy =
+    bucket && bucket !== CORE_BUCKET ? data.strategies.find((row) => row.id === bucket) : undefined;
   if (!strategy) return undefined;
-  return strategy.benchmarkInstrumentId
-    ?? data.instruments.find((instrument) => instrument.indexId === strategy.benchmarkIndexId && instrument.leverage === 1)?.id;
+  return (
+    strategy.benchmarkInstrumentId ??
+    data.instruments.find(
+      (instrument) => instrument.indexId === strategy.benchmarkIndexId && instrument.leverage === 1,
+    )?.id
+  );
 }
 
-function summary(data: AppData, id: string, label: string, scope: PerformanceScope, from: ISODate, to: ISODate, today: ISODate): PerformanceSummary {
+function summary(
+  data: AppData,
+  id: string,
+  label: string,
+  scope: PerformanceScope,
+  from: ISODate,
+  to: ISODate,
+  today: ISODate,
+): PerformanceSummary {
   const twr = timeWeightedReturn(data, scope, from, to, today);
   const mwr = moneyWeightedReturn(data, scope, from, to, today);
   const benchmarkId = strategyBenchmark(data, scope);
@@ -596,24 +729,36 @@ function summary(data: AppData, id: string, label: string, scope: PerformanceSco
     mwr,
     risk: riskStatistics(data, scope, from, to, today),
     benchmark,
-    excessReturn: twr.cumulative !== undefined && benchmark?.flowMatched.twr !== undefined
-      ? twr.cumulative - benchmark.flowMatched.twr
-      : undefined,
+    excessReturn:
+      twr.cumulative !== undefined && benchmark?.flowMatched.twr !== undefined
+        ? twr.cumulative - benchmark.flowMatched.twr
+        : undefined,
   };
 }
 
 /** Core, each strategy, all strategies, then the complete portfolio. */
-export function performanceLevels(data: AppData, from: ISODate, to: ISODate, today: ISODate): PerformanceSummary[] {
+export function performanceLevels(
+  data: AppData,
+  from: ISODate,
+  to: ISODate,
+  today: ISODate,
+): PerformanceSummary[] {
   return [
     summary(data, CORE_BUCKET, 'Core Passive', 'core', from, to, today),
-    ...data.strategies.map((strategy) => summary(data, strategy.id, strategy.name, strategy.id, from, to, today)),
+    ...data.strategies.map((strategy) =>
+      summary(data, strategy.id, strategy.name, strategy.id, from, to, today),
+    ),
     summary(data, 'strategies', 'All Active Strategies', 'strategies', from, to, today),
     summary(data, 'total', 'Total Portfolio', 'total', from, to, today),
   ];
 }
 
 /** Current per-position metrics. Futures report currency P&L and notional-normalised P&L separately. */
-export function positionPerformance(data: AppData, positionKey: string, today: ISODate): PositionPerformance | undefined {
+export function positionPerformance(
+  data: AppData,
+  positionKey: string,
+  today: ISODate,
+): PositionPerformance | undefined {
   const ledger = buildLedger(data, { asOf: today });
   const position = ledger.positions.find((row) => row.key === positionKey && row.quantity !== 0);
   const instrument = position && data.instruments.find((row) => row.id === position.instrumentId);
@@ -626,12 +771,16 @@ export function positionPerformance(data: AppData, positionKey: string, today: I
   const currentNotional = (price ?? 0) * position.quantity * instrument.multiplier * rate;
   const derivative = isDerivative(instrument.type);
   const currentValue = derivative ? currentNotional - cost : currentNotional;
-  const pnl = derivative ? currentValue + position.realizedPnl * rate : currentValue - cost + position.realizedPnl * rate;
+  const pnl = derivative
+    ? currentValue + position.realizedPnl * rate
+    : currentValue - cost + position.realizedPnl * rate;
   const baseSummary = summary(data, positionKey, instrument.symbol, scope, start, today, today);
   const averageNotional = (Math.abs(currentNotional) + Math.abs(cost)) / 2;
   return {
     ...baseSummary,
-    twr: derivative ? { ...baseSummary.twr, cumulative: undefined, annualized: undefined, undefinedPeriods: true } : baseSummary.twr,
+    twr: derivative
+      ? { ...baseSummary.twr, cumulative: undefined, annualized: undefined, undefinedPeriods: true }
+      : baseSummary.twr,
     positionKey,
     instrumentId: instrument.id,
     currentValue,
@@ -639,6 +788,7 @@ export function positionPerformance(data: AppData, positionKey: string, today: I
     pnl,
     cumulativeReturn: !derivative && cost !== 0 ? pnl / Math.abs(cost) : undefined,
     holdingDays: daysBetween(start, today),
-    derivativePnlPerAverageNotional: derivative && averageNotional > 0 ? pnl / averageNotional : undefined,
+    derivativePnlPerAverageNotional:
+      derivative && averageNotional > 0 ? pnl / averageNotional : undefined,
   };
 }
