@@ -42,6 +42,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
   - `performance.ts` 歷史估值、TWR、MWR、基準、風險統計；`xirr.ts`。
   - `stress.ts` 靜態壓力測試；`survival.ts` 現金流生存模擬。
   - `futures.ts` 期貨部位、保證金、轉倉；`notifications.ts` 通知。
+  - `dates.ts` 以 UTC 處理 `YYYY-MM-DD` 的日期運算（`daysBetween`、`addDays` 等），各模組共用，不再各自實作。
   - `demo.ts` 訪客預覽用的虛構資料。
   - `api.ts` 前後端協定；`seed.ts` 公開商品、指數與常用機構清單。
 - `src/web/`：React。頁面只透過 `store.ts`（`useData`、`upsertRow`、`removeRow`、`setTable`）讀寫資料，用 `usePortfolio()` 取得帳本與估值。

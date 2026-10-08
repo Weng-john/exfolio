@@ -1,5 +1,6 @@
 import { FxTable } from './fx';
-import { daysBetween, makeBaseConverter, replayTrades, sortedTransactions } from './journal';
+import { daysBetween } from './dates';
+import { makeBaseConverter, replayTrades, sortedTransactions } from './journal';
 import type { Portfolio } from './valuation';
 import {
   CORE_BUCKET,

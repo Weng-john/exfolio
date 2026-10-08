@@ -1,3 +1,4 @@
+import { daysBetween } from './dates';
 import { FxTable } from './fx';
 import {
   CORE_BUCKET,
@@ -12,12 +13,6 @@ import {
 } from './types';
 
 const EPS = 1e-9;
-
-/** Whole days from `a` to `b` (both YYYY-MM-DD). */
-export function daysBetween(a: ISODate, b: ISODate): number {
-  const ms = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
-  return Math.round((ms(b) - ms(a)) / 86_400_000);
-}
 
 /**
  * Converter from a transaction amount to the base currency, mirroring the
