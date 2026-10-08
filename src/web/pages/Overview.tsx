@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CORE_BUCKET, leverageHistory, portfolioAlerts, UNCLASSIFIED_INDEX } from '@core/index';
+import { buildNotifications, CORE_BUCKET, leverageHistory, portfolioAlerts, today, UNCLASSIFIED_INDEX } from '@core/index';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { useData } from '../store';
@@ -14,6 +14,7 @@ export default function OverviewPage() {
   const { valuation: v, ledger } = usePortfolio();
   const base = v.baseCurrency;
   const alerts = portfolioAlerts(data, v);
+  const notifications = buildNotifications(data, { ledger, valuation: v }, today());
   const history = leverageHistory(data.snapshots);
   const indexName = (id: string) =>
     id === UNCLASSIFIED_INDEX ? '未分類' : (data.indices.find((i) => i.id === id)?.name ?? id);
@@ -60,6 +61,25 @@ export default function OverviewPage() {
                     <Badge tone={TONE[a.level]}>{a.title}</Badge>
                   </td>
                   <td style={{ whiteSpace: 'normal' }}>{a.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      <Card title="所有通知">
+        {notifications.length === 0 ? (
+          <Empty>目前沒有通知。提醒門檻僅供資訊參考，不限制任何操作。</Empty>
+        ) : (
+          <table>
+            <tbody>
+              {notifications.map((n) => (
+                <tr key={n.id}>
+                  <td><Badge tone={TONE[n.level]}>{n.category}</Badge></td>
+                  <td><strong>{n.title}</strong></td>
+                  <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
+                  <td>{n.dueDate ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

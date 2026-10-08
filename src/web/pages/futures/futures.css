@@ -1,0 +1,88 @@
+.futures-table input {
+  min-width: 112px;
+}
+.futures-sub {
+  display: block;
+  font-size: 11px;
+}
+
+.futures-note {
+  margin: 12px 0 0;
+}
+
+.futures-error {
+  border-color: var(--neg);
+}
+
+.futures-action {
+  display: flex;
+  align-items: end;
+}
+
+.roll-plan {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.roll-plan-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-bottom: 14px;
+}
+
+.roll-plan-grid strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 17px;
+}
+
+.contract-series {
+  padding-top: 4px;
+}
+
+.contract-series + .contract-series {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.history-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-row:last-child {
+  border-bottom: 0;
+}
+
+.roll-modes {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.roll-modes p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.notification-list {
+  margin-top: 16px;
+}
+
+.notification-list > div {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
