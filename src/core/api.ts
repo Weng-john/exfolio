@@ -17,13 +17,27 @@ export interface QuoteResult extends QuoteRequestItem {
   error?: string;
 }
 
+export interface HistoryPointResult {
+  /** YYYY-MM-DD in the exchange's local calendar. */
+  date: string;
+  close: number;
+  adjClose?: number;
+}
+
+export interface HistoryResult extends QuoteRequestItem {
+  points: HistoryPointResult[];
+  error?: string;
+}
+
 export type ApiRequest = { token?: string } & (
   | { action: 'ping' }
   | { action: 'load' }
   | { action: 'save'; tables: Partial<AppData>; baseRevision?: number }
   | { action: 'quotes'; items: QuoteRequestItem[] }
+  /** Daily closes from `from` (YYYY-MM-DD) to today. */
+  | { action: 'history'; items: QuoteRequestItem[]; from: string }
 );
 
 export type ApiResponse =
-  | { ok: true; backend?: string; revision?: number; tables?: Partial<AppData>; quotes?: QuoteResult[] }
+  | { ok: true; backend?: string; revision?: number; tables?: Partial<AppData>; quotes?: QuoteResult[]; history?: HistoryResult[] }
   | { ok: false; error: string; revision?: number };

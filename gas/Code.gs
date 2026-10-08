@@ -14,7 +14,8 @@
 
 var TABLES = [
   'brokers', 'accounts', 'indices', 'instruments', 'transactions', 'loans',
-  'prices', 'fxRates', 'targets', 'strategies', 'snapshots', 'settings'
+  'prices', 'fxRates', 'targets', 'strategies', 'snapshots', 'settings',
+  'tradeGroups', 'rotationCycles', 'priceHistory', 'rollovers', 'cashflowItems', 'scenarios'
 ];
 var META_SHEET = '_meta';
 var JSON_COLUMN = '_json';
@@ -78,6 +79,8 @@ function dispatch_(request) {
       return save_(request.tables || {}, request.baseRevision);
     case 'quotes':
       return { ok: true, quotes: fetchQuotes_(request.items || []) };
+    case 'history':
+      return { ok: true, history: fetchHistory_(request.items || [], request.from) };
     default:
       return { ok: false, error: 'Unknown action: ' + request.action };
   }
@@ -260,6 +263,63 @@ function fetchQuotes_(items) {
     }
   });
   return results;
+}
+
+function isoDay_(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** Daily closes from `from` (YYYY-MM-DD) to today, per item. */
+function fetchHistory_(items, from) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from || ''))) throw new Error('`from` must be YYYY-MM-DD');
+  var startMs = new Date(from + 'T00:00:00Z').getTime();
+  return items.slice(0, 50).map(function (item) {
+    var result = { source: item.source, symbol: item.symbol, points: [] };
+    try {
+      var symbol = encodeURIComponent(item.symbol);
+      if (item.source === 'yahoo') {
+        var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&period1=' +
+          Math.floor(startMs / 1000) + '&period2=' + Math.floor(Date.now() / 1000);
+        var chart = fetchJson_(url).chart.result[0];
+        var stamps = chart.timestamp || [];
+        var closes = chart.indicators.quote[0].close || [];
+        var adjusted = (chart.indicators.adjclose && chart.indicators.adjclose[0].adjclose) || [];
+        var offset = ((chart.meta && chart.meta.gmtoffset) || 0) * 1000;
+        stamps.forEach(function (t, i) {
+          if (typeof closes[i] !== 'number') return;
+          var point = { date: isoDay_(t * 1000 + offset), close: closes[i] };
+          if (typeof adjusted[i] === 'number') point.adjClose = adjusted[i];
+          result.points.push(point);
+        });
+      } else if (item.source === 'binance') {
+        var start = startMs;
+        for (var page = 0; page < 10; page++) {
+          var rows = fetchJson_('https://data-api.binance.vision/api/v3/klines?symbol=' + symbol +
+            '&interval=1d&startTime=' + start + '&limit=1000');
+          if (!rows.length) break;
+          rows.forEach(function (row) {
+            result.points.push({ date: isoDay_(Number(row[0])), close: Number(row[4]) });
+          });
+          if (rows.length < 1000) break;
+          start = Number(rows[rows.length - 1][0]) + 86400000;
+        }
+      } else {
+        result.error = 'Manual source has no remote history';
+      }
+    } catch (err) {
+      result.error = String((err && err.message) || err);
+    }
+    return result;
+  });
+}
+
+function fetchJson_(url) {
+  var response = UrlFetchApp.fetch(url, {
+    muteHttpExceptions: true,
+    headers: { 'User-Agent': 'Mozilla/5.0 (exfolio quote proxy)', Accept: 'application/json' }
+  });
+  if (response.getResponseCode() !== 200) throw new Error('HTTP ' + response.getResponseCode());
+  return JSON.parse(response.getContentText());
 }
 
 // ---- Setup helpers (run from the Apps Script editor) -------------------

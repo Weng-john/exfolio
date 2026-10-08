@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { fetchQuotes } from './quotes';
+import { fetchHistory, fetchQuotes } from './quotes';
 import { loadStore, saveTables } from './store';
 import type { ApiRequest, ApiResponse } from '../src/core/api';
 
@@ -33,6 +33,8 @@ export async function dispatch(request: ApiRequest): Promise<ApiResponse> {
     }
     case 'quotes':
       return { ok: true, quotes: await fetchQuotes(request.items) };
+    case 'history':
+      return { ok: true, history: await fetchHistory(request.items, request.from) };
     default:
       return { ok: false, error: `Unknown action: ${(request as { action?: string }).action}` };
   }

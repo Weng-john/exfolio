@@ -81,6 +81,8 @@ function browserBackend(): Backend {
           }));
           return { ok: true, quotes };
         }
+        case 'history':
+          return { ok: false, error: '無後端模式無法取得歷史價格' };
       }
     },
   };

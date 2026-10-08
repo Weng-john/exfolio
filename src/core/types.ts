@@ -157,6 +157,13 @@ export interface Transaction {
   source?: FundingSource;
   note?: string;
   tags?: string[];
+  // Trade journal (active strategies)
+  /** Why the trade was made. */
+  reason?: string;
+  /** Groups the legs of one multi-leg trade. */
+  tradeGroupId?: ID;
+  /** Groups switch-out, alternative holding and switch-back of one rotation. */
+  rotationCycleId?: ID;
 }
 
 export type LoanKind = 'credit' | 'pledge' | 'margin' | 'other';
@@ -231,6 +238,12 @@ export interface AlertSettings {
   debtToNav?: number;
   maintenanceRatio?: number;
   staleQuoteMinutes: number;
+  /** Days before a futures expiry to start reminding about the roll. */
+  rollNoticeDays?: number;
+  /** Days before a loan payment is due to start reminding. */
+  loanDueNoticeDays?: number;
+  /** Deviation from an allocation target (fraction of NAV) worth a reminder. */
+  allocationDrift?: number;
 }
 
 export interface Settings {
@@ -248,6 +261,94 @@ export interface Strategy {
   category?: string;
   status: StrategyStatus;
   benchmarkIndexId?: ID;
+  /** Instrument whose buy-and-hold return is the benchmark, e.g. SSO. */
+  benchmarkInstrumentId?: ID;
+  /** Instruments the strategy may trade. Empty = unrestricted. */
+  allowedInstrumentIds?: ID[];
+  /** Free-text trading rules: discretionary strategies need no triggers. */
+  rules?: string;
+  riskNotes?: string;
+  createdAt?: ISODate;
+}
+
+export interface TradeGroup {
+  id: ID;
+  strategyId: ID;
+  name: string;
+  status: 'open' | 'closed';
+  note?: string;
+}
+
+/** One rotation: leave `fromInstrumentId`, hold `toInstrumentId`, maybe switch back. */
+export interface RotationCycle {
+  id: ID;
+  strategyId: ID;
+  name: string;
+  fromInstrumentId: ID;
+  toInstrumentId: ID;
+  /** Counterfactual: what staying in this instrument would have returned. */
+  benchmarkInstrumentId: ID;
+  status: 'open' | 'closed';
+  openedAt: ISODate;
+  closedAt?: ISODate;
+  reason?: string;
+  note?: string;
+}
+
+/** Daily close used for time-weighted returns and benchmarks. */
+export interface PriceHistoryPoint {
+  /** `${instrumentId}|${date}` */
+  id: ID;
+  instrumentId: ID;
+  date: ISODate;
+  /** Traded close: values a holding on that day. */
+  close: number;
+  /** Close adjusted for dividends and splits: use for benchmark returns. */
+  adjClose?: number;
+}
+
+/** Roll of a futures position from one contract month to the next. */
+export interface RolloverRecord {
+  id: ID;
+  date: ISODate;
+  accountId: ID;
+  bucket: ID;
+  seriesId: ID;
+  fromInstrumentId: ID;
+  toInstrumentId: ID;
+  /** Signed contracts rolled: negative for a short position. */
+  quantity: number;
+  closePrice: number;
+  openPrice: number;
+  fee?: number;
+  /** Transactions that booked the roll. */
+  transactionIds?: ID[];
+  note?: string;
+}
+
+/** Recurring or one-off cash flow outside trading: salary, living costs. */
+export interface CashflowItem {
+  id: ID;
+  name: string;
+  kind: 'income' | 'expense';
+  amount: number;
+  currency: Currency;
+  frequency: 'once' | 'monthly' | 'quarterly' | 'yearly';
+  /** First (or only) date the flow occurs. */
+  startDate: ISODate;
+  endDate?: ISODate;
+  /** Whether the money enters / leaves the portfolio or stays outside it. */
+  affectsPortfolio: boolean;
+  note?: string;
+}
+
+/** A saved Risk Lab scenario. `params` is owned by the simulation it belongs to. */
+export interface Scenario {
+  id: ID;
+  kind: 'stress' | 'cashflow';
+  name: string;
+  params: Record<string, unknown>;
+  note?: string;
 }
 
 export interface NavSnapshot {
@@ -278,6 +379,12 @@ export interface AppData {
   strategies: Strategy[];
   snapshots: NavSnapshot[];
   settings: Settings[];
+  tradeGroups: TradeGroup[];
+  rotationCycles: RotationCycle[];
+  priceHistory: PriceHistoryPoint[];
+  rollovers: RolloverRecord[];
+  cashflowItems: CashflowItem[];
+  scenarios: Scenario[];
 }
 
 export type TableName = keyof AppData;
@@ -295,6 +402,12 @@ export const TABLE_NAMES: TableName[] = [
   'strategies',
   'snapshots',
   'settings',
+  'tradeGroups',
+  'rotationCycles',
+  'priceHistory',
+  'rollovers',
+  'cashflowItems',
+  'scenarios',
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -316,6 +429,12 @@ export function emptyData(): AppData {
     targets: [],
     strategies: [],
     snapshots: [],
+    tradeGroups: [],
+    rotationCycles: [],
+    priceHistory: [],
+    rollovers: [],
+    cashflowItems: [],
+    scenarios: [],
     settings: [{ ...DEFAULT_SETTINGS, alerts: { ...DEFAULT_SETTINGS.alerts } }],
   };
 }
