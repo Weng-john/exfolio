@@ -22,3 +22,4 @@ export * from './notifications';
 export * from './stress';
 export * from './survival';
 export * from './demo';
+export * from './exchangeSync';

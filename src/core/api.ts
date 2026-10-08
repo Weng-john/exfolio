@@ -83,6 +83,68 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'conflict';
 
+// ---- Read-only exchange sync -------------------------------------------
+
+export type IntegrationProvider = 'binance';
+
+/** A stored exchange connection, as shown to its owner. Never the key itself. */
+export interface IntegrationInfo {
+  id: string;
+  provider: IntegrationProvider;
+  label: string;
+  /** Last characters of the API key, to tell connections apart. */
+  keyHint: string;
+  createdAt: string;
+  lastSyncAt?: string;
+}
+
+export interface IntegrationStatus {
+  /** False when the backend cannot keep secrets safely; `reason` says why. */
+  enabled: boolean;
+  reason?: string;
+  list: IntegrationInfo[];
+}
+
+export interface ExchangeBalance {
+  asset: string;
+  free: number;
+  locked: number;
+}
+
+export interface ExchangePosition {
+  symbol: string;
+  /** Signed contracts: negative when short. */
+  quantity: number;
+  entryPrice: number;
+  markPrice: number;
+  unrealizedPnl: number;
+}
+
+/** What the exchange reports right now: balances and open derivative positions. */
+export interface ExchangeSnapshot {
+  fetchedAt: string;
+  balances: ExchangeBalance[];
+  /** Balances of the derivatives wallet. */
+  futuresBalances: ExchangeBalance[];
+  positions: ExchangePosition[];
+  warnings: string[];
+}
+
+export interface ExchangeTrade {
+  /** Stable id from the exchange. */
+  id: string;
+  market: 'spot' | 'futures';
+  symbol: string;
+  time: string;
+  side: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  fee: number;
+  feeAsset: string;
+  /** Realized P&L the exchange booked on this fill (futures). */
+  realizedPnl?: number;
+}
+
 // Passwords never travel or rest in the clear: the browser stretches the
 // password into `passwordKey` (see src/web/auth.ts) and the backend stores
 // only a salted hash of that key.
@@ -109,6 +171,24 @@ export type ApiRequest = { session?: string } & (
   | { action: 'adminDeleteUser'; userId: string }
   | { action: 'adminSetConfig'; registration?: RegistrationMode; googleClientId?: string }
   | { action: 'adminAudit' }
+  | { action: 'integrationStatus' }
+  /** The key must be read-only: the backend checks and refuses otherwise. */
+  | {
+      action: 'integrationSave';
+      provider: IntegrationProvider;
+      label: string;
+      apiKey: string;
+      apiSecret: string;
+    }
+  | { action: 'integrationDelete'; id: string }
+  | { action: 'integrationSync'; id: string }
+  | {
+      action: 'integrationTrades';
+      id: string;
+      market: 'spot' | 'futures';
+      symbol: string;
+      since?: string;
+    }
   /** `asUser`: an admin opening a consenting member's data, read-only. */
   | { action: 'load'; asUser?: string }
   | { action: 'save'; tables: Partial<AppData>; baseRevision?: number }
@@ -131,5 +211,8 @@ export type ApiResponse =
       /** Session token: present after a successful login or registration. */
       session?: string;
       audit?: AuditEntry[];
+      integrations?: IntegrationStatus;
+      snapshot?: ExchangeSnapshot;
+      trades?: ExchangeTrade[];
     }
   | { ok: false; error: ApiErrorCode | (string & {}); revision?: number };

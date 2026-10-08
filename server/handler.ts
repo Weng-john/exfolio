@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { fetchHistory, fetchQuotes } from './quotes';
 import * as auth from './auth';
+import * as integrations from './integrations';
 import { ApiError } from './auth';
 import { loadStore, localDataFile, saveTables, userDataFile } from './store';
 import type { ApiRequest, ApiResponse } from '../src/core/api';
@@ -37,7 +38,9 @@ async function route(request: ApiRequest): Promise<ApiResponse> {
       return { ok: true, config: await auth.getConfig() };
   }
 
-  if (auth.authOff()) return data(request, localDataFile(), false);
+  if (auth.authOff()) {
+    return (await exchange(request, LOCAL_USER)) ?? data(request, localDataFile(), false);
+  }
 
   switch (request.action) {
     case 'register':
@@ -68,6 +71,7 @@ async function route(request: ApiRequest): Promise<ApiResponse> {
       return { ok: true, user: await auth.adminUpdateUser(user, request) };
     case 'adminDeleteUser':
       await auth.adminDeleteUser(user, request);
+      await integrations.removeIntegrations(String(request.userId));
       return { ok: true };
     case 'adminSetConfig':
       return { ok: true, config: await auth.adminSetConfig(user, request) };
@@ -78,7 +82,28 @@ async function route(request: ApiRequest): Promise<ApiResponse> {
       return data(request, userDataFile(target), target !== user.id);
     }
     default:
-      return data(request, userDataFile(user.id), false);
+      return (await exchange(request, user.id)) ?? data(request, userDataFile(user.id), false);
+  }
+}
+
+/** Owner of exchange connections when authentication is off. */
+const LOCAL_USER = 'local';
+
+/** Exchange connections: always the caller's own, never another member's. */
+async function exchange(request: ApiRequest, userId: string): Promise<ApiResponse | undefined> {
+  switch (request.action) {
+    case 'integrationStatus':
+      return { ok: true, integrations: await integrations.integrationStatus(userId) };
+    case 'integrationSave':
+      return { ok: true, integrations: await integrations.integrationSave(userId, request) };
+    case 'integrationDelete':
+      return { ok: true, integrations: await integrations.integrationDelete(userId, request.id) };
+    case 'integrationSync':
+      return { ok: true, snapshot: await integrations.integrationSync(userId, request.id) };
+    case 'integrationTrades':
+      return { ok: true, trades: await integrations.integrationTrades(userId, request) };
+    default:
+      return undefined;
   }
 }
 
