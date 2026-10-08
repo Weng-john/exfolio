@@ -1,6 +1,6 @@
 import { compareAllocation } from './allocation';
 import { portfolioAlerts, type AlertLevel } from './alerts';
-import { collateralStatus, dueDateOf, loanStatus, addMonths } from './loans';
+import { collateralStatus, dueDateOf, loanStatus } from './loans';
 import { futuresPositions, marginByAccount } from './futures';
 import { getSettings, type AppData, type ISODate } from './types';
 import { type Portfolio } from './valuation';
@@ -38,21 +38,13 @@ function overdueLoanPayment(data: AppData, loanId: string, today: ISODate): ISOD
   if (!loan) return undefined;
   const repayments = data.transactions.filter((t) => t.loanId === loanId && t.type === 'loan_repay' && t.date <= today).length;
   const term = loan.termMonths ?? 0;
-  const scheduled = loan.method !== 'revolving' && term > 0;
+  // A revolving line has no payment schedule to fall behind on.
+  if (loan.method === 'revolving' || term <= 0) return undefined;
   const due: ISODate[] = [];
-  if (scheduled) {
-    for (let n = 1; n <= term; n++) {
-      const date = dueDateOf(loan, n);
-      if (date >= today) break;
-      due.push(date);
-    }
-  } else {
-    const payDay = loan.payDay ?? Number(loan.startDate.slice(-2));
-    for (let n = 1; n <= 1200; n++) {
-      const date = addMonths(loan.startDate, n, payDay);
-      if (date >= today) break;
-      due.push(date);
-    }
+  for (let n = 1; n <= term; n++) {
+    const date = dueDateOf(loan, n);
+    if (date >= today) break;
+    due.push(date);
   }
   return due[repayments];
 }

@@ -11,7 +11,7 @@ type Mode = 'login' | 'register';
 const PENDING = '註冊已送出，待管理員核准後即可登入。';
 
 /** Sign-in and registration: all a visitor sees before they have a session. */
-export default function AuthPage() {
+export default function AuthPage(props: { onBack?: () => void }) {
   const auth = useAuth();
   const { theme, cycle } = useTheme();
   const config = auth.config;
@@ -54,7 +54,10 @@ export default function AuthPage() {
       <div className="auth-card card">
         <div className="auth-head">
           <div className="brand">Exfolio</div>
-          <button className="ghost" onClick={cycle}>主題：{THEME_LABELS[theme]}</button>
+          <div className="actions">
+            {props.onBack && <button className="ghost" onClick={props.onBack}>← 返回預覽</button>}
+            <button className="ghost" onClick={cycle}>主題：{THEME_LABELS[theme]}</button>
+          </div>
         </div>
 
         {auth.phase === 'error' ? (

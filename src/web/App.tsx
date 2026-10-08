@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { initAuth, logout, stopViewing, useAuth } from './auth';
 import { Badge } from './components/ui';
@@ -18,7 +18,7 @@ import RiskLabPage from './pages/RiskLab';
 import SettingsPage from './pages/Settings';
 import StrategiesPage from './pages/Strategies';
 import { refreshQuotes, useAutoRefresh, useQuoteSync } from './quotes';
-import { initStore, useStore, type SyncStatus } from './store';
+import { initStore, loadDemo, useStore, type SyncStatus } from './store';
 import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
 
@@ -77,7 +77,7 @@ const STATUS: Record<SyncStatus, { tone: 'ok' | 'warn' | 'bad' | 'info'; text: s
   conflict: { tone: 'bad', text: '版本衝突' },
 };
 
-function TopBar() {
+function TopBar(props: { onSignIn: () => void }) {
   const store = useStore();
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
@@ -86,7 +86,7 @@ function TopBar() {
   return (
     <div className="topbar">
       <div className="topbar-item">
-        <Badge tone={status.tone}>{status.text}</Badge>
+        {store.demo ? <Badge tone="warn">預覽</Badge> : <Badge tone={status.tone}>{status.text}</Badge>}
         <span className="muted">{store.backendLabel}</span>
         {store.error && <span className="neg">{store.error}</span>}
         {(store.status === 'error' || store.status === 'conflict') && (
@@ -100,9 +100,11 @@ function TopBar() {
           報價更新：{fmtTime(quotes.lastSuccessAt)}
           {quotes.errors.length > 0 && `（${quotes.errors.length} 項失敗）`}
         </span>
-        <button onClick={() => void refreshQuotes()} disabled={quotes.refreshing}>
-          {quotes.refreshing ? '更新中…' : '更新報價'}
-        </button>
+        {!store.demo && (
+          <button onClick={() => void refreshQuotes()} disabled={quotes.refreshing}>
+            {quotes.refreshing ? '更新中…' : '更新報價'}
+          </button>
+        )}
         <button onClick={cycle} title="切換明亮 / 黑色模式">
           主題：{THEME_LABELS[theme]}
         </button>
@@ -111,6 +113,11 @@ function TopBar() {
             <span className="muted">{auth.user.displayName}</span>
             <button onClick={() => void logout()}>登出</button>
           </>
+        )}
+        {auth.phase !== 'ready' && (
+          <button className="primary" onClick={props.onSignIn}>
+            登入 / 註冊
+          </button>
         )}
       </div>
     </div>
@@ -121,24 +128,38 @@ export default function App() {
   const auth = useAuth();
   const store = useStore();
   const signedIn = auth.phase === 'ready';
+  // A visitor who is not signed in explores a fictional portfolio instead
+  // of facing a sign-in wall; the sign-in page opens on request.
+  const guest = auth.phase === 'signedOut' || auth.phase === 'error';
+  const [showAuth, setShowAuth] = useState(false);
   useEffect(() => {
     void initAuth();
   }, []);
   // Load data once someone is signed in, and again when the member changes.
   const userId = auth.user?.id;
   useEffect(() => {
-    if (signedIn) void initStore();
-  }, [signedIn, userId]);
-  useAutoRefresh(signedIn && store.status !== 'loading' && store.backendLabel !== '');
+    if (signedIn) {
+      setShowAuth(false);
+      void initStore();
+    } else if (guest) {
+      loadDemo();
+    }
+  }, [signedIn, guest, userId]);
+  useAutoRefresh(signedIn && !store.demo && store.status !== 'loading' && store.backendLabel !== '');
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
-  if (!signedIn) return <AuthPage />;
+  if (guest && showAuth) return <AuthPage onBack={() => setShowAuth(false)} />;
 
   const isAdmin = auth.user?.role === 'admin';
   const visible = NAV.map((g) => ({
     ...g,
-    items: g.items.filter((item) => (!item.adminOnly || isAdmin) && !(auth.accountless && item.path === '/admin')),
+    items: g.items.filter(
+      (item) =>
+        (!item.adminOnly || isAdmin) &&
+        !(auth.accountless && item.path === '/admin') &&
+        !(guest && item.path === '/account'),
+    ),
   }));
 
   return (
@@ -158,7 +179,14 @@ export default function App() {
           ))}
         </nav>
         <div className="main">
-          <TopBar />
+          <TopBar onSignIn={() => setShowAuth(true)} />
+          {guest && (
+            <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
+              預覽模式：以下是<strong>虛構的示範資料</strong>，可以自由操作，但不會儲存。{' '}
+              <button className="primary" onClick={() => setShowAuth(true)}>登入 / 註冊</button> 後使用自己的資料。
+              {auth.phase === 'error' && <span className="warn">（目前無法連線後端：{auth.error}）</span>}
+            </div>
+          )}
           {auth.viewing && (
             <div className="notice warn" style={{ margin: 0, borderRadius: 0 }}>
               正在唯讀檢視 <strong>{auth.viewing.displayName}</strong>（{auth.viewing.username}）的資料，任何修改都不會儲存。{' '}

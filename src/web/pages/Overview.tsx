@@ -7,6 +7,14 @@ import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 
 const TOOLTIP = { background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' };
+const CATEGORY: Record<string, string> = {
+  'futures-expiry': '期貨到期',
+  'futures-margin': '期貨保證金',
+  loan: '貸款',
+  collateral: '質押',
+  allocation: '配置',
+  portfolio: '組合',
+};
 const TONE = { info: 'info', warn: 'warn', bad: 'bad' } as const;
 
 export default function OverviewPage() {
@@ -76,7 +84,7 @@ export default function OverviewPage() {
             <tbody>
               {notifications.map((n) => (
                 <tr key={n.id}>
-                  <td><Badge tone={TONE[n.level]}>{n.category}</Badge></td>
+                  <td><Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge></td>
                   <td><strong>{n.title}</strong></td>
                   <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
                   <td>{n.dueDate ?? '—'}</td>

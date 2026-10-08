@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { emptyData, SEED_INSTRUMENTS, seedData, TABLE_NAMES, type AppData, type TableName } from '@core/index';
+import { demoData, emptyData, SEED_INSTRUMENTS, seedData, TABLE_NAMES, type AppData, type TableName } from '@core/index';
 import { connectBackend, type Backend } from './backend';
 
 // Single in-memory copy of the dataset. Pages read it with useData() and
@@ -14,11 +14,13 @@ export interface StoreState {
   backendLabel: string;
   /** True while an admin is looking at another member's data. */
   readOnly: boolean;
+  /** True for a signed-out visitor exploring the fictional demo portfolio. */
+  demo: boolean;
   error?: string;
   lastSavedAt?: string;
 }
 
-let state: StoreState = { data: emptyData(), status: 'loading', backendLabel: '', readOnly: false };
+let state: StoreState = { data: emptyData(), status: 'loading', backendLabel: '', readOnly: false, demo: false };
 let backend: Backend | undefined;
 let revision = 0;
 const dirty = new Set<TableName>();
@@ -76,6 +78,23 @@ const DERIVED_TABLES: TableName[] = ['prices', 'fxRates', 'snapshots', 'priceHis
 let loading: Promise<void> | undefined;
 
 /**
+ * Show the fictional demo portfolio. Edits work in memory so a visitor can
+ * try the pages, but nothing is ever sent to a backend.
+ */
+export function loadDemo() {
+  clearTimeout(timer);
+  dirty.clear();
+  set({
+    data: demoData(),
+    status: 'ready',
+    backendLabel: '示範資料',
+    readOnly: false,
+    demo: true,
+    error: undefined,
+  });
+}
+
+/**
  * Connect and load. Seeds reference data into an empty store. With
  * `asUser`, loads that member's data for an admin, read-only.
  */
@@ -90,7 +109,7 @@ async function load(asUser?: string): Promise<void> {
   clearTimeout(timer);
   dirty.clear();
   const readOnly = Boolean(asUser);
-  set({ status: 'loading', error: undefined, readOnly });
+  set({ status: 'loading', error: undefined, readOnly, demo: false });
   try {
     backend = await ensureBackend();
     const res = await backend.call({ action: 'load', ...(asUser ? { asUser } : {}) });
@@ -143,7 +162,7 @@ function message(err: unknown): string {
 }
 
 function scheduleSave() {
-  if (state.readOnly) return;
+  if (state.readOnly || state.demo) return;
   clearTimeout(timer);
   timer = setTimeout(() => void flush(), 500);
 }
@@ -151,7 +170,7 @@ function scheduleSave() {
 /** Write pending changes now. */
 export async function flush(): Promise<void> {
   clearTimeout(timer);
-  if (!backend || !dirty.size || state.readOnly) return;
+  if (!backend || !dirty.size || state.readOnly || state.demo) return;
   const names = [...dirty];
   dirty.clear();
   const tables = Object.fromEntries(names.map((n) => [n, state.data[n]])) as Partial<AppData>;
@@ -208,6 +227,10 @@ export function removeRow<T extends TableName>(table: T, id: string) {
 /** Replace the entire dataset, e.g. when restoring a backup. */
 export function replaceAll(data: AppData) {
   if (state.readOnly) return;
+  if (state.demo) {
+    set({ data: { ...emptyData(), ...data } });
+    return;
+  }
   TABLE_NAMES.forEach((t) => dirty.add(t));
   set({ data: { ...emptyData(), ...data } });
   scheduleSave();
