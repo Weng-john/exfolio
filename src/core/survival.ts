@@ -1,3 +1,4 @@
+import { addDays, daysBetween } from './dates';
 import { FxTable } from './fx';
 import { addMonths, amortizationSchedule, loanStatus } from './loans';
 import { scaleFxRates } from './stress';
@@ -20,28 +21,9 @@ import {
 // borrowed.
 
 const EPS = 1e-9;
-const DAY_MS = 86_400_000;
 const UNASSIGNED = 'unassigned';
 
 // ---------------------------------------------------------------- dates
-
-const utc = (d: ISODate): number => {
-  const [y, m, day] = d.split('-').map(Number);
-  return Date.UTC(y, m - 1, day);
-};
-
-export function addDays(date: ISODate, days: number): ISODate {
-  const t = new Date(utc(date) + days * DAY_MS);
-  const y = t.getUTCFullYear();
-  const m = String(t.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(t.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-/** Whole days from `from` to `to`. */
-function daysBetween(from: ISODate, to: ISODate): number {
-  return Math.round((utc(to) - utc(from)) / DAY_MS);
-}
 
 /** Calendar days covered by `months` months starting at `today`. */
 export function monthsToDays(months: number, today: ISODate): number {

@@ -1,6 +1,7 @@
 export * from './types';
 export * from './fx';
 export * from './ids';
+export * from './dates';
 export * from './ledger';
 export * from './valuation';
 export * from './seed';

@@ -1,3 +1,4 @@
+import { daysBetween } from './dates';
 import { FxTable } from './fx';
 import { buildLedger, type Position } from './ledger';
 import { estimateFees } from './fees';
@@ -14,8 +15,6 @@ import {
   type Transaction,
 } from './types';
 import { type Portfolio, type PriceStatus, type ValuedPosition } from './valuation';
-
-const DAY = 86_400_000;
 
 export type FuturesStatus = PriceStatus;
 
@@ -126,16 +125,10 @@ export interface BookedRollover {
 
 type PriceInput = Record<string, number> | Map<string, number> | PriceQuote[];
 
-function parseDate(date: ISODate): [number, number, number] {
-  const [year, month, day] = date.split('-').map(Number);
-  return [year, month, day];
-}
+type PositionLike = FuturesPosition | ValuedPosition | Position;
 
-function daysBetween(from: ISODate, to: ISODate): number {
-  const [fy, fm, fd] = parseDate(from);
-  const [ty, tm, td] = parseDate(to);
-  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / DAY);
-}
+/** Later than any real expiry: sorts perpetuals after dated contracts. */
+const NO_EXPIRY = '9999-12-31';
 
 function priceOf(prices: PriceInput, id: ID): number | undefined {
   if (Array.isArray(prices)) return prices.find((p) => p.id === id)?.price;
@@ -155,10 +148,14 @@ function valuedFuturesPosition(
 ): FuturesPosition | undefined {
   const instrument = p.instrument;
   if (!isDerivative(instrument.type) || p.quantity === 0) return undefined;
+  // A margin figure of 0 or less is as useless as none: treat it as missing.
   const initial = instrument.initialMargin;
   const maintenance = instrument.maintenanceMargin;
-  const missing =
-    !(initial !== undefined && initial > 0) || !(maintenance !== undefined && maintenance > 0);
+  const initialRequired =
+    initial !== undefined && initial > 0 ? Math.abs(p.quantity) * initial : undefined;
+  const maintenanceRequired =
+    maintenance !== undefined && maintenance > 0 ? Math.abs(p.quantity) * maintenance : undefined;
+  const notionalInstrument = p.quantity * p.price * instrument.multiplier;
   return {
     key: p.key,
     accountId: p.accountId,
@@ -177,9 +174,9 @@ function valuedFuturesPosition(
     currentPriceStatus: p.priceStatus,
     priceAsOf: p.priceAsOf,
     multiplier: instrument.multiplier,
-    notionalInstrument: p.quantity * p.price * instrument.multiplier,
+    notionalInstrument,
     notionalBase: p.notional,
-    notionalLocal: p.quantity * p.price * instrument.multiplier,
+    notionalLocal: notionalInstrument,
     notional: p.notional,
     exposure: p.exposure,
     exposureNav: nav > 0 ? p.exposure / nav : undefined,
@@ -190,11 +187,10 @@ function valuedFuturesPosition(
     daysToExpiry: instrument.expiry ? daysBetween(today, instrument.expiry) : undefined,
     initialMargin: instrument.initialMargin,
     maintenanceMargin: instrument.maintenanceMargin,
-    initialMarginRequired:
-      initial !== undefined && initial > 0 ? Math.abs(p.quantity) * initial : undefined,
-    maintenanceMarginRequired:
-      maintenance !== undefined && maintenance > 0 ? Math.abs(p.quantity) * maintenance : undefined,
-    marginSpecMissing: missing,
+    // Margin is charged per contract on both long and short positions.
+    initialMarginRequired: initialRequired,
+    maintenanceMarginRequired: maintenanceRequired,
+    marginSpecMissing: initialRequired === undefined || maintenanceRequired === undefined,
   };
 }
 
@@ -209,7 +205,7 @@ export function futuresPositions(
     .filter((p): p is FuturesPosition => p !== undefined)
     .sort(
       (a, b) =>
-        (a.expiry ?? '9999-12-31').localeCompare(b.expiry ?? '9999-12-31') ||
+        (a.expiry ?? NO_EXPIRY).localeCompare(b.expiry ?? NO_EXPIRY) ||
         a.symbol.localeCompare(b.symbol),
     );
 }
@@ -226,7 +222,8 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
   const fx = new FxTable(data.fxRates);
   const accounts = new Map(data.accounts.map((a) => [a.id, a]));
   const rows = new Map<ID, MarginByAccount>();
-  const positions = futuresPositions(data, portfolio, portfolio.ledger.asOf ?? '9999-12-31');
+  // Margin does not depend on the expiry countdown, so the date only has to exist.
+  const positions = futuresPositions(data, portfolio, portfolio.ledger.asOf ?? NO_EXPIRY);
 
   for (const p of positions) {
     const account = accounts.get(p.accountId);
@@ -244,6 +241,8 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
       marginSpecMissing: false,
     };
     row.unrealizedPnl += convert(fx, p.unrealizedPnlInstrument, p.currency, base);
+    // One position without a margin spec makes the account total unknown, and
+    // `undefined` is sticky: later positions must not turn it back into a number.
     if (p.initialMarginRequired === undefined) row.initialMarginRequired = undefined;
     else if (row.initialMarginRequired !== undefined)
       row.initialMarginRequired += convert(fx, p.initialMarginRequired, p.currency, base);
@@ -254,6 +253,8 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
     rows.set(p.accountId, row);
   }
 
+  // Cash is summed per account in the account's base currency; accounts
+  // without derivative positions have no row and are skipped.
   for (const cash of portfolio.ledger.cash) {
     const account = accounts.get(cash.accountId);
     const row = rows.get(cash.accountId);
@@ -262,6 +263,8 @@ export function marginByAccount(data: AppData, portfolio: Portfolio): MarginByAc
     row.cash += convert(fx, cash.amount, cash.currency, base);
   }
   for (const row of rows.values()) {
+    // Equity = cash (which already holds realised P&L) + open P&L. Margin is
+    // not subtracted: it is part of the cash, only tested against equity below.
     row.equity = row.cash + row.unrealizedPnl;
     row.accountEquity = row.equity;
     row.initialMargin = row.initialMarginRequired;
@@ -296,7 +299,7 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
       ),
       realizedPnl: byInstrument.get(instrument.id) ?? 0,
     }))
-    .sort((a, b) => (a.expiry ?? '9999-12-31').localeCompare(b.expiry ?? '9999-12-31'));
+    .sort((a, b) => (a.expiry ?? NO_EXPIRY).localeCompare(b.expiry ?? NO_EXPIRY));
   const rollovers = data.rollovers
     .filter((r) => r.seriesId === seriesId)
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -313,7 +316,9 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
       convert(fx, (r.openPrice - r.closePrice) * from.multiplier * r.quantity, from.currency, base)
     );
   }, 0);
-  const transactionIds = new Set(rollovers.flatMap((r) => r.transactionIds ?? []));
+  // Fees of every buy/sell in the series are counted from the transactions
+  // themselves. A rollover that links its two transactions is already covered
+  // by those; only a rollover without linked transactions adds its own fee.
   const tradeFees = data.transactions
     .filter((t) => ids.has(t.instrumentId ?? '') && (t.type === 'buy' || t.type === 'sell'))
     .reduce((s, t) => {
@@ -321,8 +326,8 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
       return s + convert(fx, (t.fee ?? 0) + (t.tax ?? 0), i.currency, base);
     }, 0);
   const unlinkedRollFees = rollovers.reduce((s, r) => {
-    const hasLinked = (r.transactionIds ?? []).some((id) => transactionIds.has(id));
-    if (hasLinked) return s;
+    const hasLinkedTransactions = (r.transactionIds ?? []).length > 0;
+    if (hasLinkedTransactions) return s;
     const i = instrumentOf(data, r.fromInstrumentId);
     return s + convert(fx, r.fee ?? 0, i.currency, base);
   }, 0);
@@ -337,27 +342,32 @@ export function seriesHistory(data: AppData, seriesId: ID): SeriesHistory {
   };
 }
 
-function positionInstrument(
-  data: AppData,
-  position: FuturesPosition | ValuedPosition | Position,
-): Instrument {
+function positionInstrument(data: AppData, position: PositionLike): Instrument {
   return instrumentOf(data, position.instrumentId);
 }
 
-function positionQuantity(position: FuturesPosition | ValuedPosition | Position): number {
+function positionQuantity(position: PositionLike): number {
   return 'contracts' in position ? position.contracts : position.quantity;
 }
 
-function positionPrice(position: FuturesPosition | ValuedPosition | Position): number | undefined {
+/** A ledger `Position` carries no price, so it can only be rolled with a quote. */
+function positionPrice(position: PositionLike): number | undefined {
   if ('currentPrice' in position) return position.currentPrice;
   if ('price' in position) return position.price;
   return undefined;
 }
 
+/** A roll closes the old month and opens the new one on the opposite sides. */
+function rollSides(quantity: number): { closeSide: 'buy' | 'sell'; openSide: 'buy' | 'sell' } {
+  return quantity > 0
+    ? { closeSide: 'sell', openSide: 'buy' }
+    : { closeSide: 'buy', openSide: 'sell' };
+}
+
 /** Advisory roll estimate. It never creates transactions or sends an order. */
 export function planRollover(
   data: AppData,
-  position: FuturesPosition | ValuedPosition | Position,
+  position: PositionLike,
   toInstrumentId: ID,
   prices: PriceInput,
 ): RolloverPlan {
@@ -376,13 +386,14 @@ export function planRollover(
   const bucket = position.bucket;
   const account = data.accounts.find((a) => a.id === accountId);
   const broker = data.brokers.find((b) => b.id === account?.brokerId);
-  const closeSide = quantity > 0 ? 'sell' : 'buy';
-  const openSide = quantity > 0 ? 'buy' : 'sell';
+  const { closeSide, openSide } = rollSides(quantity);
   const contracts = Math.abs(quantity);
   const closeFee = estimateFees(broker, from, closeSide, contracts, fromPrice);
   const openFee = estimateFees(broker, to, openSide, contracts, toPrice);
   const marginMissing =
     !(from.initialMargin && from.initialMargin > 0) || !(to.initialMargin && to.initialMargin > 0);
+  // Margin change is the initial-margin difference per contract between the
+  // two months; unknown when either month has no margin spec.
   const marginChange = marginMissing
     ? undefined
     : contracts * (to.initialMargin! - from.initialMargin!);
@@ -400,6 +411,7 @@ export function planRollover(
     fromPrice,
     toPrice,
     spread: toPrice - fromPrice,
+    // Signed by position: a long pays when the new month is dearer, a short gains.
     spreadCost: (toPrice - fromPrice) * from.multiplier * quantity,
     estimatedFee: closeFee.fee + openFee.fee,
     estimatedTax: closeFee.tax + openFee.tax,
@@ -428,8 +440,7 @@ export function bookRollover(
   const contracts = Math.abs(quantity);
   const account = data.accounts.find((a) => a.id === plan.accountId);
   const broker = data.brokers.find((b) => b.id === account?.brokerId);
-  const closeSide = quantity > 0 ? 'sell' : 'buy';
-  const openSide = quantity > 0 ? 'buy' : 'sell';
+  const { closeSide, openSide } = rollSides(quantity);
   const closeEstimate = estimateFees(broker, from, closeSide, contracts, closePrice);
   const openEstimate = estimateFees(broker, to, openSide, contracts, openPrice);
   const prefix = `${plan.id}-${date}`;
@@ -474,6 +485,7 @@ export function bookRollover(
     quantity,
     closePrice,
     openPrice,
+    // The record's fee covers both legs, tax included.
     fee: closeEstimate.fee + closeEstimate.tax + openEstimate.fee + openEstimate.tax,
     transactionIds: [close.id, open.id],
     note: '使用者已在券商執行；本筆只記錄帳務，不會送出訂單',

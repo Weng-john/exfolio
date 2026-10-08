@@ -1,5 +1,6 @@
 import { compareAllocation } from './allocation';
 import { portfolioAlerts, type AlertLevel } from './alerts';
+import { daysBetween } from './dates';
 import { collateralStatus, dueDateOf, loanStatus } from './loans';
 import { futuresPositions, marginByAccount } from './futures';
 import { getSettings, type AppData, type ISODate } from './types';
@@ -18,21 +19,18 @@ export interface Notification {
   dueDate?: ISODate;
 }
 
-function parse(date: ISODate): [number, number, number] {
-  const [y, m, d] = date.split('-').map(Number);
-  return [y, m, d];
-}
+type Sink = Map<string, Notification>;
 
-function daysBetween(from: ISODate, to: ISODate): number {
-  const [fy, fm, fd] = parse(from);
-  const [ty, tm, td] = parse(to);
-  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
-}
-
-function add(out: Map<string, Notification>, notification: Notification) {
+/** First notification with a given id wins, so one condition never repeats. */
+function add(out: Sink, notification: Notification) {
   if (!out.has(notification.id)) out.set(notification.id, notification);
 }
 
+/**
+ * Due date of the oldest scheduled payment that has no repayment recorded
+ * against it, if any is already past. Repayments are matched to the schedule
+ * by count, not by date, so an early payment covers the next instalment.
+ */
 function overdueLoanPayment(data: AppData, loanId: string, today: ISODate): ISODate | undefined {
   const loan = data.loans.find((l) => l.id === loanId);
   if (!loan) return undefined;
@@ -42,27 +40,19 @@ function overdueLoanPayment(data: AppData, loanId: string, today: ISODate): ISOD
   const term = loan.termMonths ?? 0;
   // A revolving line has no payment schedule to fall behind on.
   if (loan.method === 'revolving' || term <= 0) return undefined;
-  const due: ISODate[] = [];
+  const pastDue: ISODate[] = [];
   for (let n = 1; n <= term; n++) {
     const date = dueDateOf(loan, n);
+    // A payment due today is not overdue yet.
     if (date >= today) break;
-    due.push(date);
+    pastDue.push(date);
   }
-  return due[repayments];
+  return pastDue[repayments];
 }
 
-/** Build informational reminders from derivatives, loans, allocation and legacy alerts. */
-export function buildNotifications(
-  data: AppData,
-  portfolio: Portfolio,
-  today: ISODate,
-): Notification[] {
-  const settings = getSettings(data);
-  const alerts = settings.alerts;
-  const out = new Map<string, Notification>();
-  const futures = futuresPositions(data, portfolio, today);
-  const rollDays = alerts.rollNoticeDays ?? DEFAULT_ROLL_NOTICE_DAYS;
-  for (const p of futures) {
+function addFuturesExpiry(out: Sink, data: AppData, portfolio: Portfolio, today: ISODate) {
+  const rollNoticeDays = getSettings(data).alerts.rollNoticeDays ?? DEFAULT_ROLL_NOTICE_DAYS;
+  for (const p of futuresPositions(data, portfolio, today)) {
     if (p.expiry === undefined || p.daysToExpiry === undefined) continue;
     if (p.daysToExpiry < 0) {
       add(out, {
@@ -73,7 +63,7 @@ export function buildNotifications(
         detail: `部位 ${p.contracts} 口，請確認結算或補記轉倉。`,
         dueDate: p.expiry,
       });
-    } else if (p.daysToExpiry <= rollDays) {
+    } else if (p.daysToExpiry <= rollNoticeDays) {
       add(out, {
         id: `futures-roll-${p.key}`,
         level: 'warn',
@@ -84,36 +74,44 @@ export function buildNotifications(
       });
     }
   }
+}
 
+function addFuturesMargin(out: Sink, data: AppData, portfolio: Portfolio) {
   for (const row of marginByAccount(data, portfolio)) {
+    const maintenance = row.maintenanceMarginRequired;
     if (row.shortfall !== undefined && row.shortfall > 0) {
       add(out, {
         id: `futures-margin-shortfall-${row.accountId}`,
         level: 'bad',
         category: 'futures-margin',
         title: `${row.accountName} 保證金權益不足`,
-        detail: `權益 ${row.equity.toLocaleString()} ${row.baseCurrency}，低於維持保證金 ${row.maintenanceMarginRequired!.toLocaleString()}，短缺 ${row.shortfall.toLocaleString()}。`,
+        detail: `權益 ${row.equity.toLocaleString()} ${row.baseCurrency}，低於維持保證金 ${maintenance!.toLocaleString()}，短缺 ${row.shortfall.toLocaleString()}。`,
       });
     } else if (
-      row.maintenanceMarginRequired !== undefined &&
+      maintenance !== undefined &&
       row.equity > 0 &&
-      row.equity <= row.maintenanceMarginRequired * (1 + MARGIN_BUFFER)
+      row.equity <= maintenance * (1 + MARGIN_BUFFER)
     ) {
+      // Still above maintenance, but within the buffer of being called.
       add(out, {
         id: `futures-margin-buffer-${row.accountId}`,
         level: 'warn',
         category: 'futures-margin',
         title: `${row.accountName} 接近維持保證金`,
-        detail: `權益 ${row.equity.toLocaleString()} ${row.baseCurrency}，維持保證金 ${row.maintenanceMarginRequired.toLocaleString()}。`,
+        detail: `權益 ${row.equity.toLocaleString()} ${row.baseCurrency}，維持保證金 ${maintenance.toLocaleString()}。`,
       });
     }
   }
+}
 
-  const ledger = portfolio.ledger;
+function addLoanNotices(out: Sink, data: AppData, portfolio: Portfolio, today: ISODate) {
+  const alerts = getSettings(data).alerts;
   const loanNoticeDays = alerts.loanDueNoticeDays ?? DEFAULT_LOAN_NOTICE_DAYS;
   for (const loan of data.loans.filter((l) => l.active)) {
-    const status = loanStatus(data, ledger, loan, today);
+    const status = loanStatus(data, portfolio.ledger, loan, today);
     if (status.balance <= 0) continue;
+
+    // An overdue payment takes the place of the "due soon" reminder.
     const overdue = overdueLoanPayment(data, loan.id, today);
     if (overdue) {
       add(out, {
@@ -138,30 +136,35 @@ export function buildNotifications(
       }
     }
 
-    if (loan.kind === 'pledge' && status.balance > 0) {
+    if (loan.kind === 'pledge') {
       const collateral = collateralStatus(data, portfolio.valuation, loan, status.balance);
       const belowUserThreshold =
         alerts.maintenanceRatio !== undefined &&
         collateral.maintenanceRatio !== undefined &&
         collateral.maintenanceRatio < alerts.maintenanceRatio;
       if (collateral.belowCall || belowUserThreshold) {
+        const threshold = collateral.belowCall
+          ? `低於追繳門檻 ${loan.callRatio}`
+          : `低於提醒門檻 ${alerts.maintenanceRatio}`;
         add(out, {
           id: `collateral-maintenance-${loan.id}`,
           level: collateral.belowCall ? 'bad' : 'warn',
           category: 'collateral',
           title: `${loan.name} 質押維持率偏低`,
-          detail: `目前 ${collateral.maintenanceRatio?.toFixed(3) ?? '—'}，${collateral.belowCall ? `低於追繳門檻 ${loan.callRatio}` : `低於提醒門檻 ${alerts.maintenanceRatio}`}。`,
+          detail: `目前 ${collateral.maintenanceRatio?.toFixed(3) ?? '—'}，${threshold}。`,
         });
       }
     }
   }
+}
 
-  const allocation = compareAllocation(data, portfolio.valuation);
-  for (const row of allocation.rows) {
+function addAllocationDrift(out: Sink, data: AppData, portfolio: Portfolio) {
+  const globalDrift = getSettings(data).alerts.allocationDrift;
+  for (const row of compareAllocation(data, portfolio.valuation).rows) {
     const drift = Math.abs(row.gapWeight);
-    const globalDrift = alerts.allocationDrift;
-    if (!row.hasTarget || (!row.outOfBand && (globalDrift === undefined || drift <= globalDrift)))
-      continue;
+    // Notify when the target's own band is breached, or the global drift limit is.
+    const withinGlobal = globalDrift === undefined || drift <= globalDrift;
+    if (!row.hasTarget || (!row.outOfBand && withinGlobal)) continue;
     add(out, {
       id: `allocation-drift-${row.indexId}`,
       level: 'warn',
@@ -170,16 +173,30 @@ export function buildNotifications(
       detail: `Core 實際 ${((row.coreWeight ?? 0) * 100).toFixed(1)}%，目標 ${(row.targetWeight * 100).toFixed(1)}%，偏離 ${(row.gapWeight * 100).toFixed(1)}%。`,
     });
   }
+}
 
+const LEVEL_PRIORITY: Record<AlertLevel, number> = { bad: 0, warn: 1, info: 2 };
+
+/** Build informational reminders from derivatives, loans, allocation and legacy alerts. */
+export function buildNotifications(
+  data: AppData,
+  portfolio: Portfolio,
+  today: ISODate,
+): Notification[] {
+  const out: Sink = new Map();
+  addFuturesExpiry(out, data, portfolio, today);
+  addFuturesMargin(out, data, portfolio);
+  addLoanNotices(out, data, portfolio, today);
+  addAllocationDrift(out, data, portfolio);
   for (const alert of portfolioAlerts(data, portfolio.valuation)) {
     add(out, { ...alert, category: 'portfolio' });
   }
 
-  const priority: Record<AlertLevel, number> = { bad: 0, warn: 1, info: 2 };
+  // Soonest due date first (undated last), then most severe.
   return [...out.values()].sort(
     (a, b) =>
       (a.dueDate ?? '9999-12-31').localeCompare(b.dueDate ?? '9999-12-31') ||
-      priority[a.level] - priority[b.level] ||
+      LEVEL_PRIORITY[a.level] - LEVEL_PRIORITY[b.level] ||
       a.category.localeCompare(b.category) ||
       a.id.localeCompare(b.id),
   );
