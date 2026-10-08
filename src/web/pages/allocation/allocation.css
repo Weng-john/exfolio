@@ -1,0 +1,68 @@
+.pct-input {
+  width: 90px;
+  text-align: right;
+}
+
+.wbar {
+  position: relative;
+  height: 14px;
+  min-width: 160px;
+  background: var(--panel-2);
+  border-radius: 3px;
+}
+
+.wbar .fill {
+  position: absolute;
+  top: 2px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+
+.wbar .fill.actual {
+  top: 8px;
+  background: var(--accent);
+}
+
+.wbar .zero {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+tr.market-row td {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+tr.instrument-row td {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.indent {
+  padding-left: 24px;
+}
+
+.legend {
+  display: inline-block;
+  width: 10px;
+  height: 4px;
+  border-radius: 2px;
+  margin: 0 4px 2px 8px;
+  background: var(--muted);
+}
+
+.legend.actual {
+  background: var(--accent);
+}
+
+.notes-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: normal;
+}
