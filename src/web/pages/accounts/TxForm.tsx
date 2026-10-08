@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  estimateFees,
   CORE_BUCKET,
   getSettings,
   newId,
@@ -183,6 +184,26 @@ export default function TxForm(props: {
   const currency = L.trade && inst ? inst.currency : f.currency.trim().toUpperCase();
   const loans = data.loans;
 
+  // Estimate from the institution's fee rule; the user can still overwrite it.
+  const account = data.accounts.find((a) => a.id === f.accountId);
+  const broker = data.brokers.find((b) => b.id === account?.brokerId);
+  const estimate =
+    L.trade && inst
+      ? estimateFees(broker, inst, f.type === 'sell' ? 'sell' : 'buy', Number(f.quantity), Number(f.price))
+      : undefined;
+  const round = (n: number) => String(Math.round(n * 100) / 100);
+  const feeHint = !estimate ? undefined : estimate.known ? (
+    <button
+      type="button"
+      className="ghost"
+      onClick={() => set({ fee: round(estimate.fee), tax: round(estimate.tax) })}
+    >
+      依 {broker?.name} 費率估算：手續費 {round(estimate.fee)}、稅 {round(estimate.tax)}（點此帶入）
+    </button>
+  ) : (
+    '此機構未設定這類商品的費率，可到「帳戶與機構」設定'
+  );
+
   const onAccount = (accountId: string) => {
     const acc = data.accounts.find((a) => a.id === accountId);
     set(tx || L.trade ? { accountId } : { accountId, currency: acc?.baseCurrency ?? f.currency });
@@ -307,7 +328,11 @@ export default function TxForm(props: {
             </select>
           </Field>
         )}
-        {L.costs && <Field label="手續費">{input('fee')}</Field>}
+        {L.costs && (
+          <Field label="手續費" hint={L.trade ? feeHint : undefined}>
+            {input('fee')}
+          </Field>
+        )}
         {L.tax && <Field label="稅">{input('tax')}</Field>}
         {currency && currency !== base && (
           <Field label={`匯率（${currency}→${base}）`} hint="選填；留空則使用目前匯率表">

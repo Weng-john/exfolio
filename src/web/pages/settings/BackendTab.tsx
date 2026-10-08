@@ -153,14 +153,12 @@ function SeedCard() {
   const load = () => {
     const { data: next, added } = addMissingSeed(data);
     setTable('indices', next.indices);
-    setTable('brokers', next.brokers);
-    setTable('accounts', next.accounts);
     setTable('instruments', next.instruments);
-    setMsg(`已新增 商品 ${added.instruments}、指數 ${added.indices}、券商 ${added.brokers}、帳戶 ${added.accounts}（既有資料未被覆蓋）`);
+    setMsg(`已新增 商品 ${added.instruments}、指數 ${added.indices}（既有資料未被覆蓋）`);
   };
   return (
     <Card title="預設商品" actions={<button onClick={load}>載入預設商品</button>}>
-      <p className="muted">補上內建的商品、指數、券商與帳戶中 id 尚不存在者；已存在的資料（含你的修改）不會被覆蓋。</p>
+      <p className="muted">補上內建的商品與指數中 id 尚不存在者；已存在的資料（含你的修改）不會被覆蓋。券商、銀行與交易所請到 Accounts & Positions 新增。</p>
       {msg && <p className="pos">{msg}</p>}
     </Card>
   );

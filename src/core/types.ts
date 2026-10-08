@@ -9,9 +9,37 @@ export type ISODateTime = string;
 /** Bucket id of the passive core portfolio. Any other bucket is a strategy id. */
 export const CORE_BUCKET = 'core';
 
+export type InstitutionKind = 'broker' | 'bank' | 'exchange';
+
+/** Instrument classes a fee rule can be set for. */
+export type FeeClass = 'stock' | 'etf' | 'future' | 'perpetual' | 'crypto' | 'option';
+
+/** How an institution charges one class of instrument. Every part is optional. */
+export interface FeeRule {
+  /** Commission as a fraction of traded value, before any discount. */
+  rate?: number;
+  /** Fraction of the list commission actually charged: 0.28 means 28 折. */
+  discount?: number;
+  /** Smallest commission per trade, in the instrument currency. */
+  minFee?: number;
+  /** Flat fee per share or contract, in the instrument currency. */
+  perUnit?: number;
+  /** Tax on both sides as a fraction of traded value (e.g. futures tax). */
+  taxRate?: number;
+  /** Tax on sells only as a fraction of traded value (e.g. 證交稅). */
+  sellTaxRate?: number;
+}
+
+/**
+ * A broker, bank or exchange. The table keeps the name `brokers`; `kind`
+ * tells them apart and defaults to 'broker'.
+ */
 export interface Broker {
   id: ID;
   name: string;
+  kind?: InstitutionKind;
+  /** Fee rules per instrument class. Missing class = no fee estimate. */
+  fees?: Partial<Record<FeeClass, FeeRule>>;
   note?: string;
 }
 

@@ -1,4 +1,4 @@
-import { SEED_ACCOUNTS, SEED_BROKERS, SEED_INDICES, SEED_INSTRUMENTS } from './seed';
+import { SEED_INDICES, SEED_INSTRUMENTS } from './seed';
 import { emptyData, isDerivative, TABLE_NAMES, type AppData, type Instrument, type TableName } from './types';
 
 // Backup / restore and the registry rules of the Settings page. Pure
@@ -86,10 +86,13 @@ export function rowCounts(data: AppData): Record<TableName, number> {
 
 export interface SeedAddition {
   data: AppData;
-  added: { instruments: number; indices: number; brokers: number; accounts: number };
+  added: { instruments: number; indices: number };
 }
 
-/** Add seed reference rows whose ids are missing. Existing rows are never overwritten. */
+/**
+ * Add seed instruments and indices whose ids are missing. Existing rows are
+ * never overwritten. Institutions and accounts are never added here.
+ */
 export function addMissingSeed(data: AppData): SeedAddition {
   const add = <T extends { id: string }>(have: T[], seed: T[]) => {
     const ids = new Set(have.map((r) => r.id));
@@ -97,17 +100,10 @@ export function addMissingSeed(data: AppData): SeedAddition {
     return { rows: [...have, ...extra], count: extra.length };
   };
   const indices = add(data.indices, SEED_INDICES);
-  const brokers = add(data.brokers, SEED_BROKERS);
-  const accounts = add(data.accounts, SEED_ACCOUNTS);
   const instruments = add(data.instruments, SEED_INSTRUMENTS);
   return {
-    data: { ...data, indices: indices.rows, brokers: brokers.rows, accounts: accounts.rows, instruments: instruments.rows },
-    added: {
-      instruments: instruments.count,
-      indices: indices.count,
-      brokers: brokers.count,
-      accounts: accounts.count,
-    },
+    data: { ...data, indices: indices.rows, instruments: instruments.rows },
+    added: { instruments: instruments.count, indices: indices.count },
   };
 }
 

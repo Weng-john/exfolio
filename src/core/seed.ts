@@ -1,6 +1,5 @@
 import {
   emptyData,
-  type Account,
   type AppData,
   type Broker,
   type Instrument,
@@ -20,19 +19,71 @@ export const SEED_INDICES: UnderlyingIndex[] = [
   { id: 'btc', name: 'Bitcoin', market: 'CRYPTO', currency: 'USD' },
 ];
 
-export const SEED_BROKERS: Broker[] = [
-  { id: 'kgi', name: '凱基' },
-  { id: 'sinopac', name: '永豐' },
-  { id: 'binance', name: 'Binance' },
+// Fee rules are list prices or common defaults, not anyone's actual
+// contract: every user should set their own rates and discounts.
+const TW_BROKER_FEES: Broker['fees'] = {
+  stock: { rate: 0.001425, discount: 1, minFee: 20, sellTaxRate: 0.003 },
+  etf: { rate: 0.001425, discount: 1, minFee: 20, sellTaxRate: 0.001 },
+  future: { perUnit: 0, taxRate: 0.00002 },
+};
+const US_BROKER_FEES: Broker['fees'] = { stock: { rate: 0 }, etf: { rate: 0 }, future: { perUnit: 0 } };
+const CRYPTO_FEES: Broker['fees'] = { crypto: { rate: 0.001 }, perpetual: { rate: 0.0005 } };
+
+const tw = (id: string, name: string): Broker => ({ id, name, kind: 'broker', fees: TW_BROKER_FEES });
+const us = (id: string, name: string): Broker => ({ id, name, kind: 'broker', fees: US_BROKER_FEES });
+const ex = (id: string, name: string): Broker => ({ id, name, kind: 'exchange', fees: CRYPTO_FEES });
+const bank = (id: string, name: string): Broker => ({ id, name, kind: 'bank' });
+
+/**
+ * Institutions a user can add with one click. Nothing here is added to a
+ * dataset automatically, and any other institution can be created by hand.
+ */
+export const INSTITUTION_CATALOG: Broker[] = [
+  tw('yuanta', '元大證券'),
+  tw('kgi', '凱基證券'),
+  tw('fubon_sec', '富邦證券'),
+  tw('sinopac', '永豐金證券'),
+  tw('cathay_sec', '國泰證券'),
+  tw('capital', '群益證券'),
+  tw('esun_sec', '玉山證券'),
+  tw('mega_sec', '兆豐證券'),
+  tw('ctbc_sec', '中國信託證券'),
+  tw('taishin_sec', '台新證券'),
+  tw('hncb_sec', '華南永昌證券'),
+  tw('pscnet', '統一證券'),
+  tw('masterlink', '元富證券'),
+  tw('fsc_sec', '第一金證券'),
+  us('ibkr', 'Interactive Brokers'),
+  us('schwab', 'Charles Schwab'),
+  us('firstrade', 'Firstrade'),
+  us('fidelity', 'Fidelity'),
+  ex('binance', 'Binance'),
+  ex('okx', 'OKX'),
+  ex('bybit', 'Bybit'),
+  ex('coinbase', 'Coinbase'),
+  ex('kraken', 'Kraken'),
+  ex('max', 'MAX'),
+  ex('bitopro', 'BitoPro'),
+  bank('bot', '臺灣銀行'),
+  bank('ctbc_bank', '中國信託銀行'),
+  bank('cathay_bank', '國泰世華銀行'),
+  bank('fubon_bank', '台北富邦銀行'),
+  bank('esun_bank', '玉山銀行'),
+  bank('taishin_bank', '台新銀行'),
+  bank('sinopac_bank', '永豐銀行'),
+  bank('mega_bank', '兆豐銀行'),
+  bank('first_bank', '第一銀行'),
+  bank('hncb_bank', '華南銀行'),
+  bank('land_bank', '土地銀行'),
+  bank('tcb_bank', '合作金庫銀行'),
+  bank('post', '中華郵政'),
 ];
 
-export const SEED_ACCOUNTS: Account[] = [
-  { id: 'kgi_tw', brokerId: 'kgi', name: '凱基 台股', type: 'securities', baseCurrency: 'TWD', active: true },
-  { id: 'kgi_fut', brokerId: 'kgi', name: '凱基 期貨', type: 'futures', baseCurrency: 'TWD', active: true },
-  { id: 'sinopac_tw', brokerId: 'sinopac', name: '永豐 台股', type: 'securities', baseCurrency: 'TWD', active: true },
-  { id: 'sinopac_us', brokerId: 'sinopac', name: '永豐 美股複委託', type: 'securities', baseCurrency: 'USD', active: true },
-  { id: 'binance_main', brokerId: 'binance', name: 'Binance', type: 'crypto', baseCurrency: 'USDT', active: true },
-];
+/** A catalog entry as an independent row, safe to edit. */
+export function fromCatalog(id: string): Broker | undefined {
+  const entry = INSTITUTION_CATALOG.find((b) => b.id === id);
+  return entry && (JSON.parse(JSON.stringify(entry)) as Broker);
+}
 
 type Spec = Pick<Instrument, 'id' | 'symbol' | 'name' | 'indexId'> & Partial<Instrument>;
 
@@ -78,8 +129,7 @@ const future = (s: Spec & Pick<Instrument, 'multiplier' | 'currency' | 'exchange
 export const SEED_INSTRUMENTS: Instrument[] = [
   twEtf({ id: 'tw_0050', symbol: '0050', name: '元大台灣50', indexId: 'tw50' }),
   twEtf({ id: 'tw_00631L', symbol: '00631L', name: '元大台灣50正2', indexId: 'tw50', leverage: 2 }),
-  twEtf({ id: 'tw_00675L', symbol: '00675L', name: '富邦臺灣加權正2', indexId: 'taiex', leverage: 2,
-    note: '請確認追蹤指數；與 00631L 不是同一指數' }),
+  twEtf({ id: 'tw_00675L', symbol: '00675L', name: '富邦臺灣加權正2', indexId: 'taiex', leverage: 2 }),
   usEtf({ id: 'us_VOO', symbol: 'VOO', name: 'Vanguard S&P 500 ETF', indexId: 'sp500' }),
   usEtf({ id: 'us_SPY', symbol: 'SPY', name: 'SPDR S&P 500 ETF', indexId: 'sp500' }),
   usEtf({ id: 'us_IVV', symbol: 'IVV', name: 'iShares Core S&P 500 ETF', indexId: 'sp500' }),
@@ -99,12 +149,12 @@ export const SEED_INSTRUMENTS: Instrument[] = [
   future({ id: 'fut_NQ', symbol: 'NQ', name: 'E-mini Nasdaq 100', indexId: 'ndx', exchange: 'CME', currency: 'USD', multiplier: 20, quoteSource: 'yahoo', quoteSymbol: 'NQ=F' }),
   future({ id: 'fut_MNQ', symbol: 'MNQ', name: 'Micro E-mini Nasdaq 100', indexId: 'ndx', exchange: 'CME', currency: 'USD', multiplier: 2, quoteSource: 'yahoo', quoteSymbol: 'MNQ=F' }),
   {
-    id: 'crypto_BTC', symbol: 'BTC', name: 'Bitcoin 現貨', type: 'crypto', exchange: 'Binance',
+    id: 'crypto_BTC', symbol: 'BTC', name: 'Bitcoin 現貨', type: 'crypto', exchange: 'CRYPTO',
     currency: 'USDT', indexId: 'btc', leverage: 1, multiplier: 1, lotSize: 0.00001,
     quoteSource: 'binance', quoteSymbol: 'BTCUSDT', active: true,
   },
   {
-    id: 'perp_BTCUSDT', symbol: 'BTCUSDT-PERP', name: 'Bitcoin 永續合約', type: 'perpetual', exchange: 'Binance',
+    id: 'perp_BTCUSDT', symbol: 'BTCUSDT-PERP', name: 'Bitcoin 永續合約', type: 'perpetual', exchange: 'CRYPTO',
     currency: 'USDT', indexId: 'btc', leverage: 1, multiplier: 1, lotSize: 0.001,
     quoteSource: 'binance', quoteSymbol: 'BTCUSDT', settlement: 'cash', active: true,
   },
@@ -116,12 +166,13 @@ export const SEED_FX_PAIRS: Array<[string, string, 'yahoo' | 'binance', string]>
   ['USDT', 'USD', 'yahoo', 'USDT-USD'],
 ];
 
-/** A fresh dataset holding only reference data: no holdings, no cash. */
+/**
+ * A fresh dataset holding only public reference data: indices and
+ * instruments. Institutions and accounts are the user's to add.
+ */
 export function seedData(): AppData {
   const data = emptyData();
   data.indices = SEED_INDICES.map((x) => ({ ...x }));
-  data.brokers = SEED_BROKERS.map((x) => ({ ...x }));
-  data.accounts = SEED_ACCOUNTS.map((x) => ({ ...x }));
   data.instruments = SEED_INSTRUMENTS.map((x) => ({ ...x }));
   return data;
 }

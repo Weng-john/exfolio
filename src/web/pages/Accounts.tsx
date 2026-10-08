@@ -10,7 +10,7 @@ const TABS = [
   { id: 'positions', label: '持倉', view: PositionsTab },
   { id: 'cash', label: '現金', view: CashTab },
   { id: 'transactions', label: '交易', view: TransactionsTab },
-  { id: 'structure', label: '帳戶與券商', view: StructureTab },
+  { id: 'structure', label: '帳戶與機構', view: StructureTab },
 ] as const;
 
 export default function AccountsPage() {

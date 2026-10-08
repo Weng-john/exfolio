@@ -15,6 +15,7 @@ import SettingsPage from './pages/Settings';
 import StrategiesPage from './pages/Strategies';
 import { refreshQuotes, useAutoRefresh, useQuoteSync } from './quotes';
 import { initStore, useStore, type SyncStatus } from './store';
+import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
 
 const NAV: Array<{ group: string; items: Array<{ path: string; label: string; element: JSX.Element }> }> = [
@@ -69,6 +70,7 @@ function TopBar() {
   const store = useStore();
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
+  const { theme, cycle } = useTheme();
   return (
     <div className="topbar">
       <div className="topbar-item">
@@ -88,6 +90,9 @@ function TopBar() {
         </span>
         <button onClick={() => void refreshQuotes()} disabled={quotes.refreshing}>
           {quotes.refreshing ? '更新中…' : '更新報價'}
+        </button>
+        <button onClick={cycle} title="切換明亮 / 黑色模式">
+          主題：{THEME_LABELS[theme]}
         </button>
       </div>
     </div>

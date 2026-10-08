@@ -60,7 +60,7 @@ describe('backup round trip', () => {
   });
 
   it('counts rows per table', () => {
-    expect(rowCounts(seedData()).brokers).toBe(3);
+    expect(rowCounts(seedData()).indices).toBe(7);
   });
 });
 
@@ -71,7 +71,8 @@ describe('addMissingSeed', () => {
     data.instruments.find((i) => i.id === 'tw_0050')!.name = '自訂名稱';
     const res = addMissingSeed(data);
     expect(res.added.instruments).toBe(1);
-    expect(res.added.indices + res.added.brokers + res.added.accounts).toBe(0);
+    expect(res.added.indices).toBe(0);
+    expect(res.data.brokers).toEqual([]);
     expect(res.data.instruments.find((i) => i.id === 'tw_0050')!.name).toBe('自訂名稱');
     expect(res.data.instruments.some((i) => i.id === 'us_VOO')).toBe(true);
   });

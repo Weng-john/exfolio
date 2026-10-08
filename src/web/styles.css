@@ -11,11 +11,27 @@
   --neg: #c62f3b;
   --warn: #a8690a;
   --radius: 8px;
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+/* Dark palette: chosen explicitly, or by the system when no choice is stored. */
+:root[data-theme='dark'] {
+  --bg: #0f1216;
+  --panel: #171b21;
+  --panel-2: #1f242c;
+  --border: #2a313b;
+  --text: #e6e9ee;
+  --muted: #8e99a8;
+  --accent: #6f97ff;
+  --accent-text: #0b0e12;
+  --pos: #46c486;
+  --neg: #f0707a;
+  --warn: #e0a440;
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0f1216;
     --panel: #171b21;
     --panel-2: #1f242c;
@@ -27,6 +43,7 @@
     --pos: #46c486;
     --neg: #f0707a;
     --warn: #e0a440;
+    color-scheme: dark;
   }
 }
 
@@ -38,7 +55,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  /* The bundled Noto Sans TC comes last: browsers only download it when no
+     system font above has the glyph, e.g. on Linux without CJK fonts. */
+  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
 }
 
 h1 {

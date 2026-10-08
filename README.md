@@ -1,6 +1,6 @@
 # Exfolio
 
-以淨資產（NAV）為分母、以實際市場曝險為核心的個人資產配置網站。產品規格見 [portfolio_management_spec.md](portfolio_management_spec.md)。
+以淨資產（NAV）為分母、以實際市場曝險為核心的個人資產配置網站。產品規格是私人文件，放在不進版本庫的 `private/portfolio_management_spec.md`。
 
 ## 本機執行
 

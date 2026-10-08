@@ -2,7 +2,7 @@ import { seedData, type AllocationTarget, type AppData, type Transaction } from 
 
 let seq = 0;
 
-/** Build a transaction with test defaults: core bucket, TWD, 凱基 台股. */
+/** Build a transaction with test defaults: core bucket, TWD, account kgi_tw. */
 export function tx(partial: Partial<Transaction> & Pick<Transaction, 'type' | 'date'>): Transaction {
   return {
     id: `t${++seq}`,
@@ -27,8 +27,22 @@ export function setFx(data: AppData, from: string, to: string, rate: number) {
 
 export const NOW = new Date('2026-10-09T08:00:00Z');
 
+/** Reference data plus fictional institutions and accounts for tests. */
 export function fresh(): AppData {
-  return seedData();
+  const data = seedData();
+  data.brokers = [
+    { id: 'kgi', name: '示範券商甲', kind: 'broker' },
+    { id: 'sinopac', name: '示範券商乙', kind: 'broker' },
+    { id: 'binance', name: '示範交易所', kind: 'exchange' },
+  ];
+  data.accounts = [
+    { id: 'kgi_tw', brokerId: 'kgi', name: '甲 台股', type: 'securities', baseCurrency: 'TWD', active: true },
+    { id: 'kgi_fut', brokerId: 'kgi', name: '甲 期貨', type: 'futures', baseCurrency: 'TWD', active: true },
+    { id: 'sinopac_tw', brokerId: 'sinopac', name: '乙 台股', type: 'securities', baseCurrency: 'TWD', active: true },
+    { id: 'sinopac_us', brokerId: 'sinopac', name: '乙 美股複委託', type: 'securities', baseCurrency: 'USD', active: true },
+    { id: 'binance_main', brokerId: 'binance', name: '示範交易所帳戶', type: 'crypto', baseCurrency: 'USDT', active: true },
+  ];
+  return data;
 }
 
 /** Add (or replace) an allocation target row. */

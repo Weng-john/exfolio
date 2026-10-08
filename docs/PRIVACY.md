@@ -9,7 +9,7 @@
 | 前端、計算引擎、本機後端程式碼 | `src/`、`server/` |
 | GAS 後端程式碼與部署說明 | `gas/`（不含部署網址與 token） |
 | 測試與虛構測試資料 | `tests/`、`tests/fixtures/` |
-| 公開商品與指數的參考資料 | `src/core/seed.ts` |
+| 公開商品、指數與常見金融機構的參考資料 | `src/core/seed.ts` |
 | 設定與文件 | `package.json`、`vite.config.ts`、`docs/`、`.env.example` |
 
 ## 不可以同步到 GitHub
@@ -22,7 +22,7 @@
 | GAS 部署網址與存取 token | 瀏覽器 localStorage、GAS 指令碼屬性 | 不寫入任何檔案 |
 | Google 帳號與指令碼連結 | `.clasp.json`、`.clasprc.json` | `.gitignore` |
 | 環境變數與金鑰檔 | `.env*`、`*.pem`、`*.key`、`credentials*.json` | `.gitignore` |
-| 私人筆記 | `private/`、`*.private.md` | `.gitignore` |
+| 產品規格與私人筆記 | `private/`、`*.private.md` | `.gitignore` |
 
 Google Sheets 本身存在你的 Google 帳號裡，從來不在這個資料夾內。
 
@@ -46,7 +46,12 @@ npm run check:privacy
 - 不要把自己的實際持倉寫成預設值或種子資料。
 - 網站部署到 GitHub Pages 的只有程式碼；資料在執行時才從你自己的後端讀取。
 
-## 公開前請自行決定的兩件事
+## 提交者身分
 
-- `portfolio_management_spec.md` 沒有金額或帳號，但描述了使用的券商、借款與質押的做法。若不想公開，請保持儲存庫為私有，或在公開前移除該檔。
-- git 提交紀錄會帶有提交者的姓名與電子郵件。若不想公開信箱，可在 GitHub 設定使用 `noreply` 信箱後再推送。
+這個儲存庫的 git 設定使用 GitHub 的 noreply 信箱，提交紀錄不帶個人信箱。在別台機器複製後，請先設定：
+
+```bash
+git config user.email "<你的 GitHub 帳號>@users.noreply.github.com"
+```
+
+預設資料不含任何券商或帳戶：使用者自己從常用清單挑選或手動新增，所以程式碼不會透露你用哪幾家。

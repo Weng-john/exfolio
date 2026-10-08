@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { newId, type Loan, type LoanKind, type RepaymentMethod } from '@core/index';
+import { INSTITUTION_CATALOG, newId, type Loan, type LoanKind, type RepaymentMethod } from '@core/index';
 import { Field, Modal } from '../../components/ui';
-import { upsertRow } from '../../store';
+import { upsertRow, useData } from '../../store';
 import { KIND_LABEL, METHOD_LABEL, num } from './shared';
 
 const pct = (x: number | undefined) => (x === undefined ? '' : String(Number((x * 100).toFixed(6))));
@@ -10,6 +10,11 @@ const frac = (s: string) => Number((num(s) / 100).toFixed(8));
 /** Add / edit a loan. Fields adapt to the loan kind and repayment method. */
 export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSaved?: (id: string) => void }) {
   const { loan } = props;
+  const data = useData();
+  // The user's own institutions first, then the catalog's banks and brokers.
+  const lenderOptions = [
+    ...new Set([...data.brokers, ...INSTITUTION_CATALOG.filter((b) => b.kind !== 'exchange')].map((b) => b.name)),
+  ];
   const [name, setName] = useState(loan?.name ?? '');
   const [kind, setKind] = useState<LoanKind>(loan?.kind ?? 'credit');
   const [lender, setLender] = useState(loan?.lender ?? '');
@@ -95,7 +100,12 @@ export default function LoanForm(props: { loan?: Loan; onClose: () => void; onSa
             </select>
           </Field>
           <Field label="貸款機構">
-            <input value={lender} onChange={(e) => setLender(e.target.value)} />
+            <input list="lender-options" value={lender} onChange={(e) => setLender(e.target.value)} />
+            <datalist id="lender-options">
+              {lenderOptions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
           </Field>
           <Field label="幣別">
             <input value={currency} onChange={(e) => setCurrency(e.target.value)} />

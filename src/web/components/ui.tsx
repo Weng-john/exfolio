@@ -45,7 +45,7 @@ export function Empty(props: { children: ReactNode }) {
 }
 
 /** Labelled form control. Pass the input / select as the child. */
-export function Field(props: { label: string; hint?: string; children: ReactNode }) {
+export function Field(props: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className="field">
       <span className="field-label">{props.label}</span>

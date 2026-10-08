@@ -10,6 +10,7 @@ import {
 } from '@core/index';
 import { removeRow, upsertRow, useData } from '../../store';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
+import InstitutionForm, { KIND_LABELS } from './InstitutionForm';
 import { ACCOUNT_TYPE_LABELS } from './labels';
 
 export default function StructureTab() {
@@ -23,10 +24,10 @@ export default function StructureTab() {
     const ref = brokerReferences(data, b.id);
     if (ref.accounts || ref.instruments) {
       const parts = [ref.accounts && `${ref.accounts} 個帳戶`, ref.instruments && `${ref.instruments} 個商品的可交易券商設定`].filter(Boolean);
-      setNotice(`無法刪除券商「${b.name}」：仍被 ${parts.join('、')} 引用。請先刪除或改掛這些項目。`);
+      setNotice(`無法刪除機構「${b.name}」：仍被 ${parts.join('、')} 引用。請先刪除或改掛這些項目。`);
       return;
     }
-    if (window.confirm(`刪除券商「${b.name}」？`)) {
+    if (window.confirm(`刪除機構「${b.name}」？`)) {
       removeRow('brokers', b.id);
       setNotice('');
     }
@@ -48,16 +49,18 @@ export default function StructureTab() {
   return (
     <>
       {notice && <div className="notice warn">{notice}</div>}
-      <Card title="券商 / 交易所" actions={<button className="primary" onClick={() => setBroker({ id: '', name: '' })}>新增券商</button>}>
+      <Card title="券商 / 銀行 / 交易所" actions={<button className="primary" onClick={() => setBroker({ id: '', name: '' })}>新增機構</button>}>
         {data.brokers.length === 0 ? (
-          <Empty>尚無券商。</Empty>
+          <Empty>尚無機構。按「新增機構」從常用清單挑選，或自行輸入任何券商、銀行、交易所。</Empty>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>名稱</th>
+                  <th>類別</th>
                   <th>帳戶數</th>
+                  <th>手續費設定</th>
                   <th>備註</th>
                   <th />
                 </tr>
@@ -66,7 +69,9 @@ export default function StructureTab() {
                 {data.brokers.map((b) => (
                   <tr key={b.id}>
                     <td>{b.name}</td>
+                    <td>{KIND_LABELS[b.kind ?? 'broker']}</td>
                     <td className="num">{brokerReferences(data, b.id).accounts}</td>
+                    <td>{feeSummary(b)}</td>
                     <td>{b.note}</td>
                     <td className="actions">
                       <button className="ghost" onClick={() => setBroker(b)}>編輯</button>
@@ -95,14 +100,14 @@ export default function StructureTab() {
         }
       >
         {data.accounts.length === 0 ? (
-          <Empty>尚無帳戶。{!data.brokers.length && '請先新增券商。'}</Empty>
+          <Empty>尚無帳戶。{!data.brokers.length && '請先新增機構。'}</Empty>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>名稱</th>
-                  <th>券商</th>
+                  <th>機構</th>
                   <th>類型</th>
                   <th>幣別</th>
                   <th>狀態</th>
@@ -132,8 +137,9 @@ export default function StructureTab() {
       </Card>
 
       {broker && (
-        <BrokerForm
+        <InstitutionForm
           broker={broker}
+          existingIds={data.brokers.map((b) => b.id)}
           onClose={() => setBroker(undefined)}
           onSave={(b) => {
             upsertRow('brokers', b);
@@ -156,32 +162,15 @@ export default function StructureTab() {
   );
 }
 
-function BrokerForm(props: { broker: Broker; onSave: (b: Broker) => void; onClose: () => void }) {
-  const [name, setName] = useState(props.broker.name);
-  const [note, setNote] = useState(props.broker.note ?? '');
-  const save = () => {
-    if (!name.trim()) return;
-    const b: Broker = { id: props.broker.id || newId('broker'), name: name.trim() };
-    if (note.trim()) b.note = note.trim();
-    props.onSave(b);
-  };
-  return (
-    <Modal
-      title={props.broker.id ? '編輯券商' : '新增券商'}
-      onClose={props.onClose}
-      footer={
-        <>
-          <button className="ghost" onClick={props.onClose}>取消</button>
-          <button className="primary" onClick={save} disabled={!name.trim()}>儲存</button>
-        </>
-      }
-    >
-      <div className="form-grid">
-        <Field label="名稱"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="備註"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      </div>
-    </Modal>
-  );
+/** One-line summary of the equity commission, the rule users tune most. */
+function feeSummary(b: Broker): string {
+  const rule = b.fees?.stock ?? b.fees?.etf ?? b.fees?.crypto;
+  if (!rule) return b.fees ? '已設定' : '—';
+  const parts: string[] = [];
+  if (rule.rate !== undefined) parts.push(`${Number((rule.rate * 100).toPrecision(6))}%`);
+  if (rule.discount !== undefined && rule.discount !== 1) parts.push(`${Number((rule.discount * 100).toPrecision(6))} 折`);
+  if (rule.minFee) parts.push(`最低 ${rule.minFee}`);
+  return parts.join(' · ') || '已設定';
 }
 
 function AccountForm(props: { account: Account; brokers: Broker[]; onSave: (a: Account) => void; onClose: () => void }) {
@@ -207,7 +196,7 @@ function AccountForm(props: { account: Account; brokers: Broker[]; onSave: (a: A
     >
       <div className="form-grid">
         <Field label="名稱"><input value={a.name} onChange={(e) => set({ name: e.target.value })} /></Field>
-        <Field label="券商">
+        <Field label="機構">
           <select value={a.brokerId} onChange={(e) => set({ brokerId: e.target.value })}>
             {props.brokers.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>

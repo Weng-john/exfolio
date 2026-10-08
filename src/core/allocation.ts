@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { effectiveSecuritiesRate } from './fees';
 import {
   UNCLASSIFIED_INDEX,
   type Valuation,
@@ -362,7 +363,7 @@ export interface AllocationRequest {
   useExistingCash?: boolean;
   /** indexId -> instrumentId, wins over the target's preferred instrument. */
   overrides?: Record<ID, ID>;
-  /** Fee estimate for securities as a fraction of traded value. */
+  /** Fee estimate for securities as a fraction of traded value. Defaults to the receiving institution's rate. */
   feeRate?: number;
 }
 
@@ -466,7 +467,12 @@ export function planAllocation(
 ): AllocationPlan {
   const base = valuation.baseCurrency;
   const fx = new FxTable(data.fxRates);
-  const feeRate = request.feeRate ?? DEFAULT_FEE_RATE;
+  // Explicit request rate, else the receiving institution's rate, else the default.
+  const receiving = data.accounts.find((a) => a.id === request.accountId);
+  const feeRate =
+    request.feeRate ??
+    effectiveSecuritiesRate(data.brokers.find((b) => b.id === receiving?.brokerId)) ??
+    DEFAULT_FEE_RATE;
   const warnings: string[] = [];
   const empty = (): AllocationPlan => ({
     baseCurrency: base,
@@ -592,7 +598,7 @@ export function planAllocation(
         coreExposure.set(row.indexId, (coreExposure.get(row.indexId) ?? 0) - qty * unit);
       }
       if (remaining > EPS && remaining / postFundingNav > row.tolerance + EPS) {
-        warnings.push(`${row.name} 目標低於持有部位且無足夠持倉可賣；本建議不產生放空`);
+        warnings.push(`${row.name} 目標低於持有部位且無足夠持倉可賣；被動核心的建議不建立空頭部位。短期避險可自行以期貨建立並歸入主動策略，其曝險會計入整體 Gross / Net 槓桿`);
       }
       continue;
     }

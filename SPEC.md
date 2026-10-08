@@ -3,7 +3,8 @@
 ## Goal
 
 Build the exposure-based portfolio management website described in
-`portfolio_management_spec.md`: a personal asset-allocation site that uses
+`private/portfolio_management_spec.md` (a private, git-ignored file the
+Human copies into each task clone; never commit it or quote it at length): a personal asset-allocation site that uses
 NAV as the denominator and real market exposure as the core measure.
 
 ## Baseline

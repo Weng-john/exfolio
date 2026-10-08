@@ -6,6 +6,7 @@ import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 
+const TOOLTIP = { background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' };
 const TONE = { info: 'info', warn: 'warn', bad: 'bad' } as const;
 
 export default function OverviewPage() {
@@ -80,7 +81,7 @@ export default function OverviewPage() {
                     <th className="num">空方</th>
                     <th className="num">Net</th>
                     <th className="num">Net / NAV</th>
-                    <th style={{ width: '22%' }}>Gross</th>
+                    <th style={{ width: '26%' }}>Gross</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,10 +190,10 @@ export default function OverviewPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                   <YAxis stroke="var(--muted)" fontSize={12} width={80} tickFormatter={(n) => fmtMoney(n, base, 0)} />
-                  <Tooltip formatter={(n: number) => fmtMoney(n, base)} />
+                  <Tooltip formatter={(n: number) => fmtMoney(n, base)} contentStyle={TOOLTIP} />
                   <Legend />
-                  <Line dataKey="nav" name="NAV" stroke="#2456d6" dot={false} />
-                  <Line dataKey="contributedCapital" name="累積投入" stroke="#8e99a8" dot={false} />
+                  <Line dataKey="nav" name="NAV" stroke="var(--accent)" dot={false} />
+                  <Line dataKey="contributedCapital" name="累積投入" stroke="var(--muted)" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -202,11 +203,11 @@ export default function OverviewPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                   <YAxis stroke="var(--muted)" fontSize={12} width={50} tickFormatter={(n) => `${n}×`} />
-                  <Tooltip formatter={(n: number) => fmtX(n)} />
+                  <Tooltip formatter={(n: number) => fmtX(n)} contentStyle={TOOLTIP} />
                   <Legend />
-                  <Line dataKey="grossLeverage" name="Gross 槓桿" stroke="#c62f3b" dot={false} />
-                  <Line dataKey="netLeverage" name="Net 槓桿" stroke="#14804a" dot={false} />
-                  <Line dataKey="debtToNav" name="負債 / NAV" stroke="#a8690a" dot={false} />
+                  <Line dataKey="grossLeverage" name="Gross 槓桿" stroke="var(--neg)" dot={false} />
+                  <Line dataKey="netLeverage" name="Net 槓桿" stroke="var(--pos)" dot={false} />
+                  <Line dataKey="debtToNav" name="負債 / NAV" stroke="var(--warn)" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
