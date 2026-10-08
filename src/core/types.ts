@@ -368,6 +368,21 @@ export interface NavSnapshot {
   byIndex: Record<ID, number>;
 }
 
+/**
+ * How to read one institution's statement file: which column holds what,
+ * and how its dates, sides and quantities are written. `mapping` and
+ * `options` belong to the statement importer.
+ */
+export interface ImportProfile {
+  id: ID;
+  name: string;
+  /** Institution this layout comes from, when known. */
+  brokerId?: ID;
+  mapping: Record<string, string>;
+  options: Record<string, unknown>;
+  note?: string;
+}
+
 export interface AppData {
   brokers: Broker[];
   accounts: Account[];
@@ -387,6 +402,7 @@ export interface AppData {
   rollovers: RolloverRecord[];
   cashflowItems: CashflowItem[];
   scenarios: Scenario[];
+  importProfiles: ImportProfile[];
 }
 
 export type TableName = keyof AppData;
@@ -410,6 +426,7 @@ export const TABLE_NAMES: TableName[] = [
   'rollovers',
   'cashflowItems',
   'scenarios',
+  'importProfiles',
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -437,6 +454,7 @@ export function emptyData(): AppData {
     rollovers: [],
     cashflowItems: [],
     scenarios: [],
+    importProfiles: [],
     settings: [{ ...DEFAULT_SETTINGS, alerts: { ...DEFAULT_SETTINGS.alerts } }],
   };
 }

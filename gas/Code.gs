@@ -22,7 +22,7 @@
 var TABLES = [
   'brokers', 'accounts', 'indices', 'instruments', 'transactions', 'loans',
   'prices', 'fxRates', 'targets', 'strategies', 'snapshots', 'settings',
-  'tradeGroups', 'rotationCycles', 'priceHistory', 'rollovers', 'cashflowItems', 'scenarios'
+  'tradeGroups', 'rotationCycles', 'priceHistory', 'rollovers', 'cashflowItems', 'scenarios', 'importProfiles'
 ];
 var META_SHEET = '_meta';
 var JSON_COLUMN = '_json';
