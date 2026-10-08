@@ -13,3 +13,5 @@ export * from './accountsView';
 export * from './allocation';
 export * from './loans';
 export * from './fees';
+export * from './xirr';
+export * from './performance';
