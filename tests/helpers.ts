@@ -1,4 +1,4 @@
-import { seedData, type AppData, type Transaction } from '@core/index';
+import { seedData, type AllocationTarget, type AppData, type Transaction } from '@core/index';
 
 let seq = 0;
 
@@ -29,4 +29,15 @@ export const NOW = new Date('2026-10-09T08:00:00Z');
 
 export function fresh(): AppData {
   return seedData();
+}
+
+/** Add (or replace) an allocation target row. */
+export function setTarget(
+  data: AppData,
+  indexId: string,
+  targetWeight: number,
+  extra: Partial<AllocationTarget> = {},
+) {
+  data.targets = data.targets.filter((t) => t.indexId !== indexId);
+  data.targets.push({ id: `tg_${indexId}`, indexId, targetWeight, tolerance: 0.02, ...extra });
 }

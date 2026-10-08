@@ -10,3 +10,4 @@ export * from './alerts';
 export * from './backup';
 export * from './csv';
 export * from './accountsView';
+export * from './allocation';
