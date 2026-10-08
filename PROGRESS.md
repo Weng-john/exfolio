@@ -36,6 +36,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy
 - `src/core/`：純函式計算引擎，每個模組都有 `tests/` 下的對應測試。
   - `types.ts` 資料模型；`ledger.ts` 交易重播成持倉、現金、貸款餘額；`valuation.ts` NAV、曝險、槓桿。
   - `allocation.ts` 目標配置與交易建議；`loans.ts` 攤還、質押、債務現金流；`fees.ts` 手續費估算。
+  - `stress.ts` 靜態壓力測試（對衝擊後的資料複本重跑 `computePortfolio`）；`survival.ts` 現金流生存模擬（逐日，`today` 由參數傳入）。
   - `snapshots.ts`、`alerts.ts`、`csv.ts`、`backup.ts`、`accountsView.ts`。
   - `api.ts` 前後端協定；`seed.ts` 公開商品、指數與常用機構清單。
 - `src/web/`：React。頁面只透過 `store.ts`（`useData`、`upsertRow`、`removeRow`、`setTable`）讀寫資料，用 `usePortfolio()` 取得帳本與估值。
@@ -56,6 +57,8 @@ npm test && npm run typecheck && npm run build && npm run check:privacy
 - **貸款剩餘期數**：依日期計算，餘額重新攤到剩餘期數。
 
 ## 已知限制
+
+- Risk Lab：兩種模擬皆為資訊用途，不限制操作。壓力測試是瞬間衝擊近似；生存模擬的市場路徑為線性或指定日期的單次衝擊，槓桿 ETF 以每日目標槓桿逐日複利（模型，非預測）。期貨／永續合約帳戶的現金只作保證金，不支付生活支出與還款。
 
 - GAS 後端只在模擬的 Apps Script 服務上測過。
 - 報價來源是 Yahoo Finance、Binance 與期交所行情資訊網的公開端點，非授權行情，可能延遲或限流。台灣期貨取近月契約，含夜盤。
