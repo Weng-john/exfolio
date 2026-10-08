@@ -19,3 +19,5 @@ export * from './performance';
 export * from './xirr';
 export * from './futures';
 export * from './notifications';
+export * from './stress';
+export * from './survival';

@@ -260,7 +260,8 @@ export function valuePortfolio(
     loans,
     byIndex: [...byIndex.values()].sort((a, b) => b.gross - a.gross),
     byBucket: [...byBucket.values()],
-    warnings,
+    // The same instrument held in two buckets would repeat its warning.
+    warnings: [...new Set(warnings)],
   };
 }
 
