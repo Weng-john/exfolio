@@ -57,6 +57,21 @@ for (const file of files) {
   });
 }
 
+// Commit metadata is published too: no personal mailbox as author or committer.
+const PERSONAL_EMAIL = /@(gmail|yahoo|hotmail|outlook|icloud)\./i;
+const emails = staged
+  ? [git('config', 'user.email').trim()]
+  : [...new Set(git('log', '--all', '--format=%ae%n%ce').split('\n').filter(Boolean))];
+for (const email of emails) {
+  if (PERSONAL_EMAIL.test(email)) {
+    findings.push(
+      staged
+        ? 'git user.email 是個人信箱：請改用 GitHub noreply 信箱（見 docs/PRIVACY.md）'
+        : '提交紀錄含個人信箱：推送前需改寫歷史（見 docs/PRIVACY.md）',
+    );
+  }
+}
+
 if (findings.length) {
   console.error('隱私檢查未通過，以下內容不應進入版本庫：\n');
   for (const f of findings) console.error(`  ${f}`);
