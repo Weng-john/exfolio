@@ -1,0 +1,36 @@
+.loans-list tr.selected {
+  background: var(--panel-2);
+}
+
+.loans-list tr.clickable {
+  cursor: pointer;
+}
+
+.loans-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loans-explain {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.loans-two {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+.loans-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.loans-inline .field {
+  min-width: 150px;
+}
