@@ -39,7 +39,7 @@ export function addDays(date: ISODate, days: number): ISODate {
 }
 
 /** Whole days from `from` to `to`. */
-export function daysBetween(from: ISODate, to: ISODate): number {
+function daysBetween(from: ISODate, to: ISODate): number {
   return Math.round((utc(to) - utc(from)) / DAY_MS);
 }
 
