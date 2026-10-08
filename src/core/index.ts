@@ -16,6 +16,7 @@ export * from './fees';
 export * from './journal';
 export * from './strategies';
 export * from './performance';
+export * from './historyAnalytics';
 export * from './xirr';
 export * from './futures';
 export * from './notifications';

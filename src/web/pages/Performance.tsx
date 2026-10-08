@@ -15,6 +15,7 @@ import { fmtMoney, fmtPct, signClass } from '../format';
 import { syncPriceHistory } from '../history';
 import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
+import { HistoryPanel } from './performance/HistoryPanel';
 import './performance/performance.css';
 
 type WindowChoice = 'ytd' | '1m' | '3m' | '6m' | '1y' | 'inception' | 'custom';
@@ -176,6 +177,7 @@ export default function PerformancePage() {
           下載會涵蓋目前持有商品與策略基準；手動報價商品需自行輸入或匯入歷史價格。
         </p>
       </Card>
+      <HistoryPanel from={from} to={to} today={day} />
       {missing.length > 0 && (
         <Card title="歷史價格缺漏">
           <p className="notice">

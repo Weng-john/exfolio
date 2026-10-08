@@ -1,0 +1,26 @@
+.history-panel {
+  display: grid;
+  gap: 16px;
+}
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.history-chart {
+  height: 260px;
+}
+.history-contributions {
+  display: grid;
+  gap: 16px;
+}
+.history-contributions h3,
+.history-panel h3 {
+  margin: 12px 0 8px;
+  font-size: 15px;
+}
+.history-missing,
+.history-notes {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
