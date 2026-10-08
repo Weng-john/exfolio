@@ -39,11 +39,11 @@ async function binance(symbol: string): Promise<Partial<QuoteResult>> {
 // One call returns every contract month of a product, so the list is cached
 // per product and session, and calls are made one at a time: the site
 // answers bursts with errors.
-const TAIFEX_TTL_MS = 60_000;
-const taifexLists = new Map<string, { at: number; list: any[] }>();
+const TAIFEX_TTL_MS = 90_000;
+const taifexLists = new Map<string, { at: number; list: TaifexRow[] }>();
 let taifexQueue: Promise<unknown> = Promise.resolve();
 
-function taifexList(cid: string, marketType: string): Promise<any[]> {
+function taifexList(cid: string, marketType: string): Promise<TaifexRow[]> {
   const run = async () => {
     const key = `${cid}:${marketType}`;
     const hit = taifexLists.get(key);
@@ -59,7 +59,7 @@ function taifexList(cid: string, marketType: string): Promise<any[]> {
         signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const list: any[] = (await res.json())?.RtData?.QuoteList ?? [];
+      const list: TaifexRow[] = (await res.json())?.RtData?.QuoteList ?? [];
       taifexLists.set(key, { at: Date.now(), list });
       return list;
     } catch (err) {
@@ -73,35 +73,52 @@ function taifexList(cid: string, marketType: string): Promise<any[]> {
   return next;
 }
 
+export interface TaifexRow {
+  SymbolID?: string;
+  CLastPrice?: string;
+  CDate?: string;
+  CTime?: string;
+}
+
 /**
- * TAIFEX market information site. `symbol` is a product code such as TXF
- * (the nearest monthly contract is used) or a full contract id such as
- * TXFK6-F. The regular and after-hours sessions are both asked and the
- * more recent trade wins.
+ * Pick the latest trade for a TAIFEX symbol from the regular ('0') and
+ * after-hours ('1') quote lists. `symbol` is a product code such as TXF
+ * (the nearest monthly contract is used) or a contract id such as TXFK6-F.
  */
-async function taifex(symbol: string): Promise<Partial<QuoteResult>> {
+export function pickTaifexQuote(
+  symbol: string,
+  lists: Record<'0' | '1', TaifexRow[]>,
+): { price: number; at: number } | undefined {
   const exact = symbol.includes('-');
   const cid = exact ? symbol.slice(0, 3) : symbol;
-  const monthly = new RegExp(`^${cid}[A-L]\\d-[FM]$`);
   // Contract ids end in -F in the regular session and -M after hours.
+  const monthly = new RegExp(`^${cid}[A-L]\\d-[FM]$`);
   const contract = exact ? symbol.replace(/-[FM]$/, '') : '';
   let best: { price: number; at: number } | undefined;
-  for (const marketType of ['0', '1']) {
-    const list = await taifexList(cid, marketType);
-    const row = list.find((q) =>
-      exact ? String(q.SymbolID).replace(/-[FM]$/, '') === contract : monthly.test(q.SymbolID),
+  for (const session of ['0', '1'] as const) {
+    const row = lists[session].find((q) =>
+      exact ? String(q.SymbolID).replace(/-[FM]$/, '') === contract : monthly.test(q.SymbolID ?? ''),
     );
     const price = Number(row?.CLastPrice);
-    if (!row || !(price > 0) || !/^\d{8}$/.test(row.CDate ?? '')) continue;
-    const d: string = row.CDate;
-    const t: string = String(row.CTime ?? '000000').padStart(6, '0');
-    const at = new Date(
+    const d = row?.CDate ?? '';
+    if (!row || !(price > 0) || !/^\d{8}$/.test(d)) continue;
+    const t = String(row.CTime ?? '').padStart(6, '0');
+    let at = new Date(
       `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}+08:00`,
     ).getTime();
     // After-hours trades past midnight still carry the previous calendar date.
-    const shift = marketType === '1' && Number(t.slice(0, 2)) < 15 ? 86_400_000 : 0;
-    if (!best || at + shift > best.at) best = { price, at: at + shift };
+    if (session === '1' && Number(t.slice(0, 2)) < 15) at += 86_400_000;
+    if (!best || at > best.at) best = { price, at };
   }
+  return best;
+}
+
+async function taifex(symbol: string): Promise<Partial<QuoteResult>> {
+  const cid = symbol.slice(0, 3);
+  const best = pickTaifexQuote(symbol, {
+    '0': await taifexList(cid, '0'),
+    '1': await taifexList(cid, '1'),
+  });
   if (!best) throw new Error('No price in response');
   return { price: best.price, currency: 'TWD', asOf: new Date(best.at).toISOString(), status: 'delayed' };
 }
