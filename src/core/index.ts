@@ -15,8 +15,6 @@ export * from './loans';
 export * from './fees';
 export * from './journal';
 export * from './strategies';
-export * from './journal';
-export * from './strategies';
 export * from './performance';
 export * from './xirr';
 export * from './futures';

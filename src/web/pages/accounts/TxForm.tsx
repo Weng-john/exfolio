@@ -155,7 +155,11 @@ export function buildTransaction(f: FormState, data: AppData, id: string, orig?:
     tx.source = f.source as FundingSource;
   }
   if (f.note.trim()) tx.note = f.note.trim();
+  // Journal metadata is edited elsewhere: keep it when the trade is re-saved.
   if (orig?.tags?.length) tx.tags = orig.tags;
+  if (orig?.reason) tx.reason = orig.reason;
+  if (orig?.tradeGroupId) tx.tradeGroupId = orig.tradeGroupId;
+  if (orig?.rotationCycleId) tx.rotationCycleId = orig.rotationCycleId;
   return tx;
 }
 

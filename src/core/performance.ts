@@ -5,14 +5,14 @@ import { xirr } from './xirr';
 
 export type PerformanceScope = 'total' | 'core' | 'strategies' | ID | { positionKey: string };
 
-export interface MissingPrice {
+export interface MissingClose {
   instrumentId: ID;
   date: ISODate;
 }
 
 export interface HistoricalValue {
   value: number;
-  missing: MissingPrice[];
+  missing: MissingClose[];
   notes: string[];
 }
 
@@ -38,7 +38,7 @@ export interface TimeWeightedResult {
   shortPeriod: boolean;
   undefinedPeriods: boolean;
   periods: ReturnPeriod[];
-  missing: MissingPrice[];
+  missing: MissingClose[];
   notes: string[];
 }
 
@@ -46,7 +46,7 @@ export interface MoneyWeightedResult {
   xirr?: number;
   flows: ExternalFlow[];
   endingValue: number;
-  missing: MissingPrice[];
+  missing: MissingClose[];
   notes: string[];
 }
 
@@ -67,7 +67,7 @@ export interface BenchmarkResult {
   instrumentId: ID;
   buyAndHold?: number;
   flowMatched: { twr?: number; mwr?: number; endingValue?: number };
-  missing: MissingPrice[];
+  missing: MissingClose[];
 }
 
 export interface RiskStatistics {
@@ -78,7 +78,7 @@ export interface RiskStatistics {
   sampling: 'daily';
   riskAdjusted?: number;
   observations: number;
-  missing: MissingPrice[];
+  missing: MissingClose[];
 }
 
 export interface PerformanceSummary {
@@ -152,18 +152,48 @@ function positionInScope(position: Position, scope: PerformanceScope): boolean {
   return inScopeBucket(position.bucket, scope);
 }
 
-function addMissing(target: MissingPrice[], additions: MissingPrice[]) {
+function addMissing(target: MissingClose[], additions: MissingClose[]) {
   for (const next of additions) {
     if (!target.some((existing) => existing.instrumentId === next.instrumentId && existing.date === next.date)) target.push(next);
   }
 }
 
+// Closes per instrument, sorted by date. Built once per history array:
+// valuing every day of a window would otherwise rescan the whole table.
+const priceIndex = new WeakMap<object, Map<ID, AppData['priceHistory']>>();
+
+function closesOf(data: AppData, instrumentId: ID): AppData['priceHistory'] {
+  let index = priceIndex.get(data.priceHistory);
+  if (!index) {
+    index = new Map();
+    for (const point of data.priceHistory) {
+      const rows = index.get(point.instrumentId);
+      if (rows) rows.push(point);
+      else index.set(point.instrumentId, [point]);
+    }
+    for (const rows of index.values()) rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    priceIndex.set(data.priceHistory, index);
+  }
+  return index.get(instrumentId) ?? [];
+}
+
+/** Latest close on or before `date`. */
 function historicalPrice(data: AppData, instrumentId: ID, date: ISODate, adjusted = false): number | undefined {
-  const rows = data.priceHistory
-    .filter((point) => point.instrumentId === instrumentId && point.date <= date)
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const point = rows[0];
-  if (!point) return undefined;
+  const rows = closesOf(data, instrumentId);
+  let lo = 0;
+  let hi = rows.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (rows[mid].date <= date) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  if (found < 0) return undefined;
+  const point = rows[found];
   return adjusted ? point.adjClose ?? point.close : point.close;
 }
 
@@ -185,7 +215,7 @@ function valueAt(data: AppData, date: ISODate, scope: PerformanceScope, today: I
   const ledger = buildLedger(data, { asOf: ledgerDate });
   const instruments = new Map(data.instruments.map((instrument) => [instrument.id, instrument]));
   const currentQuotes = new Map(data.prices.map((quote) => [quote.id, quote.price]));
-  const missing: MissingPrice[] = [];
+  const missing: MissingClose[] = [];
   const notes: string[] = [];
   const base = getSettings(data).baseCurrency;
   const fx = new FxTable(data.fxRates);
@@ -312,7 +342,7 @@ export function timeWeightedReturn(
   today: ISODate,
 ): TimeWeightedResult {
   const flows = externalFlows(data, scope, from, to).filter((flow) => flow.date > from);
-  const missing: MissingPrice[] = [];
+  const missing: MissingClose[] = [];
   const notes: string[] = [];
   const collect = (valuation: HistoricalValue) => {
     addMissing(missing, valuation.missing);
@@ -449,7 +479,7 @@ export function benchmarkReturn(
 ): BenchmarkResult {
   const start = historicalPrice(data, instrumentId, from, true);
   const end = historicalPrice(data, instrumentId, to, true);
-  const missing: MissingPrice[] = [];
+  const missing: MissingClose[] = [];
   if (!(start && start > 0)) missing.push({ instrumentId, date: from });
   if (!(end && end > 0)) missing.push({ instrumentId, date: to });
   const buyAndHold = start && end ? end / start - 1 : undefined;
@@ -482,7 +512,7 @@ export function riskStatistics(
   data.priceHistory.forEach((point) => point.date >= from && point.date <= to && dates.add(point.date));
   const ordered = [...dates].sort();
   const flowByDate = new Map(externalFlows(data, scope, from, to).map((flow) => [flow.date, flow.amount]));
-  const missing: MissingPrice[] = [];
+  const missing: MissingClose[] = [];
   const returns: Array<{ date: ISODate; value: number }> = [];
   let prior = valueAt(data, ordered[0], scope, today);
   addMissing(missing, prior.missing);
