@@ -9,12 +9,12 @@ export interface BackendConfig {
   mode: BackendMode;
   /** Remote endpoint: the local Node server (`/api`) or a GAS web app URL. */
   url: string;
-  token: string;
 }
 
 const CONFIG_KEY = 'exfolio.backend';
 const DATA_KEY = 'exfolio.data';
-const DEFAULT_CONFIG: BackendConfig = { mode: 'auto', url: '/api', token: '' };
+const SESSION_KEY = 'exfolio.session';
+const DEFAULT_CONFIG: BackendConfig = { mode: 'auto', url: '/api' };
 
 export function loadBackendConfig(): BackendConfig {
   try {
@@ -28,21 +28,34 @@ export function saveBackendConfig(config: BackendConfig) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 }
 
+/** Session token of the signed-in member, kept in this browser only. */
+export function getSession(): string {
+  return localStorage.getItem(SESSION_KEY) ?? '';
+}
+
+export function setSession(token: string | undefined) {
+  if (token) localStorage.setItem(SESSION_KEY, token);
+  else localStorage.removeItem(SESSION_KEY);
+}
+
 export interface Backend {
   label: string;
+  /** False for browser-only storage, which has no accounts. */
+  remote: boolean;
   call(request: ApiRequest): Promise<ApiResponse>;
 }
 
 function remoteBackend(config: BackendConfig): Backend {
   return {
     label: config.url.startsWith('/') ? '本機 Node 後端' : '遠端後端（GAS）',
+    remote: true,
     async call(request) {
       // text/plain keeps the request "simple", so a GAS web app needs no
       // CORS preflight. Both backends parse the body as JSON regardless.
       const res = await fetch(config.url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ ...request, token: config.token || undefined }),
+        body: JSON.stringify({ ...request, session: getSession() || undefined }),
         redirect: 'follow',
       });
       if (!res.ok) throw new Error(`後端回應 HTTP ${res.status}`);
@@ -62,6 +75,7 @@ function browserBackend(): Backend {
   };
   return {
     label: '此瀏覽器（無後端）',
+    remote: false,
     async call(request) {
       switch (request.action) {
         case 'ping':
@@ -83,6 +97,10 @@ function browserBackend(): Backend {
         }
         case 'history':
           return { ok: false, error: '無後端模式無法取得歷史價格' };
+        case 'config':
+          return { ok: true, config: { authRequired: false, registration: 'approval', hasUsers: true } };
+        default:
+          return { ok: false, error: '無後端模式沒有會員功能' };
       }
     },
   };

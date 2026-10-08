@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import {
   addMissingSeed, backupFileName, parseBackup, rowCounts, serializeBackup, TABLE_NAMES, type AppData,
 } from '@core/index';
-import { connectBackend, loadBackendConfig, saveBackendConfig, type BackendConfig, type BackendMode } from '../../backend';
-import { initStore, replaceAll, setTable, useData, useStore } from '../../store';
+import { BackendAddress } from '../../components/BackendAddress';
+import { replaceAll, setTable, useData, useStore } from '../../store';
 import { fmtTime } from '../../format';
 import { Card, Modal } from '../../components/ui';
 
@@ -15,60 +15,12 @@ const TABLE_LABEL: Record<string, string> = {
 
 function BackendCard() {
   const store = useStore();
-  const [cfg, setCfg] = useState<BackendConfig>(loadBackendConfig);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
-  const [busy, setBusy] = useState(false);
-
-  const ping = async () => {
-    setBusy(true);
-    setMsg(undefined);
-    try {
-      const backend = await connectBackend(cfg);
-      const res = await backend.call({ action: 'ping' });
-      setMsg(res.ok ? { ok: true, text: `連線成功：${backend.label}` } : { ok: false, text: `後端拒絕：${res.error}` });
-    } catch (err) {
-      setMsg({ ok: false, text: `連線失敗：${err instanceof Error ? err.message : String(err)}` });
-    }
-    setBusy(false);
-  };
-
-  const apply = async () => {
-    saveBackendConfig(cfg);
-    setMsg({ ok: true, text: '已套用，重新載入資料中…' });
-    await initStore();
-  };
-
   return (
-    <Card title="後端連線" actions={<button className="primary" onClick={() => void apply()}>套用並重新載入</button>}>
+    <Card title="後端連線">
       <p>
         目前：{store.backendLabel || '—'}（{store.status}）{store.lastSavedAt && `，最近儲存 ${fmtTime(store.lastSavedAt)}`}
       </p>
-      <div className="notice">
-        網址與 token 只存在<strong>這個瀏覽器的 localStorage</strong>，不會寫進程式碼或 Git 儲存庫，也不會包含在備份檔中。
-        換瀏覽器或清除網站資料後需要重新輸入。
-      </div>
-      <div className="form-grid">
-        <label className="field">
-          <span className="field-label">模式</span>
-          <select value={cfg.mode} onChange={(e) => setCfg({ ...cfg, mode: e.target.value as BackendMode })}>
-            <option value="auto">auto（先試後端，失敗改用此瀏覽器）</option>
-            <option value="remote">remote（只用後端）</option>
-            <option value="browser">browser（只存此瀏覽器）</option>
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">後端網址</span>
-          <input value={cfg.url} disabled={cfg.mode === 'browser'} onChange={(e) => setCfg({ ...cfg, url: e.target.value })} placeholder="/api" />
-        </label>
-        <label className="field">
-          <span className="field-label">Token</span>
-          <input type="password" autoComplete="off" value={cfg.token} disabled={cfg.mode === 'browser'} onChange={(e) => setCfg({ ...cfg, token: e.target.value })} />
-        </label>
-      </div>
-      <p>
-        <button onClick={() => void ping()} disabled={busy}>{busy ? '測試中…' : '測試連線'}</button>
-      </p>
-      {msg && <p className={msg.ok ? 'pos' : 'neg'}>{msg.text}</p>}
+      <BackendAddress />
     </Card>
   );
 }

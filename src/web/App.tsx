@@ -1,8 +1,12 @@
 import { useEffect } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { initAuth, logout, stopViewing, useAuth } from './auth';
 import { Badge } from './components/ui';
 import { fmtTime } from './format';
+import AccountPage from './pages/Account';
 import AccountsPage from './pages/Accounts';
+import AdminPage from './pages/Admin';
+import AuthPage from './pages/auth/AuthPage';
 import CoreAllocationPage from './pages/CoreAllocation';
 import FuturesPage from './pages/Futures';
 import JournalPage from './pages/Journal';
@@ -18,7 +22,10 @@ import { initStore, useStore, type SyncStatus } from './store';
 import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
 
-const NAV: Array<{ group: string; items: Array<{ path: string; label: string; element: JSX.Element }> }> = [
+const NAV: Array<{
+  group: string;
+  items: Array<{ path: string; label: string; element: JSX.Element; adminOnly?: boolean }>;
+}> = [
   {
     group: '總覽',
     items: [{ path: '/', label: 'Overview', element: <OverviewPage /> }],
@@ -54,7 +61,11 @@ const NAV: Array<{ group: string; items: Array<{ path: string; label: string; el
   },
   {
     group: '系統',
-    items: [{ path: '/settings', label: 'Settings', element: <SettingsPage /> }],
+    items: [
+      { path: '/settings', label: 'Settings', element: <SettingsPage /> },
+      { path: '/account', label: '我的帳號', element: <AccountPage /> },
+      { path: '/admin', label: '會員管理', element: <AdminPage />, adminOnly: true },
+    ],
   },
 ];
 
@@ -71,6 +82,7 @@ function TopBar() {
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
   const { theme, cycle } = useTheme();
+  const auth = useAuth();
   return (
     <div className="topbar">
       <div className="topbar-item">
@@ -78,7 +90,7 @@ function TopBar() {
         <span className="muted">{store.backendLabel}</span>
         {store.error && <span className="neg">{store.error}</span>}
         {(store.status === 'error' || store.status === 'conflict') && (
-          <button className="ghost" onClick={() => void initStore()}>
+          <button className="ghost" onClick={() => void initStore(auth.viewing?.id)}>
             重新載入
           </button>
         )}
@@ -94,25 +106,47 @@ function TopBar() {
         <button onClick={cycle} title="切換明亮 / 黑色模式">
           主題：{THEME_LABELS[theme]}
         </button>
+        {auth.user && (
+          <>
+            <span className="muted">{auth.user.displayName}</span>
+            <button onClick={() => void logout()}>登出</button>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 export default function App() {
+  const auth = useAuth();
   const store = useStore();
+  const signedIn = auth.phase === 'ready';
   useEffect(() => {
-    void initStore();
+    void initAuth();
   }, []);
-  useAutoRefresh(store.status !== 'loading' && store.backendLabel !== '');
+  // Load data once someone is signed in, and again when the member changes.
+  const userId = auth.user?.id;
+  useEffect(() => {
+    if (signedIn) void initStore();
+  }, [signedIn, userId]);
+  useAutoRefresh(signedIn && store.status !== 'loading' && store.backendLabel !== '');
   useDailySnapshot();
+
+  if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
+  if (!signedIn) return <AuthPage />;
+
+  const isAdmin = auth.user?.role === 'admin';
+  const visible = NAV.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => (!item.adminOnly || isAdmin) && !(auth.accountless && item.path === '/admin')),
+  }));
 
   return (
     <HashRouter>
       <div className="layout">
         <nav className="sidebar">
           <div className="brand">Exfolio</div>
-          {NAV.map((g) => (
+          {visible.map((g) => (
             <div key={g.group} className="nav-group">
               <div className="nav-title">{g.group}</div>
               {g.items.map((item) => (
@@ -125,12 +159,18 @@ export default function App() {
         </nav>
         <div className="main">
           <TopBar />
+          {auth.viewing && (
+            <div className="notice warn" style={{ margin: 0, borderRadius: 0 }}>
+              正在唯讀檢視 <strong>{auth.viewing.displayName}</strong>（{auth.viewing.username}）的資料，任何修改都不會儲存。{' '}
+              <button onClick={() => void stopViewing()}>回到我的資料</button>
+            </div>
+          )}
           <main className="content">
             {store.status === 'loading' ? (
               <div className="empty">載入資料中…</div>
             ) : (
               <Routes>
-                {NAV.flatMap((g) => g.items).map((item) => (
+                {visible.flatMap((g) => g.items).map((item) => (
                   <Route key={item.path} path={item.path} element={item.element} />
                 ))}
               </Routes>

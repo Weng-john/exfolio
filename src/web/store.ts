@@ -12,11 +12,13 @@ export interface StoreState {
   data: AppData;
   status: SyncStatus;
   backendLabel: string;
+  /** True while an admin is looking at another member's data. */
+  readOnly: boolean;
   error?: string;
   lastSavedAt?: string;
 }
 
-let state: StoreState = { data: emptyData(), status: 'loading', backendLabel: '' };
+let state: StoreState = { data: emptyData(), status: 'loading', backendLabel: '', readOnly: false };
 let backend: Backend | undefined;
 let revision = 0;
 const dirty = new Set<TableName>();
@@ -49,23 +51,53 @@ export function getBackend(): Backend | undefined {
   return backend;
 }
 
+/** Connect once and share the connection with the sign-in code. */
+export async function ensureBackend(): Promise<Backend> {
+  backend ??= await connectBackend();
+  return backend;
+}
+
+/** Forget the connection, e.g. after the backend address changed. */
+export function resetBackend() {
+  backend = undefined;
+}
+
+let onSignedOut: (() => void) | undefined;
+
+/** Called when the backend stops accepting the session. */
+export function setSignedOutHandler(handler: () => void) {
+  onSignedOut = handler;
+}
+
+// Tables that only cache market data or derive from it: safe to refresh in
+// memory while viewing someone else's portfolio.
+const DERIVED_TABLES: TableName[] = ['prices', 'fxRates', 'snapshots', 'priceHistory'];
+
 let loading: Promise<void> | undefined;
 
-/** Connect and load. Seeds reference data into an empty store. */
-export function initStore(): Promise<void> {
+/**
+ * Connect and load. Seeds reference data into an empty store. With
+ * `asUser`, loads that member's data for an admin, read-only.
+ */
+export function initStore(asUser?: string): Promise<void> {
   // Concurrent calls share one load: two would both seed an empty store
   // and the second save would be rejected as a conflict.
-  loading ??= load().finally(() => (loading = undefined));
+  loading ??= load(asUser).finally(() => (loading = undefined));
   return loading;
 }
 
-async function load(): Promise<void> {
+async function load(asUser?: string): Promise<void> {
   clearTimeout(timer);
-  set({ status: 'loading', error: undefined });
+  dirty.clear();
+  const readOnly = Boolean(asUser);
+  set({ status: 'loading', error: undefined, readOnly });
   try {
-    backend = await connectBackend();
-    const res = await backend.call({ action: 'load' });
-    if (!res.ok) throw new Error(res.error);
+    backend = await ensureBackend();
+    const res = await backend.call({ action: 'load', ...(asUser ? { asUser } : {}) });
+    if (!res.ok) {
+      if (res.error === 'unauthenticated') onSignedOut?.();
+      throw new Error(res.error);
+    }
     revision = res.revision ?? 0;
     const tables = res.tables ?? {};
     const isEmpty = TABLE_NAMES.every((t) => !tables[t]?.length);
@@ -74,6 +106,7 @@ async function load(): Promise<void> {
     const upgraded = adoptSeedQuoteSources(data);
     dirty.clear();
     set({ data, status: 'ready', backendLabel: backend.label });
+    if (readOnly) return;
     if (isEmpty) {
       TABLE_NAMES.forEach((t) => dirty.add(t));
       scheduleSave();
@@ -110,6 +143,7 @@ function message(err: unknown): string {
 }
 
 function scheduleSave() {
+  if (state.readOnly) return;
   clearTimeout(timer);
   timer = setTimeout(() => void flush(), 500);
 }
@@ -117,7 +151,7 @@ function scheduleSave() {
 /** Write pending changes now. */
 export async function flush(): Promise<void> {
   clearTimeout(timer);
-  if (!backend || !dirty.size) return;
+  if (!backend || !dirty.size || state.readOnly) return;
   const names = [...dirty];
   dirty.clear();
   const tables = Object.fromEntries(names.map((n) => [n, state.data[n]])) as Partial<AppData>;
@@ -126,6 +160,7 @@ export async function flush(): Promise<void> {
     const res = await backend.call({ action: 'save', tables, baseRevision: revision });
     if (!res.ok) {
       names.forEach((n) => dirty.add(n));
+      if (res.error === 'unauthenticated') onSignedOut?.();
       set(
         res.error === 'conflict'
           ? { status: 'conflict', error: '資料已在別處被修改，請重新載入後再編輯' }
@@ -144,6 +179,12 @@ export async function flush(): Promise<void> {
 
 /** Replace a whole table. */
 export function setTable<T extends TableName>(table: T, rows: AppData[T]) {
+  if (state.readOnly) {
+    // Nothing is ever written back; only market data may change in memory.
+    if (DERIVED_TABLES.includes(table)) set({ data: { ...state.data, [table]: rows } });
+    else set({ error: '唯讀檢視中，無法修改資料' });
+    return;
+  }
   dirty.add(table);
   set({ data: { ...state.data, [table]: rows } });
   scheduleSave();
@@ -166,6 +207,7 @@ export function removeRow<T extends TableName>(table: T, id: string) {
 
 /** Replace the entire dataset, e.g. when restoring a backup. */
 export function replaceAll(data: AppData) {
+  if (state.readOnly) return;
   TABLE_NAMES.forEach((t) => dirty.add(t));
   set({ data: { ...emptyData(), ...data } });
   scheduleSave();
