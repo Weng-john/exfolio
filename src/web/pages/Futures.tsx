@@ -168,7 +168,7 @@ export default function FuturesPage() {
               <tbody>
                 {positions.map((p) => (
                   <tr key={p.key} className={`clickable ${selected?.key === p.key ? 'selected' : ''}`} onClick={() => choosePosition(p)}>
-                    <td>{p.symbol}<span className="muted futures-sub">{p.accountId} · {p.bucket}</span></td>
+                    <td>{p.symbol}<span className="muted futures-sub">{data.accounts.find((a) => a.id === p.accountId)?.name ?? p.accountId} · {p.bucket === 'core' ? 'Core' : (data.strategies.find((st) => st.id === p.bucket)?.name ?? p.bucket)}</span></td>
                     <td>{p.seriesId}</td>
                     <td className={`num ${signClass(p.contracts)}`}>{fmtNum(p.contracts)}</td>
                     <td className="num">{fmtNum(p.averagePrice)}</td>

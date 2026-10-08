@@ -197,6 +197,12 @@ function historicalPrice(data: AppData, instrumentId: ID, date: ISODate, adjuste
   return adjusted ? point.adjClose ?? point.close : point.close;
 }
 
+/** Earliest adjusted close after `from`, no later than `to`. */
+function firstCloseAfter(data: AppData, instrumentId: ID, from: ISODate, to: ISODate): number | undefined {
+  const point = closesOf(data, instrumentId).find((row) => row.date > from && row.date <= to);
+  return point && (point.adjClose ?? point.close);
+}
+
 function rateToBase(data: AppData, currency: string): number | undefined {
   return new FxTable(data.fxRates).rate(currency, getSettings(data).baseCurrency);
 }
@@ -357,6 +363,13 @@ export function timeWeightedReturn(
   for (const flow of flows) {
     const before = collect(valueAt(data, flow.date, scope, today, previousDay(flow.date)));
     const period: ReturnPeriod = { from: startDate, to: flow.date, startValue, endValue: before, flow: flow.amount };
+    if (startValue === 0 && before === 0) {
+      // Nothing was invested yet: the window opens before the first money
+      // arrived, so measurement starts at this flow.
+      startDate = flow.date;
+      startValue = collect(valueAt(data, flow.date, scope, today));
+      continue;
+    }
     if (startValue > 0) {
       period.return = before / startValue - 1;
       cumulative *= 1 + period.return;
@@ -477,7 +490,9 @@ export function benchmarkReturn(
   to: ISODate,
   flows: ExternalFlow[],
 ): BenchmarkResult {
-  const start = historicalPrice(data, instrumentId, from, true);
+  // A window may open on a holiday or before the downloaded history begins:
+  // then the first close inside the window is the benchmark's starting price.
+  const start = historicalPrice(data, instrumentId, from, true) ?? firstCloseAfter(data, instrumentId, from, to);
   const end = historicalPrice(data, instrumentId, to, true);
   const missing: MissingClose[] = [];
   if (!(start && start > 0)) missing.push({ instrumentId, date: from });

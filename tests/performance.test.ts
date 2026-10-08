@@ -130,3 +130,33 @@ describe('benchmark and risk', () => {
     expect(risk.sampling).toBe('daily');
   });
 });
+
+describe('window opening before inception', () => {
+  it('starts measuring at the first money in, instead of reporting an undefined period', () => {
+    const data = fresh();
+    data.transactions.push(
+      tx({ type: 'deposit', date: '2026-02-01', amount: 100_000 }),
+      tx({ type: 'buy', date: '2026-02-01', instrumentId: 'tw_0050', quantity: 1000, price: 100 }),
+    );
+    data.priceHistory.push(
+      { id: 'tw_0050|2026-02-01', instrumentId: 'tw_0050', date: '2026-02-01', close: 100 },
+      { id: 'tw_0050|2026-03-01', instrumentId: 'tw_0050', date: '2026-03-01', close: 110 },
+    );
+    const result = timeWeightedReturn(data, 'total', '2026-01-01', '2026-03-01', '2026-06-01');
+    expect(result.undefinedPeriods).toBe(false);
+    expect(result.cumulative).toBeCloseTo(0.1);
+  });
+});
+
+describe('benchmark window opening on a day without a close', () => {
+  it('starts from the first close inside the window', () => {
+    const data = fresh();
+    data.priceHistory.push(
+      { id: 'tw_0050|2026-01-02', instrumentId: 'tw_0050', date: '2026-01-02', close: 100 },
+      { id: 'tw_0050|2026-03-01', instrumentId: 'tw_0050', date: '2026-03-01', close: 120 },
+    );
+    const result = benchmarkReturn(data, 'tw_0050', '2026-01-01', '2026-03-01', []);
+    expect(result.buyAndHold).toBeCloseTo(0.2);
+    expect(result.missing).toEqual([]);
+  });
+});
