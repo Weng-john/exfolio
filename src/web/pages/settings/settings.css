@@ -1,0 +1,47 @@
+/* Page-specific styles for Settings & Integrations. */
+.settings-form-errors {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--neg);
+  font-size: 13px;
+}
+
+.settings-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.settings-toolbar input[type='search'] {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.settings-section-title {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings-inline-input {
+  width: 110px;
+}
+
+.settings-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.settings-check input {
+  width: auto;
+}

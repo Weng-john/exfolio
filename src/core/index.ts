@@ -7,3 +7,4 @@ export * from './seed';
 export * from './api';
 export * from './snapshots';
 export * from './alerts';
+export * from './backup';
