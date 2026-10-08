@@ -266,9 +266,10 @@ export default function InstrumentsTab() {
                 <option value="manual">manual（手動）</option>
                 <option value="yahoo">yahoo</option>
                 <option value="binance">binance</option>
+                <option value="taifex">taifex（期交所）</option>
               </select>
             </Field>
-            <Field label="報價代號" hint={d.quoteSource === 'yahoo' ? '如 0050.TW、VOO、ES=F' : d.quoteSource === 'binance' ? '如 BTCUSDT' : ''}>
+            <Field label="報價代號" hint={d.quoteSource === 'yahoo' ? '如 0050.TW、VOO、ES=F' : d.quoteSource === 'binance' ? '如 BTCUSDT' : d.quoteSource === 'taifex' ? '商品代碼如 TXF、MXF、TMF（取近月），或完整契約如 TXFK6-F' : ''}>
               <input value={d.quoteSymbol} disabled={d.quoteSource === 'manual'} onChange={(e) => set({ quoteSymbol: e.target.value })} />
             </Field>
             <Field label="生效日"><input type="date" value={d.validFrom} onChange={(e) => set({ validFrom: e.target.value })} /></Field>

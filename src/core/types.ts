@@ -67,7 +67,9 @@ export interface UnderlyingIndex {
 
 export type InstrumentType = 'stock' | 'etf' | 'future' | 'perpetual' | 'crypto' | 'option';
 
-export type QuoteSource = 'manual' | 'yahoo' | 'binance';
+export type QuoteSource = 'manual' | 'yahoo' | 'binance' | 'taifex';
+
+export const QUOTE_SOURCES: QuoteSource[] = ['manual', 'yahoo', 'binance', 'taifex'];
 
 export interface Instrument {
   id: ID;

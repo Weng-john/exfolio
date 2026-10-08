@@ -58,7 +58,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy
 ## 已知限制
 
 - GAS 後端只在模擬的 Apps Script 服務上測過。
-- 報價來源是 Yahoo Finance 與 Binance 的公開端點，非授權行情，可能延遲或限流。台灣期貨需手動輸入。
+- 報價來源是 Yahoo Finance、Binance 與期交所行情資訊網的公開端點，非授權行情，可能延遲或限流。台灣期貨取近月契約，含夜盤。
 - 頁面互動只做過部分瀏覽器實測（主題切換、機構表單、交易表單開啟）；CSV 匯入、備份還原、貸款表單尚未逐一點過。
 - 交易建議的手續費只估證券；期貨不估手續費，且缺保證金設定時成本以 0 計。
 

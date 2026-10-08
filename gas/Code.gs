@@ -221,6 +221,46 @@ function parseQuote_(item, text) {
   return { price: price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 
+/** TAIFEX quote: product code (nearest monthly contract) or full contract id. */
+function taifexQuote_(symbol) {
+  var exact = symbol.indexOf('-') >= 0;
+  var cid = exact ? symbol.slice(0, 3) : symbol;
+  var monthly = new RegExp('^' + cid + '[A-L]\\d-[FM]$');
+  // Contract ids end in -F in the regular session and -M after hours.
+  var contract = exact ? symbol.replace(/-[FM]$/, '') : '';
+  var best = null;
+  ['0', '1'].forEach(function (marketType) {
+    var response = UrlFetchApp.fetch('https://mis.taifex.com.tw/futures/api/getQuoteList', {
+      method: 'post',
+      contentType: 'application/json',
+      muteHttpExceptions: true,
+      payload: JSON.stringify({
+        MarketType: marketType, SymbolType: 'F', KindID: '1', CID: cid,
+        ExpireMonth: '', RowSize: '全部', PageNo: '', SortColumn: '', AscDesc: 'A'
+      })
+    });
+    if (response.getResponseCode() !== 200) throw new Error('HTTP ' + response.getResponseCode());
+    var body = JSON.parse(response.getContentText());
+    var list = (body && body.RtData && body.RtData.QuoteList) || [];
+    for (var i = 0; i < list.length; i++) {
+      var q = list[i];
+      if (exact ? String(q.SymbolID).replace(/-[FM]$/, '') !== contract : !monthly.test(q.SymbolID)) continue;
+      var price = Number(q.CLastPrice);
+      var d = String(q.CDate || '');
+      if (!(price > 0) || !/^\d{8}$/.test(d)) break;
+      var t = ('000000' + String(q.CTime || '')).slice(-6);
+      var at = new Date(d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6) + 'T' +
+        t.slice(0, 2) + ':' + t.slice(2, 4) + ':' + t.slice(4, 6) + '+08:00').getTime();
+      // After-hours trades past midnight still carry the previous calendar date.
+      if (marketType === '1' && Number(t.slice(0, 2)) < 15) at += 86400000;
+      if (!best || at > best.at) best = { price: price, at: at };
+      break;
+    }
+  });
+  if (!best) throw new Error('No price in response');
+  return { price: best.price, currency: 'TWD', asOf: new Date(best.at).toISOString(), status: 'delayed' };
+}
+
 function fetchQuotes_(items) {
   var cache = CacheService.getScriptCache();
   var results = [];
@@ -228,6 +268,21 @@ function fetchQuotes_(items) {
   items.slice(0, 200).forEach(function (item, index) {
     var result = { source: item.source, symbol: item.symbol };
     results.push(result);
+    if (item.source === 'taifex') {
+      var hit = cache.get('q:taifex:' + item.symbol);
+      if (hit) {
+        results[index] = JSON.parse(hit);
+        return;
+      }
+      try {
+        var quote = taifexQuote_(item.symbol);
+        Object.keys(quote).forEach(function (key) { result[key] = quote[key]; });
+        cache.put('q:taifex:' + item.symbol, JSON.stringify(result), QUOTE_TTL_SECONDS);
+      } catch (err) {
+        result.error = String((err && err.message) || err);
+      }
+      return;
+    }
     var url = quoteUrl_(item);
     if (!url) {
       result.error = 'Manual source has no remote quote';

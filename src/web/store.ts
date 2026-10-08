@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { emptyData, seedData, TABLE_NAMES, type AppData, type TableName } from '@core/index';
+import { emptyData, SEED_INSTRUMENTS, seedData, TABLE_NAMES, type AppData, type TableName } from '@core/index';
 import { connectBackend, type Backend } from './backend';
 
 // Single in-memory copy of the dataset. Pages read it with useData() and
@@ -71,15 +71,34 @@ async function load(): Promise<void> {
     const isEmpty = TABLE_NAMES.every((t) => !tables[t]?.length);
     const data = isEmpty ? seedData() : { ...emptyData(), ...stripEmpty(tables) };
     if (!data.settings.length) data.settings = emptyData().settings;
+    const upgraded = adoptSeedQuoteSources(data);
     dirty.clear();
     set({ data, status: 'ready', backendLabel: backend.label });
     if (isEmpty) {
       TABLE_NAMES.forEach((t) => dirty.add(t));
       scheduleSave();
+    } else if (upgraded) {
+      dirty.add('instruments');
+      scheduleSave();
     }
   } catch (err) {
     set({ status: 'error', error: message(err), backendLabel: backend?.label ?? '' });
   }
+}
+
+/**
+ * Seed instruments saved before a quote source existed for them are still
+ * marked manual. Give them the seed's source, unless the user set a symbol.
+ */
+function adoptSeedQuoteSources(data: AppData): boolean {
+  let changed = false;
+  data.instruments = data.instruments.map((i) => {
+    const seed = SEED_INSTRUMENTS.find((s) => s.id === i.id);
+    if (!seed || i.quoteSource !== 'manual' || i.quoteSymbol || seed.quoteSource === 'manual') return i;
+    changed = true;
+    return { ...i, quoteSource: seed.quoteSource, quoteSymbol: seed.quoteSymbol };
+  });
+  return changed;
 }
 
 function stripEmpty(tables: Partial<AppData>): Partial<AppData> {

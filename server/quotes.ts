@@ -36,6 +36,49 @@ async function binance(symbol: string): Promise<Partial<QuoteResult>> {
   return { price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 
+/**
+ * TAIFEX market information site. `symbol` is a product code such as TXF
+ * (the nearest monthly contract is used) or a full contract id such as
+ * TXFK6-F. The regular and after-hours sessions are both asked and the
+ * more recent trade wins.
+ */
+async function taifex(symbol: string): Promise<Partial<QuoteResult>> {
+  const exact = symbol.includes('-');
+  const cid = exact ? symbol.slice(0, 3) : symbol;
+  const monthly = new RegExp(`^${cid}[A-L]\\d-[FM]$`);
+  // Contract ids end in -F in the regular session and -M after hours.
+  const contract = exact ? symbol.replace(/-[FM]$/, '') : '';
+  let best: { price: number; at: number } | undefined;
+  for (const marketType of ['0', '1']) {
+    const res = await fetch('https://mis.taifex.com.tw/futures/api/getQuoteList', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (exfolio local quote proxy)' },
+      body: JSON.stringify({
+        MarketType: marketType, SymbolType: 'F', KindID: '1', CID: cid,
+        ExpireMonth: '', RowSize: '全部', PageNo: '', SortColumn: '', AscDesc: 'A',
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list: any[] = (await res.json())?.RtData?.QuoteList ?? [];
+    const row = list.find((q) =>
+      exact ? String(q.SymbolID).replace(/-[FM]$/, '') === contract : monthly.test(q.SymbolID),
+    );
+    const price = Number(row?.CLastPrice);
+    if (!row || !(price > 0) || !/^\d{8}$/.test(row.CDate ?? '')) continue;
+    const d: string = row.CDate;
+    const t: string = String(row.CTime ?? '000000').padStart(6, '0');
+    const at = new Date(
+      `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}+08:00`,
+    ).getTime();
+    // After-hours trades past midnight still carry the previous calendar date.
+    const shift = marketType === '1' && Number(t.slice(0, 2)) < 15 ? 86_400_000 : 0;
+    if (!best || at + shift > best.at) best = { price, at: at + shift };
+  }
+  if (!best) throw new Error('No price in response');
+  return { price: best.price, currency: 'TWD', asOf: new Date(best.at).toISOString(), status: 'delayed' };
+}
+
 async function fetchOne(item: QuoteRequestItem): Promise<QuoteResult> {
   const key = `${item.source}:${item.symbol}`;
   const hit = cache.get(key);
@@ -44,6 +87,7 @@ async function fetchOne(item: QuoteRequestItem): Promise<QuoteResult> {
   try {
     if (item.source === 'yahoo') result = { ...item, ...(await yahoo(item.symbol)) };
     else if (item.source === 'binance') result = { ...item, ...(await binance(item.symbol)) };
+    else if (item.source === 'taifex') result = { ...item, ...(await taifex(item.symbol)) };
     else result = { ...item, error: 'Manual source has no remote quote' };
   } catch (err) {
     result = { ...item, error: err instanceof Error ? err.message : String(err) };
