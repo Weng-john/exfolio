@@ -13,7 +13,8 @@ statements/
 *.xlsx
 *.xls
 *.pdf
-# Fictional fixtures used by tests are the only spreadsheets allowed in.
+# Fictional fixtures used by tests are the only statements and spreadsheets allowed in.
+!tests/fixtures/statements/
 !tests/fixtures/**/*.csv
 # Private notes.
 private/
