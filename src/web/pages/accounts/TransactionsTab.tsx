@@ -15,6 +15,7 @@ import { Card, Empty, Modal } from '../../components/ui';
 import { fmtMoney, fmtNum, signClass } from '../../format';
 import TxForm from './TxForm';
 import { TX_LABELS } from './labels';
+import { FundingBadges, FundingNotice } from '../../components/FundingEvidence';
 
 interface Preview {
   fileName: string;
@@ -102,6 +103,7 @@ export default function TransactionsTab() {
         </>
       }
     >
+      <FundingNotice transactions={rows} />
       {message && <div className="notice">{message}</div>}
       <div className="acct-filters">
         <select
@@ -179,7 +181,10 @@ export default function TransactionsTab() {
               {rows.map((t) => (
                 <tr key={t.id}>
                   <td>{t.date}</td>
-                  <td>{TX_LABELS[t.type]}</td>
+                  <td>
+                    {TX_LABELS[t.type]}
+                    <FundingBadges transaction={t} />
+                  </td>
                   <td>
                     {accountName(t.accountId)}
                     {t.toAccountId && (
@@ -208,7 +213,11 @@ export default function TransactionsTab() {
                     )}
                     {t.type === 'loan_repay' && t.source && (
                       <div className="muted">
-                        {t.source === 'external' ? '外部資金' : '投資組合'}
+                        {t.source === 'unconfirmed'
+                          ? '待核對 · 尚未計帳'
+                          : t.source === 'external'
+                            ? '外部資金'
+                            : '投資組合'}
                       </div>
                     )}
                   </td>

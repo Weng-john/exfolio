@@ -115,15 +115,18 @@ export type TxType =
   | 'deposit' // external money in: raises contributed capital
   | 'withdraw' // external money out
   | 'transfer' // internal move between accounts / currencies: never P&L
+  | 'position_transfer' // long securities between accounts, same bucket; retains FIFO lots
   | 'dividend'
   | 'fee'
   | 'interest' // non-loan financing cost, e.g. margin interest
   | 'loan_draw'
   | 'loan_repay'
+  | 'loan_accrual' // unpaid loan interest: adds debt and funding cost, no cash movement
+  | 'loan_extension' // terms/limit record only, no draw or repayment
   | 'funding_fee' // perpetual funding; positive = paid, negative = received
   | 'adjust'; // signed cash reconciliation
 
-export type FundingSource = 'external' | 'portfolio';
+export type FundingSource = 'external' | 'portfolio' | 'unconfirmed';
 
 export interface Transaction {
   id: ID;

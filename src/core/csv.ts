@@ -14,7 +14,8 @@ import {
 //   id          optional on import (generated when empty); rows whose id already exists are skipped
 //   date        YYYY-MM-DD                                   required
 //   type        buy | sell | deposit | withdraw | transfer | dividend | fee |
-//               interest | loan_draw | loan_repay | funding_fee | adjust   required
+//               position_transfer | interest | loan_draw | loan_repay |
+//               loan_accrual | loan_extension | funding_fee | adjust      required
 //   account     account id or account name                   required
 //   bucket      'core' (default) or a strategy id
 //   currency    cash currency; buy / sell default to the instrument currency
@@ -24,7 +25,7 @@ import {
 //   price       per unit (buy / sell)
 //   fee, tax, fxRate
 //   toAccount, toCurrency, toAmount, toBucket   transfer only (toAccount required)
-//   loanId, principal, interest, source          loan_draw / loan_repay (source: external | portfolio)
+//   loanId, principal, interest, source          loan transactions (source: external | portfolio | unconfirmed)
 //   note, tags  tags are separated by ';'
 
 export const CSV_COLUMNS = [
@@ -59,11 +60,14 @@ export const TX_TYPES: TxType[] = [
   'deposit',
   'withdraw',
   'transfer',
+  'position_transfer',
   'dividend',
   'fee',
   'interest',
   'loan_draw',
   'loan_repay',
+  'loan_accrual',
+  'loan_extension',
   'funding_fee',
   'adjust',
 ];
@@ -247,6 +251,7 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     if (instRaw && !inst) errs.push(`找不到商品：${instRaw}`);
 
     const isTrade = type === 'buy' || type === 'sell';
+    const isPositionTransfer = type === 'position_transfer';
     const quantity = isTrade ? nonNegative('quantity') : num('quantity');
     const price = isTrade ? nonNegative('price') : num('price');
     if (isTrade) {
@@ -254,12 +259,17 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
       if (!quantity) errs.push('買賣的 quantity 須大於 0');
       if (price === undefined) errs.push('買賣需指定 price');
     }
+    if (isPositionTransfer) {
+      if (!inst || !['stock', 'etf', 'crypto'].includes(inst.type))
+        errs.push('證券移轉需指定現貨商品');
+      if (!quantity || quantity <= 0) errs.push('證券移轉的 quantity 須大於 0');
+    }
 
     const currency = (get('currency') || (isTrade && inst ? inst.currency : '')).toUpperCase();
     if (!currency) errs.push('缺少 currency');
 
     let amount = num('amount');
-    if (isTrade) amount = 0;
+    if (isTrade || isPositionTransfer) amount = 0;
     else if (amount === undefined) {
       if (type !== 'loan_repay') errs.push('缺少 amount');
       else amount = (num('principal') ?? 0) + (num('interest') ?? 0);
@@ -269,29 +279,40 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
 
     const toAccountRaw = get('toAccount');
     const toAccountId = toAccountRaw ? accounts.get(toAccountRaw) : undefined;
-    if (type === 'transfer') {
+    if (type === 'transfer' || isPositionTransfer) {
       if (!toAccountRaw) errs.push('轉帳需指定 toAccount');
       else if (!toAccountId) errs.push(`找不到轉入帳戶：${toAccountRaw}`);
     }
     const toBucket = get('toBucket');
+    if (isPositionTransfer && (toAccountId === accountId || (toBucket && toBucket !== bucket)))
+      errs.push('證券移轉須為不同帳戶且同一策略桶');
     if (toBucket && toBucket !== CORE_BUCKET && !strategies.has(toBucket)) {
       errs.push(`找不到策略：${toBucket}`);
     }
 
     const loanId = get('loanId');
-    if ((type === 'loan_draw' || type === 'loan_repay') && !loanId)
+    if (
+      (type === 'loan_draw' ||
+        type === 'loan_repay' ||
+        type === 'loan_accrual' ||
+        type === 'loan_extension') &&
+      !loanId
+    )
       errs.push('貸款交易需指定 loanId');
     if (loanId && !loanIds.has(loanId)) errs.push(`找不到貸款：${loanId}`);
 
     const sourceRaw = get('source').toLowerCase();
-    if (sourceRaw && sourceRaw !== 'external' && sourceRaw !== 'portfolio') {
-      errs.push(`source 須為 external 或 portfolio：${sourceRaw}`);
+    if (sourceRaw && !['external', 'portfolio', 'unconfirmed'].includes(sourceRaw)) {
+      errs.push(`source 須為 external、portfolio 或 unconfirmed：${sourceRaw}`);
     }
     if (type === 'loan_repay' && !sourceRaw)
-      errs.push('還款需指定 source（external 或 portfolio）');
+      errs.push('還款需指定 source（external、portfolio 或 unconfirmed）');
 
     const fee = nonNegative('fee');
     const tax = nonNegative('tax');
+    if ((isPositionTransfer || type === 'loan_accrual') && ((fee ?? 0) !== 0 || (tax ?? 0) !== 0))
+      errs.push('移轉與應計利息的額外費用請另列費用交易');
+    if (type === 'loan_accrual' && !(amount! > 0)) errs.push('應計利息金額須大於 0');
     const fxRate = num('fxRate');
     if (fxRate !== undefined && fxRate <= 0) errs.push('fxRate 須大於 0');
     const toAmount = nonNegative('toAmount');

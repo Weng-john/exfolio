@@ -146,11 +146,12 @@ export function amortizationSchedule(loan: Loan, options: ScheduleOptions = {}):
 export interface LoanStatus {
   loanId: ID;
   currency: string;
-  /** Outstanding principal, derived from transactions. */
+  /** Outstanding principal plus unpaid accrued interest, derived from transactions. */
   balance: number;
   drawn: number;
   principalRepaid: number;
   interestPaid: number;
+  accruedInterest: number;
   /** Principal + interest paid with outside money. */
   repaidExternally: number;
   /** Principal + interest paid out of portfolio cash. */
@@ -176,8 +177,9 @@ export function loanStatus(data: AppData, ledger: Ledger, loan: Loan, today: ISO
   const drawn = state?.drawn ?? 0;
   const principalRepaid = state?.principalRepaid ?? 0;
   const interestPaid = state?.interestPaid ?? 0;
+  const accruedInterest = state?.accruedInterest ?? 0;
   const repaidExternally = state?.repaidExternally ?? 0;
-  const projected = monthlyInterest(balance, loan.annualRate);
+  const projected = monthlyInterest(balance - accruedInterest, loan.annualRate);
   const out: LoanStatus = {
     loanId: loan.id,
     currency: loan.currency,
@@ -185,6 +187,7 @@ export function loanStatus(data: AppData, ledger: Ledger, loan: Loan, today: ISO
     drawn,
     principalRepaid,
     interestPaid,
+    accruedInterest,
     repaidExternally,
     repaidFromPortfolio: principalRepaid + interestPaid - repaidExternally,
     projectedMonthlyInterest: projected,
@@ -198,13 +201,21 @@ export function loanStatus(data: AppData, ledger: Ledger, loan: Loan, today: ISO
     if (balance > EPS) {
       const day = loan.payDay ?? parseDate(loan.startDate).d;
       out.nextDueDate = nextMonthlyDate(today, day);
-      out.nextPayment = { principal: 0, interest: projected, total: projected };
+      out.nextPayment = {
+        principal: 0,
+        interest: projected + accruedInterest,
+        total: projected + accruedInterest,
+      };
     }
     return out;
   }
 
   const paidToday = data.transactions.some(
-    (t) => t.type === 'loan_repay' && t.loanId === loan.id && t.date === today,
+    (t) =>
+      t.type === 'loan_repay' &&
+      t.source !== 'unconfirmed' &&
+      t.loanId === loan.id &&
+      t.date === today,
   );
   let elapsed = 0;
   while (elapsed < term) {
@@ -217,13 +228,18 @@ export function loanStatus(data: AppData, ledger: Ledger, loan: Loan, today: ISO
   out.remainingPeriods = remaining;
   if (remaining > 0 && balance > EPS) {
     out.remainingSchedule = amortizationSchedule(loan, {
-      balance,
+      balance: balance - accruedInterest,
       periods: remaining,
       firstDueDate: dueDateOf(loan, elapsed + 1),
     });
     const next = out.remainingSchedule[0];
+    if (!next) return out;
     out.nextDueDate = next.dueDate;
-    out.nextPayment = { principal: next.principal, interest: next.interest, total: next.payment };
+    out.nextPayment = {
+      principal: next.principal,
+      interest: next.interest + accruedInterest,
+      total: next.payment + accruedInterest,
+    };
   }
   return out;
 }

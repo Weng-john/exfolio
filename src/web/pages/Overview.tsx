@@ -21,6 +21,7 @@ import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
+import { FundingNotice } from '../components/FundingEvidence';
 
 const TOOLTIP = {
   background: 'var(--panel)',
@@ -99,6 +100,7 @@ export default function OverviewPage() {
         />
         <Stat label="現金" value={fmtMoney(v.cashValue, base)} hint="各帳戶正餘額合計" />
       </div>
+      <FundingNotice transactions={data.transactions} />
 
       <Card title="風險警示">
         {alerts.length === 0 ? (

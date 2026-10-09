@@ -17,6 +17,7 @@ import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { HistoryPanel } from './performance/HistoryPanel';
 import './performance/performance.css';
+import { FundingNotice } from '../components/FundingEvidence';
 
 type WindowChoice = 'ytd' | '1m' | '3m' | '6m' | '1y' | 'inception' | 'custom';
 const TOOLTIP = {
@@ -132,6 +133,7 @@ export default function PerformancePage() {
         }
       />
       <Card title="期間與資料">
+        <FundingNotice transactions={data.transactions} />
         <div className="performance-toolbar">
           <Field label="分析期間">
             <select

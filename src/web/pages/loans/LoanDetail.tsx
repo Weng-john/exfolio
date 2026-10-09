@@ -133,10 +133,17 @@ function History(props: { data: AppData; loan: Loan }) {
   const { data, loan } = props;
   const cur = loan.currency;
   const txs = data.transactions
-    .filter((t) => t.loanId === loan.id && (t.type === 'loan_repay' || t.type === 'loan_draw'))
+    .filter(
+      (t) =>
+        t.loanId === loan.id &&
+        (t.type === 'loan_repay' ||
+          t.type === 'loan_draw' ||
+          t.type === 'loan_accrual' ||
+          t.type === 'loan_extension'),
+    )
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   return (
-    <Card title="動用與還款紀錄">
+    <Card title="動用、還款與展延紀錄">
       {!txs.length ? (
         <Empty>尚無紀錄。</Empty>
       ) : (
@@ -155,6 +162,19 @@ function History(props: { data: AppData; loan: Loan }) {
             </thead>
             <tbody>
               {txs.map((t) => {
+                if (t.type === 'loan_extension') {
+                  return (
+                    <tr key={t.id}>
+                      <td>{t.date}</td>
+                      <td>展延</td>
+                      <td className="num">—</td>
+                      <td className="num">—</td>
+                      <td className="num">{fmtMoney(t.amount, cur)} 額度</td>
+                      <td>—</td>
+                      <td>{t.note}</td>
+                    </tr>
+                  );
+                }
                 if (t.type === 'loan_draw') {
                   return (
                     <tr key={t.id}>
@@ -165,6 +185,19 @@ function History(props: { data: AppData; loan: Loan }) {
                       <td className="num">{fmtMoney(t.amount, cur)}</td>
                       <td>—</td>
                       <td className="muted">現金與負債同增，NAV 不變</td>
+                    </tr>
+                  );
+                }
+                if (t.type === 'loan_accrual') {
+                  return (
+                    <tr key={t.id}>
+                      <td>{t.date}</td>
+                      <td>未付利息</td>
+                      <td className="num">—</td>
+                      <td className="num">{fmtMoney(t.amount, cur)}</td>
+                      <td className="num">{fmtMoney(t.amount, cur)}</td>
+                      <td>尚未支付</td>
+                      <td className="muted">負債與融資成本同增，現金不變</td>
                     </tr>
                   );
                 }
@@ -179,16 +212,20 @@ function History(props: { data: AppData; loan: Loan }) {
                     <td className="num">{fmtMoney(interest, cur)}</td>
                     <td className="num">{fmtMoney(principal + interest, cur)}</td>
                     <td>
-                      {external ? (
+                      {t.source === 'unconfirmed' ? (
+                        <Badge tone="warn">待核對</Badge>
+                      ) : external ? (
                         <Badge tone="ok">外部資金</Badge>
                       ) : (
                         <Badge tone="info">投資組合</Badge>
                       )}
                     </td>
                     <td className="muted">
-                      {external
-                        ? '債務減少，NAV 與投入本金上升'
-                        : '現金與負債同減，NAV 不變（利息為成本）'}
+                      {t.source === 'unconfirmed'
+                        ? '尚未計帳；需確認扣款來源'
+                        : external
+                          ? '債務減少，NAV 與投入本金上升'
+                          : '現金與負債同減，NAV 不變（利息為成本）'}
                     </td>
                   </tr>
                 );
@@ -246,6 +283,7 @@ export default function LoanDetail(props: {
           <Stat label="累計動用" value={fmtMoney(status.drawn, cur)} />
           <Stat label="已還本金" value={fmtMoney(status.principalRepaid, cur)} />
           <Stat label="已付利息" value={fmtMoney(status.interestPaid, cur)} />
+          <Stat label="未付利息" value={fmtMoney(status.accruedInterest, cur)} />
           <Stat
             label="外部資金還款"
             value={fmtMoney(status.repaidExternally, cur)}

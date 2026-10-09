@@ -10,6 +10,7 @@ import {
   type Transaction,
 } from './types';
 import { xirr } from './xirr';
+import { sortedTransactions } from './journal';
 
 export type PerformanceScope = 'total' | 'core' | 'strategies' | ID | { positionKey: string };
 
@@ -338,7 +339,8 @@ function txBaseAmount(data: AppData, tx: Transaction, amount: number): number {
 function transactionMatchesPosition(tx: Transaction, key: string): boolean {
   const [accountId, instrumentId, bucket] = key.split('|');
   return (
-    tx.accountId === accountId &&
+    (tx.accountId === accountId ||
+      (tx.type === 'position_transfer' && tx.toAccountId === accountId)) &&
     tx.instrumentId === instrumentId &&
     (tx.bucket || CORE_BUCKET) === bucket
   );
@@ -366,6 +368,23 @@ export function externalFlows(
       if (tx.type === 'buy') add(tx.date, txBaseAmount(data, tx, gross + costs));
       if (tx.type === 'sell') add(tx.date, -txBaseAmount(data, tx, gross - costs));
       if (tx.type === 'dividend') add(tx.date, -txBaseAmount(data, tx, tx.amount - costs));
+      if (tx.type === 'position_transfer') {
+        const price = historicalPrice(data, tx.instrumentId!, tx.date);
+        if (price !== undefined) {
+          const direction = scope.positionKey.split('|')[0] === tx.accountId ? -1 : 1;
+          add(
+            tx.date,
+            direction *
+              txBaseAmount(
+                data,
+                tx,
+                (tx.quantity ?? 0) *
+                  price *
+                  (data.instruments.find((i) => i.id === tx.instrumentId)?.multiplier ?? 1),
+              ),
+          );
+        }
+      }
       continue;
     }
     if (tx.type === 'deposit' && inScopeBucket(bucket, scope))
@@ -512,7 +531,16 @@ function scopedTotals(data: AppData, scope: PerformanceScope, from: ISODate, to:
   let dividends = 0;
   let feesAndTaxes = 0;
   let fundingCost = 0;
-  for (const tx of data.transactions) {
+  const accruedByLoan = new Map<ID, number>();
+  for (const tx of sortedTransactions(data)) {
+    if (tx.type === 'loan_repay' && tx.source === 'unconfirmed') continue;
+    const loanId = tx.loanId ?? '';
+    const accruedPaid =
+      tx.type === 'loan_repay' ? Math.min(tx.interest ?? 0, accruedByLoan.get(loanId) ?? 0) : 0;
+    if (tx.type === 'loan_accrual')
+      accruedByLoan.set(loanId, (accruedByLoan.get(loanId) ?? 0) + tx.amount);
+    if (tx.type === 'loan_repay')
+      accruedByLoan.set(loanId, (accruedByLoan.get(loanId) ?? 0) - accruedPaid);
     if (tx.date < from || tx.date > to) continue;
     const matches = isPositionScope(scope)
       ? transactionMatchesPosition(tx, scope.positionKey)
@@ -521,9 +549,10 @@ function scopedTotals(data: AppData, scope: PerformanceScope, from: ISODate, to:
     const costs = (tx.fee ?? 0) + (tx.tax ?? 0);
     feesAndTaxes += txBaseAmount(data, tx, costs + (tx.type === 'fee' ? tx.amount : 0));
     if (tx.type === 'dividend') dividends += txBaseAmount(data, tx, tx.amount);
-    if (tx.type === 'interest' || tx.type === 'funding_fee')
+    if (tx.type === 'interest' || tx.type === 'funding_fee' || tx.type === 'loan_accrual')
       fundingCost += txBaseAmount(data, tx, tx.amount);
-    if (tx.type === 'loan_repay') fundingCost += txBaseAmount(data, tx, tx.interest ?? 0);
+    if (tx.type === 'loan_repay')
+      fundingCost += txBaseAmount(data, tx, (tx.interest ?? 0) - accruedPaid);
   }
   return { dividends, feesAndTaxes, fundingCost };
 }

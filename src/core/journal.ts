@@ -1,5 +1,6 @@
 import { daysBetween } from './dates';
 import { FxTable } from './fx';
+import { transferLots } from './positionTransfer';
 import {
   CORE_BUCKET,
   getSettings,
@@ -143,6 +144,32 @@ export function replayTrades(data: AppData): TradeReplay {
   const roundTrips: RoundTrip[] = [];
 
   for (const tx of sortedTransactions(data)) {
+    if (tx.type === 'position_transfer') {
+      const inst = instruments.get(tx.instrumentId ?? '');
+      const bucket = tx.bucket || CORE_BUCKET;
+      const key = `${tx.accountId}|${tx.instrumentId}|${bucket}`;
+      const toKey = `${tx.toAccountId}|${tx.instrumentId}|${bucket}`;
+      const from = lotsByKey.get(key) ?? [];
+      const to = lotsByKey.get(toKey) ?? [];
+      if (
+        !inst ||
+        isDerivative(inst.type) ||
+        inst.type === 'option' ||
+        !tx.toAccountId ||
+        !data.accounts.some((a) => a.id === tx.toAccountId) ||
+        key === toKey ||
+        (tx.toBucket && tx.toBucket !== bucket) ||
+        tx.amount !== 0 ||
+        (tx.fee ?? 0) + (tx.tax ?? 0) !== 0 ||
+        !transferLots(from, to, tx.quantity ?? 0)
+      ) {
+        warnings.push(`交易 ${tx.id} 的證券移轉設定或持倉不正確，已略過`);
+      } else {
+        lotsByKey.set(key, from);
+        lotsByKey.set(toKey, to);
+      }
+      continue;
+    }
     if (tx.type !== 'buy' && tx.type !== 'sell') continue;
     const inst = tx.instrumentId ? instruments.get(tx.instrumentId) : undefined;
     if (!inst || !tx.quantity || tx.price === undefined) continue; // the ledger warns about these

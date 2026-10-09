@@ -142,6 +142,7 @@ export function strategySummaries(data: AppData, portfolio: Portfolio): Strategy
   };
   get(CORE_BUCKET);
   for (const s of data.strategies) get(s.id);
+  const accruedByLoan = new Map<ID, number>();
 
   for (const tx of sortedTransactions(data)) {
     const b = get(tx.bucket || CORE_BUCKET);
@@ -187,16 +188,24 @@ export function strategySummaries(data: AppData, portfolio: Portfolio): Strategy
         b.fees += toBase(costs, tx.currency, tx);
         break;
       case 'loan_repay': {
+        if (tx.source === 'unconfirmed') break;
         const interest = tx.interest ?? 0;
+        const accruedPaid = Math.min(interest, accruedByLoan.get(tx.loanId ?? '') ?? 0);
+        accruedByLoan.set(tx.loanId ?? '', (accruedByLoan.get(tx.loanId ?? '') ?? 0) - accruedPaid);
         const principal = tx.principal ?? tx.amount - interest;
-        b.loanLiability -= toBase(principal, tx.currency, tx);
-        b.fundingCost += toBase(interest, tx.currency, tx);
+        b.loanLiability -= toBase(principal + accruedPaid, tx.currency, tx);
+        b.fundingCost += toBase(interest - accruedPaid, tx.currency, tx);
         b.fees += toBase(costs, tx.currency, tx);
         if (tx.source === 'external') {
           b.externalCapital += toBase(principal + interest + costs, tx.currency, tx);
         }
         break;
       }
+      case 'loan_accrual':
+        accruedByLoan.set(tx.loanId ?? '', (accruedByLoan.get(tx.loanId ?? '') ?? 0) + tx.amount);
+        b.loanLiability += toBase(tx.amount, tx.currency, tx);
+        b.fundingCost += toBase(tx.amount, tx.currency, tx);
+        break;
     }
   }
   for (const e of replayTrades(data).entries) get(e.strategyId).realizedPnl += e.realizedPnlBase;

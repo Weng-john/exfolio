@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { transferLots } from './positionTransfer';
 import {
   CORE_BUCKET,
   getSettings,
@@ -53,8 +54,10 @@ export interface LoanState {
   currency: Currency;
   drawn: number;
   principalRepaid: number;
+  /** Outstanding principal plus unpaid accrued interest. */
   balance: number;
   interestPaid: number;
+  accruedInterest: number;
   /** Principal + interest repaid with money from outside the portfolio. */
   repaidExternally: number;
 }
@@ -143,6 +146,7 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         principalRepaid: 0,
         balance: 0,
         interestPaid: 0,
+        accruedInterest: 0,
         repaidExternally: 0,
       };
       loans.set(loanId, s);
@@ -207,6 +211,37 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         moveCash(tx.accountId, tx.currency, bucket, tx.amount);
         totals.contributedCapital += toBase(tx.amount, tx.currency, tx);
         break;
+      case 'position_transfer': {
+        const inst = tx.instrumentId ? instruments.get(tx.instrumentId) : undefined;
+        if (
+          !inst ||
+          isDerivative(inst.type) ||
+          inst.type === 'option' ||
+          !tx.toAccountId ||
+          !data.accounts.some((a) => a.id === tx.toAccountId) ||
+          tx.toAccountId === tx.accountId ||
+          (tx.toBucket && tx.toBucket !== bucket) ||
+          tx.amount !== 0 ||
+          costs !== 0
+        ) {
+          warnings.push(`交易 ${tx.id} 的證券移轉設定不正確，已略過`);
+          break;
+        }
+        const from = position(tx, inst.id);
+        const to = position({ ...tx, accountId: tx.toAccountId }, inst.id);
+        if (!transferLots(from.lots, to.lots, tx.quantity ?? 0)) {
+          warnings.push(`交易 ${tx.id} 的證券移轉數量或持倉不正確，已略過`);
+          break;
+        }
+        for (const p of [from, to]) {
+          p.quantity = p.lots.reduce((sum, lot) => sum + lot.quantity, 0);
+          p.avgCost =
+            p.quantity === 0
+              ? 0
+              : p.lots.reduce((sum, lot) => sum + lot.quantity * lot.price, 0) / p.quantity;
+        }
+        break;
+      }
       case 'withdraw':
         moveCash(tx.accountId, tx.currency, bucket, -tx.amount);
         totals.contributedCapital -= toBase(tx.amount, tx.currency, tx);
@@ -253,6 +288,10 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         break;
       }
       case 'loan_repay': {
+        if (tx.source === 'unconfirmed') {
+          warnings.push(`交易 ${tx.id}（${tx.date}）還款資金來源待核對，尚未計帳`);
+          break;
+        }
         if (!tx.loanId) {
           warnings.push(`交易 ${tx.id}（${tx.date}）未指定貸款，已略過`);
           break;
@@ -262,7 +301,9 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         const paid = principal + interest + costs;
         const s = loanState(tx.loanId, tx.currency);
         s.principalRepaid += principal;
-        s.balance -= principal;
+        const accruedPaid = Math.min(interest, s.accruedInterest);
+        s.accruedInterest -= accruedPaid;
+        s.balance -= principal + accruedPaid;
         s.interestPaid += interest;
         if (tx.source === 'external') {
           // Outside money pays the lender directly: no portfolio cash moves,
@@ -272,8 +313,25 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         } else {
           moveCash(tx.accountId, tx.currency, bucket, -paid);
         }
-        totals.fundingCost += toBase(interest, tx.currency, tx);
+        totals.fundingCost += toBase(interest - accruedPaid, tx.currency, tx);
         totals.fees += toBase(costs, tx.currency, tx);
+        break;
+      }
+      case 'loan_accrual': {
+        if (
+          !tx.loanId ||
+          !loanCurrency.has(tx.loanId) ||
+          !Number.isFinite(tx.amount) ||
+          tx.amount <= 0 ||
+          costs !== 0
+        ) {
+          warnings.push(`交易 ${tx.id} 的應計利息設定不正確，已略過`);
+          break;
+        }
+        const s = loanState(tx.loanId, tx.currency);
+        s.accruedInterest += tx.amount;
+        s.balance += tx.amount;
+        totals.fundingCost += toBase(tx.amount, s.currency, tx);
         break;
       }
     }

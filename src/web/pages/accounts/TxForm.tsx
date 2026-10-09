@@ -12,6 +12,7 @@ import {
 } from '@core/index';
 import { Field, Modal } from '../../components/ui';
 import { TX_HINTS, TX_LABELS } from './labels';
+import { FUNDING_ESTIMATE_TAGS } from '../../components/FundingEvidence';
 
 const ALL_TYPES = Object.keys(TX_LABELS) as TxType[];
 
@@ -75,15 +76,25 @@ function initial(data: AppData, tx?: Transaction): FormState {
 /** Which controls each type uses. */
 function layout(type: TxType) {
   const trade = type === 'buy' || type === 'sell';
-  const loan = type === 'loan_draw' || type === 'loan_repay';
+  const positionTransfer = type === 'position_transfer';
+  const loan =
+    type === 'loan_draw' ||
+    type === 'loan_repay' ||
+    type === 'loan_accrual' ||
+    type === 'loan_extension';
   return {
     trade,
+    positionTransfer,
     loan,
     repay: type === 'loan_repay',
     transfer: type === 'transfer',
-    amount: !trade && type !== 'loan_repay',
-    instrument: trade || type === 'dividend',
-    costs: trade || type === 'dividend' || type === 'transfer' || loan,
+    amount: !trade && !positionTransfer && type !== 'loan_repay',
+    instrument: trade || positionTransfer || type === 'dividend',
+    costs:
+      trade ||
+      type === 'dividend' ||
+      type === 'transfer' ||
+      (loan && type !== 'loan_accrual' && type !== 'loan_extension'),
     tax: trade || type === 'dividend',
     signedAmount: type === 'adjust' || type === 'funding_fee',
   };
@@ -129,6 +140,12 @@ export function buildTransaction(
   if (L.trade && !inst) return '請選擇商品';
   if (L.trade && !vals.quantity) return '數量須大於 0';
   if (L.trade && vals.price === undefined) return '請填寫價格';
+  if (L.positionTransfer) {
+    if (!inst || !['stock', 'etf', 'crypto'].includes(inst.type)) return '請選擇現貨商品';
+    if (!vals.quantity) return '數量須大於 0';
+    if (!data.accounts.some((a) => a.id === f.toAccountId) || f.toAccountId === f.accountId)
+      return '請選擇不同的轉入帳戶';
+  }
   if (L.amount && vals.amount === undefined) return '請填寫金額';
   if (L.amount && !L.signedAmount && !vals.amount) return '金額須大於 0';
   if (L.transfer && !f.toAccountId) return '請選擇轉入帳戶';
@@ -139,7 +156,9 @@ export function buildTransaction(
   }
   if (vals.fxRate !== undefined && vals.fxRate <= 0) return '匯率須大於 0';
 
-  const currency = (L.trade && inst ? inst.currency : f.currency.trim().toUpperCase()) || base;
+  const currency =
+    ((L.trade || L.positionTransfer) && inst ? inst.currency : f.currency.trim().toUpperCase()) ||
+    base;
   const tx: Transaction = {
     id,
     date: f.date,
@@ -147,16 +166,21 @@ export function buildTransaction(
     accountId: f.accountId,
     bucket: f.bucket || CORE_BUCKET,
     currency,
-    amount: L.trade
-      ? 0
-      : L.repay
-        ? (vals.principal ?? 0) + (vals.interest ?? 0)
-        : (vals.amount ?? 0),
+    amount:
+      L.trade || L.positionTransfer
+        ? 0
+        : L.repay
+          ? (vals.principal ?? 0) + (vals.interest ?? 0)
+          : (vals.amount ?? 0),
   };
   if (L.instrument && f.instrumentId) tx.instrumentId = f.instrumentId;
   if (L.trade) {
     tx.quantity = vals.quantity; // positive magnitude; the type decides the direction
     tx.price = vals.price;
+  }
+  if (L.positionTransfer) {
+    tx.quantity = vals.quantity;
+    tx.toAccountId = f.toAccountId;
   }
   if (L.costs && vals.fee !== undefined) tx.fee = vals.fee;
   if (L.tax && vals.tax !== undefined) tx.tax = vals.tax;
@@ -191,6 +215,11 @@ export default function TxForm(props: {
   const { data, tx } = props;
   const [f, setF] = useState<FormState>(() => initial(data, tx));
   const [error, setError] = useState('');
+  const [fundingVerified, setFundingVerified] = useState(false);
+  const estimatedFunding =
+    tx &&
+    (f.type === 'deposit' || f.type === 'withdraw') &&
+    FUNDING_ESTIMATE_TAGS.some((tag) => tx.tags?.includes(tag));
   const L = layout(f.type);
   const set = (patch: Partial<FormState>) => setF((s) => ({ ...s, ...patch }));
   const input = (key: keyof FormState, extra: { type?: string; placeholder?: string } = {}) => (
@@ -241,7 +270,18 @@ export default function TxForm(props: {
   const save = () => {
     const res = buildTransaction(f, data, tx?.id ?? newId('tx'), tx);
     if (typeof res === 'string') setError(res);
-    else props.onSave(res);
+    else {
+      if (fundingVerified && estimatedFunding) {
+        res.tags = [
+          ...(res.tags ?? []).filter((tag) => !FUNDING_ESTIMATE_TAGS.includes(tag)),
+          'funding-user-verified',
+        ];
+        res.note = [res.note, '使用者已依實際銀行流水核對日期、金額及適用匯率。']
+          .filter(Boolean)
+          .join('；');
+      }
+      props.onSave(res);
+    }
   };
 
   return (
@@ -297,7 +337,7 @@ export default function TxForm(props: {
 
       <div className="form-grid">
         {L.instrument && (
-          <Field label={L.trade ? '商品' : '商品（選填）'}>
+          <Field label={L.trade || L.positionTransfer ? '商品' : '商品（選填）'}>
             <select value={f.instrumentId} onChange={(e) => set({ instrumentId: e.target.value })}>
               <option value="">{L.trade ? '請選擇' : '無'}</option>
               {data.instruments.map((i) => (
@@ -307,6 +347,23 @@ export default function TxForm(props: {
               ))}
             </select>
           </Field>
+        )}
+        {L.positionTransfer && (
+          <>
+            <Field label="移轉數量">{input('quantity')}</Field>
+            <Field label="轉入帳戶">
+              <select value={f.toAccountId} onChange={(e) => set({ toAccountId: e.target.value })}>
+                <option value="">請選擇</option>
+                {data.accounts
+                  .filter((a) => a.id !== f.accountId)
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          </>
         )}
         {L.trade ? (
           <>
@@ -323,7 +380,10 @@ export default function TxForm(props: {
         ) : (
           <>
             {L.amount && (
-              <Field label="金額" hint={L.signedAmount ? '可為負數' : '填正數'}>
+              <Field
+                label={f.type === 'loan_extension' ? '展延額度' : '金額'}
+                hint={L.signedAmount ? '可為負數' : '填正數'}
+              >
                 {input('amount')}
               </Field>
             )}
@@ -351,6 +411,7 @@ export default function TxForm(props: {
                 <option value="">請選擇</option>
                 <option value="external">外部資金</option>
                 <option value="portfolio">投資組合現金</option>
+                <option value="unconfirmed">待核對（暫不計帳）</option>
               </select>
             </Field>
           </>
@@ -417,6 +478,16 @@ export default function TxForm(props: {
       )}
 
       <div style={{ marginTop: 12 }}>
+        {estimatedFunding && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <input
+              type="checkbox"
+              checked={fundingVerified}
+              onChange={(event) => setFundingVerified(event.target.checked)}
+            />
+            已依銀行流水核對日期、金額及適用匯率
+          </label>
+        )}
         <Field label="備註">
           <input value={f.note} onChange={(e) => set({ note: e.target.value })} />
         </Field>
