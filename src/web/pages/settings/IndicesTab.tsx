@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { indexReferences, newId, type Market, type UnderlyingIndex } from '@core/index';
-import { removeRow, upsertRow, useData } from '../../store';
+import {
+  indexReferences,
+  mergeIndices,
+  newId,
+  type Market,
+  type UnderlyingIndex,
+} from '@core/index';
+import { removeRow, replaceAll, upsertRow, useData } from '../../store';
 import { Card, Empty, Field, Modal } from '../../components/ui';
 import { describeRefs, ErrorList } from './shared';
 
@@ -11,6 +17,20 @@ export default function IndicesTab() {
   const [editing, setEditing] = useState<{ row: UnderlyingIndex; isNew: boolean }>();
   const [errors, setErrors] = useState<string[]>([]);
   const [blocked, setBlocked] = useState<UnderlyingIndex>();
+  const [merging, setMerging] = useState<{ from: UnderlyingIndex; intoId: string }>();
+  const [notice, setNotice] = useState('');
+  const mergePreview =
+    merging?.intoId && data.indices.some((i) => i.id === merging.intoId)
+      ? mergeIndices(data, merging.from.id, merging.intoId)
+      : undefined;
+
+  const confirmMerge = () => {
+    if (!merging || !mergePreview) return;
+    const into = data.indices.find((i) => i.id === merging.intoId)!;
+    replaceAll(mergePreview.data);
+    setNotice(`已把「${merging.from.name}」併入「${into.name}」。`);
+    setMerging(undefined);
+  };
 
   const set = (patch: Partial<UnderlyingIndex>) =>
     editing && setEditing({ ...editing, row: { ...editing.row, ...patch } });
@@ -60,7 +80,9 @@ export default function IndicesTab() {
     >
       <p className="muted">
         不同商品只要追蹤同一指數，曝險就會合併計算；請確認每檔商品掛在正確的指數上。
+        想把兩個指數視為同一個（例如加權指數與台灣 50），用「併入其他指數」。
       </p>
+      {notice && <div className="notice">{notice}</div>}
       {data.indices.length === 0 ? (
         <Empty>尚無指數</Empty>
       ) : (
@@ -96,6 +118,12 @@ export default function IndicesTab() {
                       >
                         編輯
                       </button>
+                      <button
+                        disabled={data.indices.length < 2}
+                        onClick={() => setMerging({ from: x, intoId: '' })}
+                      >
+                        併入其他指數
+                      </button>
                       <button className="danger" onClick={() => tryDelete(x)}>
                         刪除
                       </button>
@@ -106,6 +134,63 @@ export default function IndicesTab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {merging && (
+        <Modal
+          title={`把「${merging.from.name}」併入其他指數`}
+          onClose={() => setMerging(undefined)}
+          footer={
+            <>
+              <button className="ghost" onClick={() => setMerging(undefined)}>
+                取消
+              </button>
+              <button className="primary" disabled={!mergePreview} onClick={confirmMerge}>
+                確認合併
+              </button>
+            </>
+          }
+        >
+          <Field label="併入" hint="合併後只保留這個指數；需要的話之後可以改它的名稱">
+            <select
+              value={merging.intoId}
+              onChange={(e) => setMerging({ ...merging, intoId: e.target.value })}
+            >
+              <option value="">請選擇</option>
+              {data.indices
+                .filter((i) => i.id !== merging.from.id)
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          {mergePreview && (
+            <>
+              <p>合併後會變更：</p>
+              <ul>
+                <li>{mergePreview.summary.instruments} 個商品改掛到保留的指數</li>
+                <li>
+                  {mergePreview.summary.targets}{' '}
+                  個配置目標（兩邊都有目標時，權重相加、容忍區間取較小者）
+                </li>
+                <li>{mergePreview.summary.strategies} 個策略基準</li>
+                <li>{mergePreview.summary.snapshots} 筆歷史快照中的分指數曝險</li>
+              </ul>
+              {mergePreview.summary.scenariosToReview > 0 && (
+                <p className="warn">
+                  有 {mergePreview.summary.scenariosToReview} 個已存的 Risk Lab
+                  情境仍引用被合併的指數，合併後請重新檢查。
+                </p>
+              )}
+              <div className="notice warn">
+                兩個指數的曝險之後會加在一起計算，「{merging.from.name}」這個指數會被移除。
+                這個動作無法自動復原：要拆開只能重新建立指數並逐一改回商品。建議先到「後端與資料」匯出備份。
+              </div>
+            </>
+          )}
+        </Modal>
       )}
 
       {blocked && (

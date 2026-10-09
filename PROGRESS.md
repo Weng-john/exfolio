@@ -55,6 +55,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
   - `statementImport.ts` 對帳單解析、欄位對應、商品比對、防重複、影響預覽；`ocrTable.ts` 由辨識出的文字方塊重建表格。
   - `exchangeSync.ts` 交易所餘額核對與成交轉交易；`replacement.ts` 商品替代比較；`historyAnalytics.ts` 歷史分析。
   - `positionTransfer.ts` 跨帳戶移轉時搬移 FIFO 批次。
+  - `indexMerge.ts` 把一個標的指數併入另一個（Settings → 標的指數 →「併入其他指數」）。
   - `api.ts` 前後端協定；`seed.ts` 公開商品、指數與常用機構清單。
 - `src/web/`：React。頁面只透過 `store.ts`（`useData`、`upsertRow`、`removeRow`、`setTable`）讀寫資料，用 `usePortfolio()` 取得帳本與估值。
 - `src/web/auth.ts` 管登入狀態；`App.tsx` 未登入時載入示範資料（`store.loadDemo()`），登入後才讀取會員自己的資料。
@@ -74,6 +75,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 - **GAS 儲存**：每列完整內容存在 `_json` 欄，其餘欄位只是鏡像。
 - **價格歷史**：`priceHistory` 表存每日收盤與還原收盤；估值用收盤，基準報酬用還原收盤。
 - **貸款剩餘期數**：依日期計算，餘額重新攤到剩餘期數。
+- **合併指數**：是使用者自己資料上的一次性操作，不是全域設定：商品、配置目標（權重相加）、策略基準與快照的分指數曝險都改掛到保留的指數，被合併的指數移除，無法自動復原。預設資料仍把加權指數與台灣 50 分開。
 - **會員**：每位會員一個資料檔（Node：`data/users/<id>.json`）。密碼先在瀏覽器以 PBKDF2 延展，後端再以 scrypt 加鹽雜湊；session token 只存雜湊，30 天有效。第一個帳號是管理員；之後預設需審核，可改為開放註冊。
 - **管理員檢視**：由會員自己的 `allowAdminView` 決定（預設開啟），一律唯讀並寫入稽核紀錄。`save` 永遠只寫呼叫者自己的資料。
 - **Google 登入**：不會因為名稱相同就併入既有帳號；要綁定必須先登入再綁。

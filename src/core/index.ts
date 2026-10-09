@@ -28,3 +28,4 @@ export * from './exchangeSync';
 export * from './replacement';
 export * from './statementImport';
 export * from './ocrTable';
+export * from './indexMerge';
