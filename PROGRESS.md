@@ -25,7 +25,7 @@
 | P1-A | Strategy Registry、Trade Journal、策略資金帳本、輪動週期 | 完成 |
 | P1-B | TWR、XIRR、基準比較、主被動四層級 | 完成（核心被動層級尚無基準） |
 | P1-C | 兩種風險模擬、期貨轉倉、通知 | 完成 |
-| P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 商品替代與歷史進階分析已完成；Binance 唯讀同步已實作（真實帳戶未驗證）。其他券商同步與通用對帳單欄位映射待擴充 |
+| P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 商品替代與歷史進階分析已完成；Binance 唯讀同步已實作（真實帳戶未驗證）。其他券商沒有可用的唯讀 API，改以對帳單匯入（CSV 或截圖） |
 | Future | 選擇權多腿與 Greeks、半自動與自動轉倉 | 未開始 |
 
 ## 怎麼開始
@@ -52,6 +52,9 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
   - `futures.ts` 期貨部位、保證金、轉倉；`notifications.ts` 通知。
   - `dates.ts` 以 UTC 處理 `YYYY-MM-DD` 的日期運算（`daysBetween`、`addDays` 等），各模組共用，不再各自實作。
   - `demo.ts` 訪客預覽用的虛構資料。
+  - `statementImport.ts` 對帳單解析、欄位對應、商品比對、防重複、影響預覽；`ocrTable.ts` 由辨識出的文字方塊重建表格。
+  - `exchangeSync.ts` 交易所餘額核對與成交轉交易；`replacement.ts` 商品替代比較；`historyAnalytics.ts` 歷史分析。
+  - `positionTransfer.ts` 跨帳戶移轉時搬移 FIFO 批次。
   - `api.ts` 前後端協定；`seed.ts` 公開商品、指數與常用機構清單。
 - `src/web/`：React。頁面只透過 `store.ts`（`useData`、`upsertRow`、`removeRow`、`setTable`）讀寫資料，用 `usePortfolio()` 取得帳本與估值。
 - `src/web/auth.ts` 管登入狀態；`App.tsx` 未登入時載入示範資料（`store.loadDemo()`），登入後才讀取會員自己的資料。
@@ -91,6 +94,8 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 - 期交所行情資訊網對連續請求很敏感，曾在測試中整站回應 HTTP 520；夜盤報價的選擇邏輯只有單元測試覆蓋。
 - 績效：核心被動與整體組合層級沒有基準（策略才有）；台灣期貨沒有歷史價格來源，相關期間會列為缺價。
 - Google 登入需要架設者提供 OAuth 用戶端 ID；已確認真實 Google 帳號建立為啟用中的管理員會員，綁定既有帳號與其他會員情境尚未逐項實測。
+- 對帳單匯入精靈已完成：CSV／TSV 與截圖兩種來源，欄位對應、設定檔（`importProfiles`）、逐列檢查、影響預覽、防重複。引擎在 `src/core/statementImport.ts`（表格重建在 `ocrTable.ts`），截圖辨識在 `src/web/ocr.ts`（tesseract.js，瀏覽器內執行）。瀏覽器實測涵蓋一份 CSV 與一張虛構截圖的完整五步流程；截圖辨識會看錯個別字，需人工核對。
+- 精靈目前只產生一般交易類型；`position_transfer`、`loan_accrual`、`loan_extension` 不會從對帳單自動產生，需手動新增。
 - `src/web/pages/Futures.tsx` 有多行過長、難以閱讀，功能正常但值得整理。
 - 日期小工具（`daysBetween` 等）在數個核心模組各有一份，尚未合併。
 - 交易建議的手續費只估證券；期貨不估手續費，且缺保證金設定時成本以 0 計。

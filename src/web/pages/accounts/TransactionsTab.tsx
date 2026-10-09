@@ -13,6 +13,7 @@ import {
 import { removeRow, setTable, upsertRow, useData } from '../../store';
 import { Card, Empty, Modal } from '../../components/ui';
 import { fmtMoney, fmtNum, signClass } from '../../format';
+import StatementImport from './StatementImport';
 import TxForm from './TxForm';
 import { TX_LABELS } from './labels';
 import { FundingBadges, FundingNotice } from '../../components/FundingEvidence';
@@ -30,6 +31,7 @@ export default function TransactionsTab() {
   const [editing, setEditing] = useState<Transaction | 'new' | undefined>();
   const [preview, setPreview] = useState<Preview | undefined>();
   const [message, setMessage] = useState('');
+  const [statementOpen, setStatementOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const base = getSettings(data).baseCurrency;
 
@@ -86,6 +88,7 @@ export default function TransactionsTab() {
             匯出 CSV
           </button>
           <button onClick={() => fileRef.current?.click()}>匯入 CSV</button>
+          <button onClick={() => setStatementOpen(true)}>匯入券商對帳單</button>
           <input
             ref={fileRef}
             type="file"
@@ -318,6 +321,7 @@ export default function TransactionsTab() {
           )}
         </Modal>
       )}
+      {statementOpen && <StatementImport onClose={() => setStatementOpen(false)} />}
     </Card>
   );
 }

@@ -1,0 +1,187 @@
+.si-steps {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+.si-steps li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.si-steps li.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.si-steps li.done {
+  color: var(--pos);
+}
+
+.si-drop {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.si-drop.over,
+.si-drop:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.si-block {
+  margin-top: 14px;
+}
+
+.si-block h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.si-raw {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.si-raw td,
+.si-raw th {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.si-raw tr.header td {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.si-raw tr.pre td {
+  color: var(--muted);
+}
+
+.si-map {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.si-low select {
+  border-color: var(--warn);
+}
+
+.si-sample {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.si-counts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.si-counts button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.si-table {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.si-table td {
+  font-size: 12px;
+}
+
+.si-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.si-inst {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--panel-2);
+}
+
+.si-inst-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.si-inst.confirmed {
+  border-color: var(--pos);
+}
+
+.si-warn {
+  color: var(--warn);
+}
+
+.si-bad {
+  color: var(--neg);
+}
+
+.si-radio {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.si-radio input {
+  margin-top: 4px;
+}
+
+.si-progress {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.si-ocr {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.si-ocr img {
+  max-width: 100%;
+  max-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.si-ocr textarea {
+  min-height: 260px;
+  /* Monospace fonts rarely carry Chinese: fall back to the UI's CJK fonts. */
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'PingFang TC', 'Microsoft JhengHei',
+    'Noto Sans TC', monospace;
+  font-size: 12px;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 14;
+}

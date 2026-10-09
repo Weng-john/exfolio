@@ -26,3 +26,5 @@ export * from './survival';
 export * from './demo';
 export * from './exchangeSync';
 export * from './replacement';
+export * from './statementImport';
+export * from './ocrTable';
