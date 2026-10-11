@@ -20,7 +20,7 @@ import {
 } from '@core/index';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
-import { replaceAll, useData } from '../store';
+import { replaceAll, useData, useStore } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { FundingNotice } from '../components/FundingEvidence';
 
@@ -41,6 +41,7 @@ const TONE = { info: 'info', warn: 'warn', bad: 'bad' } as const;
 
 export default function OverviewPage() {
   const data = useData();
+  const store = useStore();
   const { valuation: v, ledger } = usePortfolio();
   const base = v.baseCurrency;
   const alerts = portfolioAlerts(data, v);
@@ -66,6 +67,13 @@ export default function OverviewPage() {
           或到 <Link to="/settings">Settings</Link> 還原備份。想先看看功能，可以{' '}
           <button onClick={() => replaceAll(demoData())}>載入虛構的示範資料</button>
           （之後可在 Settings 還原備份或清除）。
+          {!store.backendRemote && (
+            <>
+              {' '}
+              你的資料會存在這個瀏覽器裡；輸入真實資料前，請先看{' '}
+              <Link to="/settings">Settings</Link> →「後端與資料」的說明，那裡可以用密碼加密。
+            </>
+          )}
         </div>
       )}
 

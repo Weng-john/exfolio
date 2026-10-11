@@ -1,5 +1,6 @@
 import type { ApiRequest, ApiResponse } from '@core/api';
 import { IS_PUBLIC } from './edition';
+import * as vault from './localVault';
 import { staticQuotes } from './staticQuotes';
 
 // Where data is stored. Connection settings stay in this browser's
@@ -14,7 +15,6 @@ export interface BackendConfig {
 }
 
 const CONFIG_KEY = 'exfolio.backend';
-const DATA_KEY = 'exfolio.data';
 const SESSION_KEY = 'exfolio.session';
 const DEFAULT_CONFIG: BackendConfig = { mode: 'auto', url: '/api' };
 
@@ -68,16 +68,6 @@ function remoteBackend(config: BackendConfig): Backend {
 
 /** Storage in this browser only: lets the static site work with no backend. */
 function browserBackend(): Backend {
-  const read = () => {
-    try {
-      return JSON.parse(localStorage.getItem(DATA_KEY) ?? '') as {
-        revision: number;
-        tables: object;
-      };
-    } catch {
-      return { revision: 0, tables: {} };
-    }
-  };
   return {
     label: '此瀏覽器（無後端）',
     remote: false,
@@ -86,14 +76,14 @@ function browserBackend(): Backend {
         case 'ping':
           return { ok: true, backend: 'browser' };
         case 'load':
-          return { ok: true, ...read() };
+          return { ok: true, ...(await vault.read()) };
         case 'save': {
-          const store = read();
+          const store = await vault.read();
           const next = {
             revision: store.revision + 1,
             tables: { ...store.tables, ...request.tables },
           };
-          localStorage.setItem(DATA_KEY, JSON.stringify(next));
+          await vault.write(next);
           return { ok: true, revision: next.revision };
         }
         case 'quotes':

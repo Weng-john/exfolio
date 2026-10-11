@@ -1,8 +1,9 @@
 import type { OcrWord } from '@core/index';
 
 // Text recognition for statement screenshots, run entirely in the browser.
-// The engine and its language data are downloaded on first use; the image
-// itself never leaves the page.
+// The engine and its language data are part of this site (copied in by
+// scripts/vendor-ocr.mjs), so the picture is only ever handled by code that
+// shipped with the build: nothing is fetched from, or sent to, another host.
 
 export interface OcrProgress {
   /** What the engine is doing, in its own words. */
@@ -49,7 +50,13 @@ export async function recognizeImage(
   // Loaded on demand: most visits never import a screenshot.
   const { createWorker } = await import('tesseract.js');
   const { canvas } = await prepare(file);
+  const home = new URL('./vendor/ocr/', document.baseURI).href;
   const worker = await createWorker(['chi_tra', 'eng'], 1, {
+    workerPath: `${home}worker.min.js`,
+    corePath: home,
+    langPath: `${home}lang`,
+    // Load the worker from its own URL: a blob wrapper would hide where it came from.
+    workerBlobURL: false,
     logger: (m: { status: string; progress: number }) => onProgress?.(m),
   });
   try {

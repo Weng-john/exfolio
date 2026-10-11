@@ -130,8 +130,55 @@ async function data(request: ApiRequest, file: string, readOnly: boolean): Promi
   }
 }
 
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+/** Host names this backend answers to: loopback, plus any the operator lists. */
+function allowedHosts(): string[] {
+  const extra = (process.env.EXFOLIO_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  return [...LOOPBACK_HOSTS, ...extra];
+}
+
+const hostName = (host: string) => host.toLowerCase().replace(/:\d+$/, '');
+
+/**
+ * Why a request must be refused, or '' when it may proceed.
+ *
+ * A browser lets any web page POST plain text to a server on this machine,
+ * so the address alone proves nothing. Two checks close that door: the Host
+ * header must name this machine (a hostile domain made to resolve to
+ * 127.0.0.1 fails here), and a request sent by a page must come from a page
+ * this server itself served.
+ */
+export function refusal(headers: IncomingMessage['headers']): string {
+  const host = headers.host;
+  if (!host || !allowedHosts().includes(hostName(host))) return 'Host not allowed';
+  // Browsers label every request with where it came from; a page on another
+  // site is refused even if it manages to omit an Origin.
+  const site = headers['sec-fetch-site'];
+  if (typeof site === 'string' && site !== 'same-origin' && site !== 'none') {
+    return 'Origin not allowed';
+  }
+  const origin = headers.origin;
+  if (!origin) return '';
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase() ? '' : 'Origin not allowed';
+  } catch {
+    return 'Origin not allowed';
+  }
+}
+
 export async function handleApi(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let response: ApiResponse;
+  const refused = refusal(req.headers);
+  if (refused) {
+    res.statusCode = 403;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ ok: false, error: refused }));
+    return;
+  }
   try {
     if (req.method !== 'POST') {
       response = { ok: false, error: 'Use POST' };

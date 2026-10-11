@@ -24,6 +24,8 @@ export interface StoreState {
   readOnly: boolean;
   /** True for a signed-out visitor exploring the fictional demo portfolio. */
   demo: boolean;
+  /** True when data lives on a backend, false when it is kept in this browser. */
+  backendRemote: boolean;
   error?: string;
   lastSavedAt?: string;
 }
@@ -34,6 +36,7 @@ let state: StoreState = {
   backendLabel: '',
   readOnly: false,
   demo: false,
+  backendRemote: false,
 };
 let backend: Backend | undefined;
 let revision = 0;
@@ -138,7 +141,7 @@ async function load(asUser?: string): Promise<void> {
     if (!data.settings.length) data.settings = emptyData().settings;
     const upgraded = adoptSeedQuoteSources(data);
     dirty.clear();
-    set({ data, status: 'ready', backendLabel: backend.label });
+    set({ data, status: 'ready', backendLabel: backend.label, backendRemote: backend.remote });
     if (readOnly) return;
     if (isEmpty) {
       TABLE_NAMES.forEach((t) => dirty.add(t));

@@ -145,9 +145,11 @@ export interface ExchangeTrade {
   realizedPnl?: number;
 }
 
-// Passwords never travel or rest in the clear: the browser stretches the
-// password into `passwordKey` (see src/web/auth.ts) and the backend stores
-// only a salted hash of that key.
+// The password itself never travels or rests anywhere: the browser stretches
+// it into `passwordKey` (see src/web/auth.ts) and the backend stores only a
+// salted hash of that key. The key is still a credential — whoever captures
+// one can sign in with it — so a backend must only ever be reached over
+// HTTPS or on this machine.
 
 export type ApiRequest = { session?: string } & (
   | { action: 'ping' }

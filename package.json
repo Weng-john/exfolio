@@ -6,7 +6,7 @@
   "description": "Exposure-based portfolio management (NAV-denominated exposure, leverage, loans, allocation).",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && node scripts/vendor-ocr.mjs && vite build",
     "serve": "tsx server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -16,7 +16,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
     "quotes:snapshot": "tsx scripts/fetch-quotes.mts",
-    "build:public": "tsc --noEmit && VITE_EXFOLIO_EDITION=public vite build && tsx scripts/fetch-quotes.mts dist/quotes.json"
+    "build:public": "tsc --noEmit && node scripts/vendor-ocr.mjs && VITE_EXFOLIO_EDITION=public vite build && tsx scripts/fetch-quotes.mts dist/quotes.json",
+    "vendor:ocr": "node scripts/vendor-ocr.mjs",
+    "predev": "node scripts/vendor-ocr.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans-tc": "^5.3.0",
@@ -27,6 +29,8 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@tesseract.js-data/chi_tra": "^1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",

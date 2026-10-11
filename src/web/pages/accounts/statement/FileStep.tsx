@@ -56,8 +56,8 @@ export default function FileStep(p: FileStepProps) {
     <div>
       <div className="notice">
         檔案與截圖只在這個瀏覽器內處理，不會上傳到任何伺服器；按下最後一步的「確認匯入」之前不會寫入任何資料。
-        截圖會在瀏覽器內辨識文字：第一次使用需下載辨識引擎與語言資料（約 20
-        MB），圖片本身不會離開這台裝置。
+        截圖會在瀏覽器內辨識文字：辨識引擎與語言資料由本站提供（第一次使用約需下載 16
+        MB），不經過其他網站，圖片本身不會離開這台裝置。
       </div>
       <div className="form-grid si-block">
         <Field label="匯入到帳戶">

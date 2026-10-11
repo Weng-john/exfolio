@@ -160,3 +160,27 @@ describe('splitExisting', () => {
     expect(skipped).toEqual([a]);
   });
 });
+
+describe('formula injection', () => {
+  it('exports text that looks like a formula as plain text, and reads it back unchanged', () => {
+    const data = fresh();
+    const hostile = ['=HYPERLINK("http://evil.example","x")', '+1+1', '-2+3', '@SUM(A1)', '\tx'];
+    const txs = hostile.map((note, i) =>
+      tx({ id: `f${i}`, type: 'deposit', date: '2026-01-01', amount: 10, note }),
+    );
+    const csv = transactionsToCsv(txs);
+    for (const line of csv.split('\r\n').slice(1)) {
+      for (const field of parseCsvRecords(line)[0] ?? []) expect(field).not.toMatch(/^[=+\-@\t]/);
+    }
+    const back = parseTransactionsCsv(csv, data);
+    expect(back.errors).toEqual([]);
+    expect(back.transactions.map((t) => t.note)).toEqual(hostile);
+  });
+
+  it('leaves numbers alone, including negative ones', () => {
+    const csv = transactionsToCsv([
+      tx({ id: 'n', type: 'adjust', date: '2026-01-01', amount: -5 }),
+    ]);
+    expect(csv).toContain(',-5,');
+  });
+});

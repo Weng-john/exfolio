@@ -8,6 +8,7 @@ import AccountPage from './pages/Account';
 import AccountsPage from './pages/Accounts';
 import AdminPage from './pages/Admin';
 import AuthPage from './pages/auth/AuthPage';
+import UnlockPage from './pages/auth/UnlockPage';
 import CoreAllocationPage from './pages/CoreAllocation';
 import FuturesPage from './pages/Futures';
 import JournalPage from './pages/Journal';
@@ -19,6 +20,7 @@ import RiskLabPage from './pages/RiskLab';
 import SettingsPage from './pages/Settings';
 import StrategiesPage from './pages/Strategies';
 import { refreshQuotes, useAutoRefresh, useQuoteSync } from './quotes';
+import { snapshotGeneratedAt } from './staticQuotes';
 import { initStore, loadDemo, useStore, type SyncStatus } from './store';
 import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
@@ -115,7 +117,9 @@ function TopBar(props: { onSignIn: () => void }) {
       </div>
       <div className="topbar-item">
         <span className="muted" title={quotes.errors.join('\n')}>
-          報價更新：{fmtTime(quotes.lastSuccessAt)}
+          {!store.backendRemote && snapshotGeneratedAt()
+            ? `報價快照：${fmtTime(snapshotGeneratedAt())}`
+            : `報價更新：${fmtTime(quotes.lastSuccessAt)}`}
           {quotes.errors.length > 0 && `（${quotes.errors.length} 項失敗）`}
         </span>
         {!store.demo && (
@@ -169,6 +173,7 @@ export default function App() {
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
+  if (auth.phase === 'locked') return <UnlockPage />;
   if (guest && showAuth) return <AuthPage onBack={() => setShowAuth(false)} />;
 
   const isAdmin = auth.user?.role === 'admin';

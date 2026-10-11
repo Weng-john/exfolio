@@ -29,5 +29,11 @@ await writeFile(output, JSON.stringify({ generatedAt: new Date().toISOString(), 
 
 console.log(`quotes: ${quotes.length - failed.length} ok, ${failed.length} failed → ${output}`);
 for (const q of failed) console.log(`  ${q.source}:${q.symbol} — ${q.error}`);
-// A partial snapshot is still useful; only a total failure is an error.
-if (failed.length === quotes.length) process.exit(1);
+// A mostly-empty snapshot would replace a good one on the published site and
+// leave visitors with a mix of fresh and stale prices. Failing here stops
+// the deployment, so the previous snapshot stays up.
+const MIN_SUCCESS = 0.8;
+if (quotes.length - failed.length < quotes.length * MIN_SUCCESS) {
+  console.error(`quotes: fewer than ${MIN_SUCCESS * 100}% succeeded; not publishing this snapshot`);
+  process.exit(1);
+}

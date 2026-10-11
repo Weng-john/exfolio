@@ -10,6 +10,7 @@ import {
 } from '@core/index';
 import { BackendAddress } from '../../components/BackendAddress';
 import { IS_PUBLIC } from '../../edition';
+import LocalDataCard from './LocalDataCard';
 import { replaceAll, setTable, useData, useStore } from '../../store';
 import { fmtTime } from '../../format';
 import { Card, Modal } from '../../components/ui';
@@ -28,6 +29,8 @@ const TABLE_LABEL: Record<string, string> = {
   snapshots: 'NAV 快照',
   settings: '設定',
 };
+
+const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 
 function BackendCard() {
   const store = useStore();
@@ -61,6 +64,13 @@ function BackupCard() {
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setErrors([]);
+    // A real backup is far smaller: refuse before reading a file that could exhaust memory.
+    if (file.size > MAX_BACKUP_BYTES) {
+      if (fileRef.current) fileRef.current.value = '';
+      return setErrors([
+        `檔案太大（上限 ${MAX_BACKUP_BYTES / 1024 / 1024} MB），不像是 Exfolio 的備份檔`,
+      ]);
+    }
     const res = parseBackup(await file.text());
     if (fileRef.current) fileRef.current.value = '';
     if (!res.ok) return setErrors(res.errors);
@@ -171,16 +181,20 @@ function SeedCard() {
 }
 
 export default function BackendTab() {
+  const store = useStore();
   return (
     <>
       {IS_PUBLIC ? (
         <div className="notice">
-          這個網站沒有後端，也沒有帳號：你的資料只存在這個瀏覽器裡，不會傳到任何地方。
+          這個網站沒有後端，也沒有帳號：你輸入的資料存在這個瀏覽器裡，網站不會把它上傳到任何伺服器。
+          網站會連到兩個地方取得公開報價：本站的報價快照，以及 Binance（只有你有啟用 Binance
+          報價的商品時；Binance 會看到你查詢的交易對代號與你的 IP）。
           換瀏覽器、換裝置或清除網站資料前，請先匯出備份；在新的地方還原備份即可繼續使用。
         </div>
       ) : (
         <BackendCard />
       )}
+      {!store.backendRemote && <LocalDataCard />}
       <BackupCard />
       <SeedCard />
     </>

@@ -1,12 +1,15 @@
 import { useSyncExternalStore } from 'react';
 import type { ApiRequest, ApiResponse, PublicUser, ServerConfig } from '@core/api';
 import { setSession, getSession } from './backend';
+import { IS_PUBLIC } from './edition';
+import * as vault from './localVault';
 import { ensureBackend, initStore, resetBackend, setSignedOutHandler } from './store';
 
 // Who is signed in. The backend decides everything about access; this
 // module only tracks the session and offers the calls the pages need.
 
-export type AuthPhase = 'loading' | 'signedOut' | 'ready' | 'error';
+/** 'locked': this browser holds encrypted data and the passphrase has not been given. */
+export type AuthPhase = 'loading' | 'signedOut' | 'locked' | 'ready' | 'error';
 
 export interface AuthState {
   phase: AuthPhase;
@@ -68,9 +71,24 @@ function signedOut() {
 
 setSignedOutHandler(signedOut);
 
+/** Open encrypted local data with its passphrase. Returns false when it is wrong. */
+export async function unlockLocalData(passphrase: string): Promise<boolean> {
+  if (!(await vault.unlock(passphrase))) return false;
+  set({ phase: 'ready' });
+  return true;
+}
+
+/** Forget the passphrase: the data stays encrypted until it is typed again. */
+export function lockLocalData() {
+  vault.lock();
+  set({ phase: 'locked' });
+}
+
 /** Find the backend and learn whether someone is already signed in. */
 export async function initAuth(): Promise<void> {
   set({ phase: 'loading', error: undefined });
+  // The public edition has no use for a stored backend address or session.
+  if (IS_PUBLIC) vault.dropBackendLeftovers();
   try {
     const backend = await ensureBackend();
     const configRes = await backend.call({ action: 'config' });
@@ -78,7 +96,8 @@ export async function initAuth(): Promise<void> {
     const config = configRes.config!;
     set({ config, backendLabel: backend.label });
     if (!config.authRequired) {
-      set({ phase: 'ready', accountless: true });
+      const locked = !backend.remote && vault.isLocked();
+      set({ phase: locked ? 'locked' : 'ready', accountless: true });
       return;
     }
     set({ accountless: false });

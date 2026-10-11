@@ -870,10 +870,16 @@ function writeTable_(ss, name, rows, hidden) {
   sheet.setFrozenRows(1);
 }
 
+/**
+ * Text for a mirror cell. Sheets evaluates a value that starts with = + - or @
+ * as a formula even in a plain-text cell, and these values come from members
+ * (and, for a display name, from anyone who can reach the sign-up form). A
+ * leading apostrophe makes Sheets store the rest as literal text.
+ */
 function displayValue_(value) {
   if (value === undefined || value === null) return '';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+  var text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return /^[=+\-@\t\r\n]/.test(text) ? "'" + text : text;
 }
 
 // ---- Quotes ----------------------------------------------------------

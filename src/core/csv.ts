@@ -90,10 +90,27 @@ function quoteField(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
+// Spreadsheet programs run a cell that starts with one of these as a formula.
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+/**
+ * Text that would be read as a formula gets a leading apostrophe, which
+ * spreadsheets show as plain text. Numbers are never touched, so a negative
+ * amount stays a number.
+ */
+export function neutralizeFormula(value: string): string {
+  return FORMULA_START.test(value) ? `'${value}` : value;
+}
+
+/** Undo `neutralizeFormula` when the file is read back. */
+function restoreFormulaText(value: string): string {
+  return value.startsWith("'") && FORMULA_START.test(value.slice(1)) ? value.slice(1) : value;
+}
+
 /** Transactions to CSV text (ids for accounts / instruments, CRLF line breaks, no BOM). */
 export function transactionsToCsv(transactions: Transaction[]): string {
   const cell = (v: string | number | undefined): string =>
-    v === undefined ? '' : quoteField(String(v));
+    v === undefined ? '' : quoteField(typeof v === 'string' ? neutralizeFormula(v) : String(v));
   const lines = [CSV_COLUMNS.join(',')];
   for (const t of transactions) {
     lines.push(
@@ -213,7 +230,8 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     const row = r + 1;
     const rec = records[r];
     if (rec.every((f) => f.trim() === '')) continue;
-    const get = (name: string): string => (rec[col.get(name.toLowerCase()) ?? -1] ?? '').trim();
+    const get = (name: string): string =>
+      restoreFormulaText((rec[col.get(name.toLowerCase()) ?? -1] ?? '').trim());
     const errs: string[] = [];
 
     const num = (name: string): number | undefined => {

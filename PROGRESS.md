@@ -78,6 +78,11 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 - **貸款剩餘期數**：依日期計算，餘額重新攤到剩餘期數。
 - **合併指數**：是使用者自己資料上的一次性操作，不是全域設定：商品、配置目標（權重相加）、策略基準與快照的分指數曝險都改掛到保留的指數，被合併的指數移除，無法自動復原。預設資料仍把加權指數與台灣 50 分開。
 - **兩種版本**：`VITE_EXFOLIO_EDITION=public` 建置公開版（`src/web/edition.ts`）。公開版一律使用瀏覽器儲存、不連任何後端、不顯示會員與 `fullOnly` 的頁面；報價來自 `quotes.json` 快照（`scripts/fetch-quotes.mts`，只含預設商品與匯率）與瀏覽器直連 Binance。會員系統與其他頁面的程式碼保留，只是不上線。
+- **瀏覽器內的資料**：`src/web/localVault.ts`。預設明文存在 localStorage；使用者可設定密碼改存 AES-GCM 密文（PBKDF2 310,000 次，金鑰只在分頁記憶體），此時每次開啟要先解鎖（`pages/auth/UnlockPage.tsx`）。
+- **本機後端的請求來源**：`server/handler.ts` 的 `refusal()` 只接受 Host 為本機名稱（或 `EXFOLIO_ALLOWED_HOSTS`）且來源為同一網站的請求，擋掉其他網站的跨站寫入與 DNS rebinding。
+- **CSP**：建置時由 `vite.config.ts` 注入；公開版只允許本站與 Binance 公開價格，完整版另外允許 Google 登入與 HTTPS 後端。開發伺服器不套用。
+- **截圖辨識引擎**：由 `scripts/vendor-ocr.mjs` 從 node_modules 複製到 `public/vendor/ocr/`（被 git 忽略），網站自己提供，不從 CDN 載入。
+- **公式注入**：匯出的 CSV 與 GAS 寫入試算表的鏡像欄，凡以 `= + - @` 開頭的文字都加上前置單引號。
 - **會員**：每位會員一個資料檔（Node：`data/users/<id>.json`）。密碼先在瀏覽器以 PBKDF2 延展，後端再以 scrypt 加鹽雜湊；session token 只存雜湊，30 天有效。第一個帳號是管理員；之後預設需審核，可改為開放註冊。
 - **管理員檢視**：由會員自己的 `allowAdminView` 決定（預設開啟），一律唯讀並寫入稽核紀錄。`save` 永遠只寫呼叫者自己的資料。
 - **Google 登入**：不會因為名稱相同就併入既有帳號；要綁定必須先登入再綁。
@@ -90,6 +95,8 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 
 ## 已知限制
 
+- 發布前的資安覆核由另一個模型獨立進行過一次（報告不在版本庫內）。當時列出的項目中尚未處理的：GAS 的第一位管理員搶註與註冊濫用（見 `gas/README.md`）、登入節流可被用來鎖定特定帳號、備份還原只做淺層的格式驗證、公開版與同帳號其他 GitHub Pages 專案共用來源（以可選的密碼加密與說明緩解，沒有使用獨立網域）。
+
 - Risk Lab：兩種模擬皆為資訊用途，不限制操作。壓力測試是瞬間衝擊近似；生存模擬的市場路徑為線性或指定日期的單次衝擊，槓桿 ETF 以每日目標槓桿逐日複利（模型，非預測）。期貨／永續合約帳戶的現金只作保證金，不支付生活支出與還款。
 
 - GAS 後端（含會員系統）只在模擬的 Apps Script 服務上測過；`gas/README.md` 有部署後的驗證清單。密碼雜湊輪數、`getUuid()` 的隨機性、Drive 權限範圍都需要在真實環境確認。
@@ -97,7 +104,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 - 頁面互動的瀏覽器實測涵蓋：全部頁面載入、主題切換、機構表單、會員流程（註冊、審核、登入、唯讀檢視、撤回同意、登出）、歷史價格下載。CSV 匯入、備份還原、貸款與轉倉表單尚未逐一點過。
 - 期交所行情資訊網對連續請求很敏感，曾在測試中整站回應 HTTP 520；夜盤報價的選擇邏輯只有單元測試覆蓋。
 - 績效：核心被動與整體組合層級沒有基準（策略才有）；台灣期貨沒有歷史價格來源，相關期間會列為缺價。
-- Google 登入需要架設者提供 OAuth 用戶端 ID；已確認真實 Google 帳號建立為啟用中的管理員會員，綁定既有帳號與其他會員情境尚未逐項實測。
+- Google 登入需要架設者提供 OAuth 用戶端 ID；綁定既有帳號與多會員情境尚未逐項實測。
 - 對帳單匯入精靈已完成：CSV／TSV 與截圖兩種來源，欄位對應、設定檔（`importProfiles`）、逐列檢查、影響預覽、防重複。引擎在 `src/core/statementImport.ts`（表格重建在 `ocrTable.ts`），截圖辨識在 `src/web/ocr.ts`（tesseract.js，瀏覽器內執行）。瀏覽器實測涵蓋一份 CSV 與一張虛構截圖的完整五步流程；截圖辨識會看錯個別字，需人工核對。
 - 精靈目前只產生一般交易類型；`position_transfer`、`loan_accrual`、`loan_extension` 不會從對帳單自動產生，需手動新增。
 - `src/web/pages/Futures.tsx` 有多行過長、難以閱讀，功能正常但值得整理。

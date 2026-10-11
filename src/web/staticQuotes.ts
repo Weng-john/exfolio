@@ -11,11 +11,19 @@ interface Snapshot {
 
 const key = (item: QuoteRequestItem) => `${item.source}:${item.symbol}`;
 
+let snapshotAt: string | undefined;
+
+/** When the snapshot last read was generated, so its age can be shown. */
+export function snapshotGeneratedAt(): string | undefined {
+  return snapshotAt;
+}
+
 async function loadSnapshot(): Promise<Map<string, QuoteResult>> {
   try {
     const res = await fetch(`./quotes.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return new Map();
     const snapshot = (await res.json()) as Snapshot;
+    snapshotAt = snapshot.generatedAt;
     return new Map(snapshot.quotes.filter((q) => !q.error && q.price).map((q) => [key(q), q]));
   } catch {
     // No snapshot beside this page (e.g. during local development).

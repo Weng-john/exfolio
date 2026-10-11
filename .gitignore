@@ -10,12 +10,26 @@ exfolio-backup-*.json
 imports/
 statements/
 *.csv
+*.tsv
 *.xlsx
 *.xls
+*.ods
 *.pdf
+*.ofx
+*.qfx
+*.qif
+*.zip
+*.7z
+# Screenshots of statements.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.heic
 # Fictional fixtures used by tests are the only statements and spreadsheets allowed in.
 !tests/fixtures/statements/
 !tests/fixtures/**/*.csv
+!tests/fixtures/**/*.tsv
 # Private notes.
 private/
 *.private.md
@@ -37,6 +51,8 @@ gas/config.local.js
 
 # ---- Build output and tooling ---------------------------------------
 dist/
+# Copied from node_modules at build time (scripts/vendor-ocr.mjs).
+public/vendor/
 node_modules/
 *.local
 __pycache__/
