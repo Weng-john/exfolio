@@ -68,5 +68,11 @@ export default defineConfig({
     },
   },
   server: { host: '127.0.0.1', port: 5173 },
-  test: { include: ['tests/**/*.test.ts'], environment: 'node' },
+  test: {
+    include: ['tests/**/*.test.ts'],
+    environment: 'node',
+    // Password hashing and key derivation are slow on purpose, and slower
+    // still on a small CI runner: the default 5 s is not enough there.
+    testTimeout: 60_000,
+  },
 });
