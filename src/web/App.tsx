@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { initAuth, logout, stopViewing, useAuth } from './auth';
 import { Badge } from './components/ui';
+import { IS_PUBLIC } from './edition';
 import { fmtTime } from './format';
 import AccountPage from './pages/Account';
 import AccountsPage from './pages/Accounts';
@@ -24,7 +25,14 @@ import { useDailySnapshot } from './useDailySnapshot';
 
 const NAV: Array<{
   group: string;
-  items: Array<{ path: string; label: string; element: JSX.Element; adminOnly?: boolean }>;
+  items: Array<{
+    path: string;
+    label: string;
+    element: JSX.Element;
+    adminOnly?: boolean;
+    /** Not offered in the public edition. */
+    fullOnly?: boolean;
+  }>;
 }> = [
   {
     group: '總覽',
@@ -42,20 +50,20 @@ const NAV: Array<{
     items: [
       { path: '/accounts', label: 'Accounts & Positions', element: <AccountsPage /> },
       { path: '/loans', label: 'Loans & Collateral', element: <LoansPage /> },
-      { path: '/futures', label: 'Futures & Rollover', element: <FuturesPage /> },
+      { path: '/futures', label: 'Futures & Rollover', element: <FuturesPage />, fullOnly: true },
     ],
   },
   {
     group: '主動策略',
     items: [
-      { path: '/strategies', label: 'Strategy Hub', element: <StrategiesPage /> },
-      { path: '/journal', label: 'Trade Journal', element: <JournalPage /> },
+      { path: '/strategies', label: 'Strategy Hub', element: <StrategiesPage />, fullOnly: true },
+      { path: '/journal', label: 'Trade Journal', element: <JournalPage />, fullOnly: true },
     ],
   },
   {
     group: '分析',
     items: [
-      { path: '/performance', label: 'Performance', element: <PerformancePage /> },
+      { path: '/performance', label: 'Performance', element: <PerformancePage />, fullOnly: true },
       { path: '/risk', label: 'Risk Lab', element: <RiskLabPage /> },
     ],
   },
@@ -63,8 +71,14 @@ const NAV: Array<{
     group: '系統',
     items: [
       { path: '/settings', label: 'Settings', element: <SettingsPage /> },
-      { path: '/account', label: '我的帳號', element: <AccountPage /> },
-      { path: '/admin', label: '會員管理', element: <AdminPage />, adminOnly: true },
+      { path: '/account', label: '我的帳號', element: <AccountPage />, fullOnly: true },
+      {
+        path: '/admin',
+        label: '會員管理',
+        element: <AdminPage />,
+        adminOnly: true,
+        fullOnly: true,
+      },
     ],
   },
 ];
@@ -163,10 +177,11 @@ export default function App() {
     items: g.items.filter(
       (item) =>
         (!item.adminOnly || isAdmin) &&
+        !(IS_PUBLIC && item.fullOnly) &&
         !(auth.accountless && item.path === '/admin') &&
         !(guest && item.path === '/account'),
     ),
-  }));
+  })).filter((g) => g.items.length > 0);
 
   return (
     <HashRouter>

@@ -14,13 +14,15 @@
     "check:privacy": "node scripts/check-privacy.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts"
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
+    "quotes:snapshot": "tsx scripts/fetch-quotes.mts",
+    "build:public": "tsc --noEmit && VITE_EXFOLIO_EDITION=public vite build && tsx scripts/fetch-quotes.mts dist/quotes.json"
   },
   "dependencies": {
     "@fontsource/noto-sans-tc": "^5.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
+    "react-router-dom": "^7.18.4",
     "recharts": "^2.12.7",
     "tesseract.js": "^7.0.0"
   },
@@ -28,11 +30,11 @@
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.2",
+    "@vitejs/plugin-react": "^6.1.2",
     "prettier": "^3.9.9",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
-    "vite": "^5.4.8",
-    "vitest": "^2.1.2"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
   }
 }

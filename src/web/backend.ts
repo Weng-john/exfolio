@@ -1,4 +1,6 @@
-import type { ApiRequest, ApiResponse, QuoteResult } from '@core/api';
+import type { ApiRequest, ApiResponse } from '@core/api';
+import { IS_PUBLIC } from './edition';
+import { staticQuotes } from './staticQuotes';
 
 // Where data is stored. Connection settings stay in this browser's
 // localStorage: they are never part of the built site or the repository.
@@ -94,13 +96,8 @@ function browserBackend(): Backend {
           localStorage.setItem(DATA_KEY, JSON.stringify(next));
           return { ok: true, revision: next.revision };
         }
-        case 'quotes': {
-          const quotes: QuoteResult[] = request.items.map((item) => ({
-            ...item,
-            error: '無後端模式無法取得線上報價',
-          }));
-          return { ok: true, quotes };
-        }
+        case 'quotes':
+          return { ok: true, quotes: await staticQuotes(request.items) };
         case 'history':
           return { ok: false, error: '無後端模式無法取得歷史價格' };
         case 'config':
@@ -117,7 +114,8 @@ function browserBackend(): Backend {
 
 /** Pick the backend: the configured one, or the first that answers a ping. */
 export async function connectBackend(config = loadBackendConfig()): Promise<Backend> {
-  if (config.mode === 'browser') return browserBackend();
+  // The public edition never talks to a backend, whatever was configured.
+  if (IS_PUBLIC || config.mode === 'browser') return browserBackend();
   const remote = remoteBackend(config);
   if (config.mode === 'remote') return remote;
   try {

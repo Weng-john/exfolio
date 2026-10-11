@@ -9,6 +9,7 @@ import {
   type AppData,
 } from '@core/index';
 import { BackendAddress } from '../../components/BackendAddress';
+import { IS_PUBLIC } from '../../edition';
 import { replaceAll, setTable, useData, useStore } from '../../store';
 import { fmtTime } from '../../format';
 import { Card, Modal } from '../../components/ui';
@@ -172,7 +173,14 @@ function SeedCard() {
 export default function BackendTab() {
   return (
     <>
-      <BackendCard />
+      {IS_PUBLIC ? (
+        <div className="notice">
+          這個網站沒有後端，也沒有帳號：你的資料只存在這個瀏覽器裡，不會傳到任何地方。
+          換瀏覽器、換裝置或清除網站資料前，請先匯出備份；在新的地方還原備份即可繼續使用。
+        </div>
+      ) : (
+        <BackendCard />
+      )}
       <BackupCard />
       <SeedCard />
     </>

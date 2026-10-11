@@ -21,6 +21,23 @@ npm run serve          # 以 Node 提供 dist/ 與 API：http://127.0.0.1:8787
 npm run check:privacy  # 檢查版本庫內沒有個人資料或金鑰
 ```
 
+## 兩種版本
+
+| | 公開版 | 完整版 |
+|---|---|---|
+| 用途 | 放在 GitHub Pages 的靜態網站 | 在自己的機器上搭配後端使用 |
+| 後端與帳號 | 沒有 | Node 或 GAS 後端，會員登入 |
+| 資料存放 | 只在使用者自己的瀏覽器 | 後端 |
+| 頁面 | Overview、Core Allocation、New Money Allocator、Accounts & Positions、Loans & Collateral、Risk Lab、Settings | 全部 |
+| 報價 | 定時產生的公開報價快照；Binance 由瀏覽器直接查詢 | 後端代理，每 30 秒更新 |
+| 建置 | `npm run build:public` | `npm run build` |
+
+公開版聚焦在三件事：計算目前的配置、評估風險、計算新資金怎麼投入。會員系統、策略、績效、期貨轉倉與交易所同步的程式碼都還在，只是公開版不提供。
+
+公開版由 `.github/workflows/pages.yml` 建置與發布：推送到 `main` 時、以及每 30 分鐘（更新報價快照）各執行一次。要啟用網站，到儲存庫的 Settings → Pages，把來源設為 GitHub Actions。
+
+公開版沒有帳號，資料會留在瀏覽器裡，下次開啟仍在。要搬到另一個瀏覽器或裝置，用 Settings → 後端與資料的匯出備份與還原。
+
 ## 架構
 
 ```

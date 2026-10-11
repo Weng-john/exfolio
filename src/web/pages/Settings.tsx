@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PageHeader } from '../components/ui';
+import { IS_PUBLIC } from '../edition';
 import InstrumentsTab from './settings/InstrumentsTab';
 import IndicesTab from './settings/IndicesTab';
 import QuotesTab from './settings/QuotesTab';
@@ -8,17 +9,20 @@ import BackendTab from './settings/BackendTab';
 import ExchangeTab from './settings/ExchangeTab';
 import './settings/settings.css';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'instruments', label: '商品登錄', Body: InstrumentsTab },
   { id: 'indices', label: '標的指數', Body: IndicesTab },
   { id: 'quotes', label: '報價與匯率', Body: QuotesTab },
   { id: 'alerts', label: '提醒門檻', Body: AlertsTab },
-  { id: 'exchange', label: '交易所同步', Body: ExchangeTab },
+  { id: 'exchange', label: '交易所同步', Body: ExchangeTab, needsBackend: true },
   { id: 'backend', label: '後端與資料', Body: BackendTab },
 ] as const;
 
+// Exchange sync keeps API keys on a backend, which the public edition does not have.
+const TABS = ALL_TABS.filter((t) => !(IS_PUBLIC && 'needsBackend' in t));
+
 export default function SettingsPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('instruments');
+  const [tab, setTab] = useState<(typeof ALL_TABS)[number]['id']>('instruments');
   const Body = TABS.find((t) => t.id === tab)!.Body;
   return (
     <>

@@ -12,6 +12,7 @@ import {
 import {
   buildNotifications,
   CORE_BUCKET,
+  demoData,
   leverageHistory,
   portfolioAlerts,
   today,
@@ -19,7 +20,7 @@ import {
 } from '@core/index';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
-import { useData } from '../store';
+import { replaceAll, useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { FundingNotice } from '../components/FundingEvidence';
 
@@ -62,7 +63,9 @@ export default function OverviewPage() {
       {empty && (
         <div className="notice">
           還沒有任何資料。先到 <Link to="/accounts">Accounts & Positions</Link> 記錄入金與交易，
-          或到 <Link to="/settings">Settings</Link> 還原備份。
+          或到 <Link to="/settings">Settings</Link> 還原備份。想先看看功能，可以{' '}
+          <button onClick={() => replaceAll(demoData())}>載入虛構的示範資料</button>
+          （之後可在 Settings 還原備份或清除）。
         </div>
       )}
 
