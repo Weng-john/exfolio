@@ -78,13 +78,10 @@ function browserBackend(): Backend {
         case 'load':
           return { ok: true, ...(await vault.read()) };
         case 'save': {
-          const store = await vault.read();
-          const next = {
-            revision: store.revision + 1,
-            tables: { ...store.tables, ...request.tables },
-          };
-          await vault.write(next);
-          return { ok: true, revision: next.revision };
+          const result = await vault.save(request.tables, request.baseRevision);
+          return result.ok
+            ? { ok: true, revision: result.revision }
+            : { ok: false, error: 'conflict', revision: result.revision };
         }
         case 'quotes':
           return { ok: true, quotes: await staticQuotes(request.items) };

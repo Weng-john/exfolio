@@ -23,7 +23,8 @@ for (const instrument of SEED_INSTRUMENTS) {
 for (const [, , source, symbol] of SEED_FX_PAIRS) items.set(`${source}:${symbol}`, { source, symbol });
 
 const quotes = await fetchQuotes([...items.values()]);
-const failed = quotes.filter((q) => q.error);
+// Anything without a finite positive price counts as a failure, whatever the source said.
+const failed = quotes.filter((q) => q.error || !Number.isFinite(q.price) || !(q.price! > 0));
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, JSON.stringify({ generatedAt: new Date().toISOString(), quotes }, null, 1));
 

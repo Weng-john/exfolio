@@ -62,3 +62,17 @@ describe('requests the browser itself labels as cross-site', () => {
     expect(refusal({ host: '127.0.0.1:5173', 'sec-fetch-site': 'none' })).toBe('');
   });
 });
+
+describe('origins that are not web pages of this server', () => {
+  it('are refused even when the host matches', () => {
+    expect(refusal({ host: '127.0.0.1:5173', origin: 'file://127.0.0.1:5173' })).toBe(
+      'Origin not allowed',
+    );
+    expect(refusal({ host: '127.0.0.1:5173', origin: 'chrome-extension://127.0.0.1:5173' })).toBe(
+      'Origin not allowed',
+    );
+    expect(refusal({ host: 'LOCALHOST:8787', origin: 'http://localhost:8787' })).toBe('');
+    expect(refusal({ host: 'localhost.:8787' })).toBe('Host not allowed');
+    expect(refusal({ host: '0.0.0.0:8787' })).toBe('Host not allowed');
+  });
+});

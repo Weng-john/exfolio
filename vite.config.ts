@@ -24,7 +24,8 @@ function contentSecurityPolicy(): Plugin {
     // WebAssembly is the text-recognition engine; Google's script is the
     // sign-in button, which only the full edition can show.
     `script-src 'self' 'wasm-unsafe-eval'${isPublic ? '' : ' https://accounts.google.com'}`,
-    "worker-src 'self'",
+    // The text-recognition worker starts from a blob so that it inherits this policy.
+    "worker-src 'self' blob:",
     // React and the charts set inline style attributes.
     `style-src 'self' 'unsafe-inline'${isPublic ? '' : ' https://accounts.google.com'}`,
     "img-src 'self' blob: data:",

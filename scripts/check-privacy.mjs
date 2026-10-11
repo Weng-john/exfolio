@@ -33,7 +33,7 @@ const FORBIDDEN_PATHS = [
 const DATA_LIKE = /\.(csv|tsv|png|jpe?g|webp|bmp|gif|heic|tiff?)$/i;
 const ALLOWED_DATA = /^tests\/fixtures\//;
 const TEXT =
-  /\.(ts|tsx|mts|mjs|js|json|md|css|html|gs|yml|yaml|csv|tsv|txt|example)$|(^|\/)\.[a-z]+(rc|ignore)(\.json)?$|^\.githooks\//i;
+  /\.(ts|tsx|mts|mjs|js|json|md|css|html|gs|yml|yaml|csv|tsv|txt|svg|example)$|(^|\/)\.[a-z]+(rc|ignore)(\.json)?$|^\.githooks\//i;
 
 // Content that should never appear in tracked text.
 const CONTENT_RULES = [
@@ -45,11 +45,12 @@ const CONTENT_RULES = [
   [/(^|[^\d])09\d{2}[- ]?\d{3}[- ]?\d{3}([^\d]|$)/, '疑似手機號碼'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, '私鑰'],
   [
-    /\b(AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{24,})\b/,
+    /\b((AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{24,})\b/,
     '雲端服務金鑰',
   ],
   [
-    /\b(api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?token|password)\b\s*[:=]\s*['"][A-Za-z0-9+/_=-]{16,}['"]/i,
+    // Also the quoted-name form used in JSON: "api_key": "...".
+    /\b(api[_-]?key|api[_-]?secret|secret[_-]?key|client[_-]?secret|access[_-]?token|password)\b["']?\s*[:=]\s*['"][A-Za-z0-9+/_=.-]{16,}['"]/i,
     '疑似寫死的金鑰',
   ],
   [/\b[A-Za-z0-9._%+-]+@(gmail|yahoo|hotmail|outlook|icloud)\.[a-z.]+\b/i, '個人電子郵件'],
@@ -67,7 +68,7 @@ function checkPath(file, where) {
   if (DATA_LIKE.test(file) && !ALLOWED_DATA.test(file)) {
     findings.add(`${where}${file}: 表格與圖片只允許放在 tests/fixtures/（虛構資料）`);
   }
-  if (!TEXT.test(file) && !DATA_LIKE.test(file) && !/\.(woff2?|ttf|ico|svg)$/i.test(file)) {
+  if (!TEXT.test(file) && !DATA_LIKE.test(file) && !/\.(woff2?|ttf|ico)$/i.test(file)) {
     findings.add(`${where}${file}: 未列入允許清單的檔案類型`);
   }
 }
@@ -98,6 +99,10 @@ const PERSONAL_EMAIL = /@(gmail|yahoo|hotmail|outlook|icloud)\./i;
 let scanned = 0;
 
 if (history) {
+  // Every path a file has ever had, so one moved out of a forbidden place still counts.
+  for (const file of new Set(lines(git('log', '--all', '--name-only', '--format=')))) {
+    checkPath(file, '[歷史路徑] ');
+  }
   // Every blob ever committed: deleting a file later does not unpublish it.
   const seen = new Set();
   for (const line of lines(git('rev-list', '--all', '--objects'))) {

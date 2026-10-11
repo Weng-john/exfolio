@@ -90,21 +90,31 @@ function quoteField(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
-// Spreadsheet programs run a cell that starts with one of these as a formula.
-const FORMULA_START = /^[=+\-@\t\r]/;
+// Spreadsheet programs run a cell as a formula when it starts with = + - @
+// (ASCII or full-width), possibly after spaces, or with a tab / line break.
+const FORMULA_LIKE = /^(?:[\t\r\n]|[\s\u3000\ufeff]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20])/;
+
+/** True when a leading apostrophe on `value` is one this module added. */
+function isEscaped(value: string): boolean {
+  if (!value.startsWith("'")) return false;
+  const rest = value.slice(1);
+  return FORMULA_LIKE.test(rest) || rest.startsWith("'");
+}
 
 /**
  * Text that would be read as a formula gets a leading apostrophe, which
- * spreadsheets show as plain text. Numbers are never touched, so a negative
- * amount stays a number.
+ * spreadsheets show as plain text. So does text that already looks escaped,
+ * so reading the file back is unambiguous: exactly the apostrophes added
+ * here are removed, and one the user typed is kept. Numbers are never
+ * touched, so a negative amount stays a number.
  */
 export function neutralizeFormula(value: string): string {
-  return FORMULA_START.test(value) ? `'${value}` : value;
+  return FORMULA_LIKE.test(value) || isEscaped(value) ? `'${value}` : value;
 }
 
 /** Undo `neutralizeFormula` when the file is read back. */
-function restoreFormulaText(value: string): string {
-  return value.startsWith("'") && FORMULA_START.test(value.slice(1)) ? value.slice(1) : value;
+export function restoreFormulaText(value: string): string {
+  return isEscaped(value) ? value.slice(1) : value;
 }
 
 /** Transactions to CSV text (ids for accounts / instruments, CRLF line breaks, no BOM). */

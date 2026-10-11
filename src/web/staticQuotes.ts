@@ -18,13 +18,25 @@ export function snapshotGeneratedAt(): string | undefined {
   return snapshotAt;
 }
 
+/** A quote worth showing: a finite positive price with a time attached. */
+function usable(q: QuoteResult): boolean {
+  return (
+    !q.error &&
+    typeof q.price === 'number' &&
+    Number.isFinite(q.price) &&
+    q.price > 0 &&
+    typeof q.asOf === 'string' &&
+    !Number.isNaN(Date.parse(q.asOf))
+  );
+}
+
 async function loadSnapshot(): Promise<Map<string, QuoteResult>> {
   try {
     const res = await fetch(`./quotes.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return new Map();
     const snapshot = (await res.json()) as Snapshot;
     snapshotAt = snapshot.generatedAt;
-    return new Map(snapshot.quotes.filter((q) => !q.error && q.price).map((q) => [key(q), q]));
+    return new Map(snapshot.quotes.filter(usable).map((q) => [key(q), q]));
   } catch {
     // No snapshot beside this page (e.g. during local development).
     return new Map();
@@ -38,7 +50,7 @@ async function binance(symbol: string): Promise<QuoteResult> {
       `https://data-api.binance.vision/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`,
     );
     const price = Number((await res.json())?.price);
-    if (!(price > 0)) throw new Error('沒有價格');
+    if (!Number.isFinite(price) || !(price > 0)) throw new Error('沒有價格');
     return { ...item, price, asOf: new Date().toISOString(), status: 'realtime' };
   } catch (err) {
     return { ...item, error: err instanceof Error ? err.message : String(err) };

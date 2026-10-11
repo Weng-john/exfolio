@@ -36,7 +36,7 @@ npm run check:privacy  # 檢查版本庫內沒有個人資料或金鑰
 
 公開版由 `.github/workflows/pages.yml` 建置與發布：推送到 `main` 時、以及每 30 分鐘（更新報價快照）各執行一次。要啟用網站，到儲存庫的 Settings → Pages，把來源設為 GitHub Actions。
 
-公開版沒有帳號，資料會留在瀏覽器裡，下次開啟仍在。要搬到另一個瀏覽器或裝置，用 Settings → 後端與資料的匯出備份與還原。同一個地方可以用密碼加密存在瀏覽器裡的資料；風險說明見 [docs/PRIVACY.md](docs/PRIVACY.md)。
+公開版沒有帳號，資料以你設定的密碼加密後存在瀏覽器裡：第一次使用先設定密碼，之後每次開啟輸入密碼即可，不必重新輸入資料。沒設定密碼時只能用虛構資料預覽。要搬到另一個瀏覽器或裝置，用 Settings → 後端與資料的匯出備份與還原。加密保護什麼、保護不了什麼，見 [docs/PRIVACY.md](docs/PRIVACY.md)。
 
 本機後端只回應來自本機網址的請求（`localhost`、`127.0.0.1`），其他網站的網頁無法呼叫它。要用別的主機名稱連線，設定 `EXFOLIO_ALLOWED_HOSTS`（見 `.env.example`）。
 

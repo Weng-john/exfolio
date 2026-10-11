@@ -185,16 +185,31 @@ function scheduleSave() {
   timer = setTimeout(() => void flush(), 500);
 }
 
-/** Write pending changes now. */
-export async function flush(): Promise<void> {
+let saving: Promise<boolean> | undefined;
+
+/**
+ * Write pending changes now. Resolves to true only when nothing is left
+ * unsaved: a caller about to discard the in-memory copy (locking, signing
+ * out, reloading) must not go ahead on false.
+ */
+export async function flush(): Promise<boolean> {
   clearTimeout(timer);
-  if (!backend || !dirty.size || state.readOnly || state.demo) return;
+  // A save already under way has taken its tables off the dirty list: wait
+  // for it rather than reporting "nothing to save" while it is still running.
+  while (saving) await saving;
+  if (!backend || state.readOnly || state.demo) return true;
+  if (!dirty.size) return state.status !== 'error' && state.status !== 'conflict';
+  saving = writeDirty().finally(() => (saving = undefined));
+  return saving;
+}
+
+async function writeDirty(): Promise<boolean> {
   const names = [...dirty];
   dirty.clear();
   const tables = Object.fromEntries(names.map((n) => [n, state.data[n]])) as Partial<AppData>;
   set({ status: 'saving' });
   try {
-    const res = await backend.call({ action: 'save', tables, baseRevision: revision });
+    const res = await backend!.call({ action: 'save', tables, baseRevision: revision });
     if (!res.ok) {
       names.forEach((n) => dirty.add(n));
       if (res.error === 'unauthenticated') onSignedOut?.();
@@ -203,15 +218,32 @@ export async function flush(): Promise<void> {
           ? { status: 'conflict', error: '資料已在別處被修改，請重新載入後再編輯' }
           : { status: 'error', error: res.error },
       );
-      return;
+      return false;
     }
     revision = res.revision ?? revision + 1;
     set({ status: 'ready', error: undefined, lastSavedAt: new Date().toISOString() });
     if (dirty.size) scheduleSave();
+    return dirty.size === 0;
   } catch (err) {
     names.forEach((n) => dirty.add(n));
     set({ status: 'error', error: message(err) });
+    return false;
   }
+}
+
+/** Another tab changed the stored data: stop saving over it until reloaded. */
+export function markChangedElsewhere() {
+  if (state.status === 'loading' || state.demo) return;
+  clearTimeout(timer);
+  set({ status: 'conflict', error: '資料已在另一個分頁變更，請重新載入' });
+}
+
+/** Drop the in-memory dataset, e.g. when the local vault is locked. */
+export function clearData() {
+  clearTimeout(timer);
+  dirty.clear();
+  revision = 0;
+  set({ data: emptyData(), status: 'loading', error: undefined, demo: false, readOnly: false });
 }
 
 /** Replace a whole table. */

@@ -3,13 +3,25 @@ import type { ApiRequest, ApiResponse, PublicUser, ServerConfig } from '@core/ap
 import { setSession, getSession } from './backend';
 import { IS_PUBLIC } from './edition';
 import * as vault from './localVault';
-import { ensureBackend, initStore, resetBackend, setSignedOutHandler } from './store';
+import {
+  clearData,
+  ensureBackend,
+  flush,
+  initStore,
+  resetBackend,
+  setSignedOutHandler,
+} from './store';
 
 // Who is signed in. The backend decides everything about access; this
 // module only tracks the session and offers the calls the pages need.
 
-/** 'locked': this browser holds encrypted data and the passphrase has not been given. */
-export type AuthPhase = 'loading' | 'signedOut' | 'locked' | 'ready' | 'error';
+/**
+ * 'locked': this browser holds encrypted data and the passphrase has not been given.
+ * 'setup': the public edition before a passphrase exists.
+ * 'preview': the public edition showing fictional data, with nothing stored.
+ */
+export type AuthPhase =
+  'loading' | 'signedOut' | 'locked' | 'setup' | 'preview' | 'ready' | 'error';
 
 export interface AuthState {
   phase: AuthPhase;
@@ -71,6 +83,31 @@ function signedOut() {
 
 setSignedOutHandler(signedOut);
 
+/** Where an accountless visitor starts, given what this browser holds. */
+function localPhase(remote: boolean): AuthPhase {
+  if (remote) return 'ready';
+  if (vault.isLocked()) return 'locked';
+  // The public edition keeps real data only in encrypted form.
+  if (IS_PUBLIC && !vault.isEncrypted()) return 'setup';
+  return 'ready';
+}
+
+/** Public edition: set the passphrase, encrypting whatever is already stored. */
+export async function protectLocalData(passphrase: string): Promise<void> {
+  await vault.enableEncryption(passphrase);
+  set({ phase: 'ready' });
+}
+
+/** Public edition: look around with fictional data; nothing is stored. */
+export function startPreview() {
+  set({ phase: 'preview' });
+}
+
+/** Leave the preview and go back to where this browser's own data begins. */
+export function endPreview() {
+  set({ phase: localPhase(false) });
+}
+
 /** Open encrypted local data with its passphrase. Returns false when it is wrong. */
 export async function unlockLocalData(passphrase: string): Promise<boolean> {
   if (!(await vault.unlock(passphrase))) return false;
@@ -78,10 +115,16 @@ export async function unlockLocalData(passphrase: string): Promise<boolean> {
   return true;
 }
 
-/** Forget the passphrase: the data stays encrypted until it is typed again. */
-export function lockLocalData() {
-  vault.lock();
+/**
+ * Forget the passphrase and the decrypted copy. Refuses, returning false,
+ * when changes could not be saved first: locking would lose them.
+ */
+export async function lockLocalData(): Promise<boolean> {
+  if (!(await flush())) return false;
+  await vault.lock();
+  clearData();
   set({ phase: 'locked' });
+  return true;
 }
 
 /** Find the backend and learn whether someone is already signed in. */
@@ -96,8 +139,7 @@ export async function initAuth(): Promise<void> {
     const config = configRes.config!;
     set({ config, backendLabel: backend.label });
     if (!config.authRequired) {
-      const locked = !backend.remote && vault.isLocked();
-      set({ phase: locked ? 'locked' : 'ready', accountless: true });
+      set({ phase: localPhase(backend.remote), accountless: true });
       return;
     }
     set({ accountless: false });

@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
-import { handleApi } from './handler';
+import { handleApi, hostAllowed } from './handler';
 
 // Standalone local backend: the API plus the built frontend from dist/.
 // Binds to loopback only; it has no authentication of its own.
@@ -20,6 +20,13 @@ const MIME: Record<string, string> = {
 };
 
 createServer((req, res) => {
+  // The app itself is not secret, but answering only to this machine's names
+  // keeps a hostile domain pointed here from getting a foothold at all.
+  if (!hostAllowed(req.headers.host)) {
+    res.statusCode = 403;
+    res.end('Host not allowed');
+    return;
+  }
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
     void handleApi(req, res);

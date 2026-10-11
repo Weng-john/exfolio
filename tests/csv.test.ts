@@ -6,6 +6,8 @@ import {
   splitExisting,
   transactionsToCsv,
   type Transaction,
+  neutralizeFormula,
+  restoreFormulaText,
 } from '@core/index';
 import { fresh, tx } from './helpers';
 
@@ -182,5 +184,55 @@ describe('formula injection', () => {
       tx({ id: 'n', type: 'adjust', date: '2026-01-01', amount: -5 }),
     ]);
     expect(csv).toContain(',-5,');
+  });
+});
+
+describe('formula escaping is complete and reversible', () => {
+  const roundTrip = (note: string) => {
+    const data = fresh();
+    const csv = transactionsToCsv([
+      tx({ id: 'r', type: 'deposit', date: '2026-01-01', amount: 1, note }),
+    ]);
+    return { csv, note: parseTransactionsCsv(csv, data).transactions[0].note };
+  };
+
+  it('neutralises formulas hidden behind spaces, line breaks and full-width signs', () => {
+    for (const hostile of [
+      ' =1+1',
+      '\u3000=1+1',
+      '\n=1+1',
+      '\uFF1D1+1',
+      '\uFF0B1',
+      '\uFF0D1',
+      '\uFF201',
+      '\r=1',
+    ]) {
+      expect(neutralizeFormula(hostile)).toBe(`'${hostile}`);
+    }
+    for (const harmless of ['a=1', '1+1', 'x @ y', '示範', '']) {
+      expect(neutralizeFormula(harmless)).toBe(harmless);
+    }
+  });
+
+  it('keeps an apostrophe the user typed', () => {
+    for (const note of ["'=1+1", "'+x", "'-x", "'@x", "'abc", "''x", "' =1", "it's", "'"]) {
+      expect(roundTrip(note).note).toBe(note);
+    }
+  });
+
+  it('never exports a cell that starts like a formula', () => {
+    for (const note of ['=1+1', "'=1+1", "''=1", '+1', '@x']) {
+      const cell = parseCsvRecords(roundTrip(note).csv)[1].at(-2)!;
+      expect(cell).not.toMatch(/^\s*[=+\-@]/);
+    }
+  });
+
+  it('restores exactly what was escaped, however often it goes round', () => {
+    let note = '=1+1';
+    for (let i = 0; i < 3; i++) note = roundTrip(note).note!;
+    expect(note).toBe('=1+1');
+    expect(restoreFormulaText("'abc")).toBe("'abc");
+    expect(restoreFormulaText("'=x")).toBe('=x');
+    expect(restoreFormulaText("''x")).toBe("'x");
   });
 });

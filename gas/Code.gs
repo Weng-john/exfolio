@@ -854,10 +854,13 @@ function writeTable_(ss, name, rows, hidden) {
   var keys = [];
   rows.forEach(function (row) {
     Object.keys(row).forEach(function (key) {
+      // A field named like the JSON column would be mistaken for it when read back.
+      if (key === JSON_COLUMN) return;
       if (keys.indexOf(key) < 0 && (!hidden || hidden.indexOf(key) < 0)) keys.push(key);
     });
   });
-  var header = keys.concat([JSON_COLUMN]);
+  // Field names come from members' rows too, so the header is escaped like any other cell.
+  var header = keys.map(displayValue_).concat([JSON_COLUMN]);
   var values = [header].concat(rows.map(function (row) {
     return keys.map(function (key) { return displayValue_(row[key]); })
       .concat([JSON.stringify(row)]);
@@ -879,8 +882,11 @@ function writeTable_(ss, name, rows, hidden) {
 function displayValue_(value) {
   if (value === undefined || value === null) return '';
   var text = typeof value === 'object' ? JSON.stringify(value) : String(value);
-  return /^[=+\-@\t\r\n]/.test(text) ? "'" + text : text;
+  return FORMULA_LIKE_.test(text) ? "'" + text : text;
 }
+
+// = + - @ in ASCII or full width, possibly after spaces, or a leading tab / line break.
+var FORMULA_LIKE_ = /^(?:[\t\r\n]|[\s\u3000\ufeff]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20])/;
 
 // ---- Quotes ----------------------------------------------------------
 // Free public endpoints, not licensed market data: prices may be delayed

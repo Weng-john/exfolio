@@ -72,3 +72,25 @@ describe('staticQuotes', () => {
     expect(calls.every((url) => url.startsWith('./quotes.json'))).toBe(true);
   });
 });
+
+describe('values the snapshot is not trusted on', () => {
+  it('drops prices that are not finite positive numbers, or have no readable time', async () => {
+    const bad = [
+      { source: 'yahoo', symbol: 'NEG', price: -1, asOf: '2026-01-05T00:00:00.000Z' },
+      { source: 'yahoo', symbol: 'STR', price: '100', asOf: '2026-01-05T00:00:00.000Z' },
+      { source: 'yahoo', symbol: 'INF', price: 1e999, asOf: '2026-01-05T00:00:00.000Z' },
+      { source: 'yahoo', symbol: 'NOTIME', price: 5 },
+      { source: 'yahoo', symbol: 'BADTIME', price: 5, asOf: 'yesterday' },
+    ];
+    mockFetch({ snapshot: { generatedAt: '2026-01-05T00:00:00.000Z', quotes: bad } });
+    const quotes = await staticQuotes(
+      bad.map(({ source, symbol }) => ({ source: source as 'yahoo', symbol })),
+    );
+    expect(quotes.every((q) => q.error && q.price === undefined)).toBe(true);
+  });
+
+  it('refuses a non-finite live price', async () => {
+    mockFetch({ snapshot: undefined, binance: { price: 'Infinity' } });
+    expect((await staticQuotes([{ source: 'binance', symbol: 'BTCUSDT' }]))[0].error).toBeTruthy();
+  });
+});

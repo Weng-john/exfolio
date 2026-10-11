@@ -24,8 +24,7 @@ export default function UnlockPage() {
 
   const erase = () => {
     if (!window.confirm('清除這個瀏覽器中的全部 Exfolio 資料？沒有備份就無法復原。')) return;
-    eraseEverything();
-    void initAuth();
+    void eraseEverything().then(initAuth);
   };
 
   return (

@@ -152,9 +152,13 @@ const hostName = (host: string) => host.toLowerCase().replace(/:\d+$/, '');
  * 127.0.0.1 fails here), and a request sent by a page must come from a page
  * this server itself served.
  */
+export function hostAllowed(host: string | undefined): boolean {
+  return Boolean(host) && allowedHosts().includes(hostName(host!));
+}
+
 export function refusal(headers: IncomingMessage['headers']): string {
   const host = headers.host;
-  if (!host || !allowedHosts().includes(hostName(host))) return 'Host not allowed';
+  if (!host || !hostAllowed(host)) return 'Host not allowed';
   // Browsers label every request with where it came from; a page on another
   // site is refused even if it manages to omit an Origin.
   const site = headers['sec-fetch-site'];
@@ -164,7 +168,9 @@ export function refusal(headers: IncomingMessage['headers']): string {
   const origin = headers.origin;
   if (!origin) return '';
   try {
-    return new URL(origin).host.toLowerCase() === host.toLowerCase() ? '' : 'Origin not allowed';
+    const from = new URL(origin);
+    const web = from.protocol === 'http:' || from.protocol === 'https:';
+    return web && from.host.toLowerCase() === host.toLowerCase() ? '' : 'Origin not allowed';
   } catch {
     return 'Origin not allowed';
   }

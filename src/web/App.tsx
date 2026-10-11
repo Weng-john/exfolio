@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
-import { initAuth, logout, stopViewing, useAuth } from './auth';
+import { endPreview, initAuth, lockLocalData, logout, stopViewing, useAuth } from './auth';
 import { Badge } from './components/ui';
 import { IS_PUBLIC } from './edition';
 import { fmtTime } from './format';
@@ -8,6 +8,7 @@ import AccountPage from './pages/Account';
 import AccountsPage from './pages/Accounts';
 import AdminPage from './pages/Admin';
 import AuthPage from './pages/auth/AuthPage';
+import SetupPage from './pages/auth/SetupPage';
 import UnlockPage from './pages/auth/UnlockPage';
 import CoreAllocationPage from './pages/CoreAllocation';
 import FuturesPage from './pages/Futures';
@@ -21,7 +22,8 @@ import SettingsPage from './pages/Settings';
 import StrategiesPage from './pages/Strategies';
 import { refreshQuotes, useAutoRefresh, useQuoteSync } from './quotes';
 import { snapshotGeneratedAt } from './staticQuotes';
-import { initStore, loadDemo, useStore, type SyncStatus } from './store';
+import { isEncrypted, onExternalChange } from './localVault';
+import { initStore, loadDemo, markChangedElsewhere, useStore, type SyncStatus } from './store';
 import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
 
@@ -138,12 +140,39 @@ function TopBar(props: { onSignIn: () => void }) {
         )}
         {auth.phase !== 'ready' && (
           <button className="primary" onClick={props.onSignIn}>
-            登入 / 註冊
+            {IS_PUBLIC ? '開始使用' : '登入 / 註冊'}
           </button>
         )}
       </div>
     </div>
   );
+}
+
+const IDLE_LOCK_MS = 20 * 60_000;
+
+/**
+ * For data kept in this browser: stop saving when another tab changes it,
+ * and lock an encrypted vault after a stretch with no activity.
+ */
+function useLocalVaultGuards(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const stopWatching = onExternalChange(markChangedElsewhere);
+    if (!isEncrypted()) return stopWatching;
+    let idle: ReturnType<typeof setTimeout>;
+    const restart = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => void lockLocalData(), IDLE_LOCK_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'scroll'] as const;
+    events.forEach((name) => window.addEventListener(name, restart, { passive: true }));
+    restart();
+    return () => {
+      stopWatching();
+      clearTimeout(idle);
+      events.forEach((name) => window.removeEventListener(name, restart));
+    };
+  }, [active]);
 }
 
 export default function App() {
@@ -152,7 +181,7 @@ export default function App() {
   const signedIn = auth.phase === 'ready';
   // A visitor who is not signed in explores a fictional portfolio instead
   // of facing a sign-in wall; the sign-in page opens on request.
-  const guest = auth.phase === 'signedOut' || auth.phase === 'error';
+  const guest = auth.phase === 'signedOut' || auth.phase === 'error' || auth.phase === 'preview';
   const [showAuth, setShowAuth] = useState(false);
   useEffect(() => {
     void initAuth();
@@ -170,11 +199,13 @@ export default function App() {
   useAutoRefresh(
     signedIn && !store.demo && store.status !== 'loading' && store.backendLabel !== '',
   );
+  useLocalVaultGuards(signedIn && auth.accountless && !store.backendRemote);
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
   if (auth.phase === 'locked') return <UnlockPage />;
-  if (guest && showAuth) return <AuthPage onBack={() => setShowAuth(false)} />;
+  if (auth.phase === 'setup') return <SetupPage />;
+  if (guest && showAuth && !IS_PUBLIC) return <AuthPage onBack={() => setShowAuth(false)} />;
 
   const isAdmin = auth.user?.role === 'admin';
   const visible = NAV.map((g) => ({
@@ -205,14 +236,17 @@ export default function App() {
           ))}
         </nav>
         <div className="main">
-          <TopBar onSignIn={() => setShowAuth(true)} />
+          <TopBar onSignIn={IS_PUBLIC ? endPreview : () => setShowAuth(true)} />
           {guest && (
             <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
               預覽模式：以下是<strong>虛構的示範資料</strong>，可以自由操作，但不會儲存。{' '}
-              <button className="primary" onClick={() => setShowAuth(true)}>
-                登入 / 註冊
-              </button>{' '}
-              後使用自己的資料。
+              <button
+                className="primary"
+                onClick={IS_PUBLIC ? endPreview : () => setShowAuth(true)}
+              >
+                {IS_PUBLIC ? '開始使用自己的資料' : '登入 / 註冊'}
+              </button>
+              {!IS_PUBLIC && ' 後使用自己的資料。'}
               {auth.phase === 'error' && (
                 <span className="warn">（目前無法連線後端：{auth.error}）</span>
               )}

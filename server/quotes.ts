@@ -27,7 +27,9 @@ async function getJson(url: string): Promise<any> {
 async function yahoo(symbol: string): Promise<Partial<QuoteResult>> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
   const meta = (await getJson(url))?.chart?.result?.[0]?.meta;
-  if (!meta || typeof meta.regularMarketPrice !== 'number') throw new Error('No price in response');
+  if (!meta || !Number.isFinite(meta.regularMarketPrice) || !(meta.regularMarketPrice > 0)) {
+    throw new Error('No price in response');
+  }
   return {
     price: meta.regularMarketPrice,
     currency: meta.currency,
@@ -40,7 +42,7 @@ async function binance(symbol: string): Promise<Partial<QuoteResult>> {
   const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`;
   const body = await getJson(url);
   const price = Number(body?.price);
-  if (!(price > 0)) throw new Error('No price in response');
+  if (!Number.isFinite(price) || !(price > 0)) throw new Error('No price in response');
   return { price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 
@@ -121,7 +123,7 @@ export function pickTaifexQuote(
     );
     const price = Number(row?.CLastPrice);
     const d = row?.CDate ?? '';
-    if (!row || !(price > 0) || !/^\d{8}$/.test(d)) continue;
+    if (!row || !Number.isFinite(price) || !(price > 0) || !/^\d{8}$/.test(d)) continue;
     const t = String(row.CTime ?? '').padStart(6, '0');
     let at = new Date(
       `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}+08:00`,

