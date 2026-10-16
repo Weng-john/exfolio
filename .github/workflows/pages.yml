@@ -41,6 +41,10 @@ jobs:
       - run: npm run check:privacy -- --history
       - run: npm test
       - run: npm run build:public
+        env:
+          # The members' Apps Script address: a repository variable, never
+          # committed. Without it the site is the calculator only.
+          VITE_EXFOLIO_GAS_URL: ${{ vars.EXFOLIO_GAS_URL }}
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist
