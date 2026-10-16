@@ -532,11 +532,11 @@ describe('exchange statement', () => {
   });
 
   it('proposes a new instrument when the quote currency does not match', () => {
-    const text = 'Date,Pair,Side,Price,Quantity\n2026-01-05,ETHUSDT,BUY,3000,1\n';
+    const text = 'Date,Pair,Side,Price,Quantity\n2026-01-05,SOLUSDT,BUY,150,1\n';
     const { result } = run(text, fresh(), base('binance_main'));
     expect(result.transactions).toHaveLength(0);
     expect(result.newInstruments[0].instrument).toMatchObject({
-      symbol: 'ETH',
+      symbol: 'SOL',
       type: 'crypto',
       currency: 'USDT',
     });

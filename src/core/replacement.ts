@@ -651,7 +651,8 @@ export function replacementAnalysis(
     ? data.instruments.find((i) => i.id === req.fromInstrumentId)
     : undefined;
   const candidates = data.instruments.filter(
-    (i) => i.indexId === req.indexId && (i.active || i.id === from?.id),
+    // An inverse fund cannot stand in for long exposure, so it is no candidate.
+    (i) => i.indexId === req.indexId && i.leverage > 0 && (i.active || i.id === from?.id),
   );
   const fromCtx = from ? ctxFor(data, fx, base, from, req.accountId) : undefined;
   const heldQty = from

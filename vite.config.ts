@@ -33,7 +33,7 @@ function contentSecurityPolicy(): Plugin {
     "font-src 'self' data:",
     // Public edition: its own files and Binance's public prices, nothing
     // else. Full edition: also whichever HTTPS backend the user configures.
-    `connect-src 'self' ${isPublic ? 'https://data-api.binance.vision' : 'https:'}`,
+    `connect-src 'self' ${isPublic ? 'https://data-api.binance.vision https://fapi.binance.com' : 'https:'}`,
     `frame-src ${isPublic ? "'none'" : 'https://accounts.google.com'}`,
     "object-src 'none'",
     "base-uri 'self'",

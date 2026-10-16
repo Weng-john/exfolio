@@ -1,4 +1,5 @@
 import type { QuoteRequestItem, QuoteResult } from '@core/api';
+import type { QuoteSource } from '@core/types';
 
 // Quotes for a site with no backend. The published site carries a snapshot
 // of public market prices (`quotes.json`, refreshed by a scheduled job);
@@ -43,12 +44,16 @@ async function loadSnapshot(): Promise<Map<string, QuoteResult>> {
   }
 }
 
-async function binance(symbol: string): Promise<QuoteResult> {
-  const item = { source: 'binance' as const, symbol };
+// Binance answers browsers directly, so its prices are always live.
+const BINANCE_URL: Partial<Record<QuoteSource, string>> = {
+  binance: 'https://data-api.binance.vision/api/v3/ticker/price?symbol=',
+  binance_futures: 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=',
+};
+
+async function binance(source: QuoteSource, symbol: string): Promise<QuoteResult> {
+  const item = { source, symbol };
   try {
-    const res = await fetch(
-      `https://data-api.binance.vision/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`,
-    );
+    const res = await fetch(`${BINANCE_URL[source]}${encodeURIComponent(symbol)}`);
     const price = Number((await res.json())?.price);
     if (!Number.isFinite(price) || !(price > 0)) throw new Error('沒有價格');
     return { ...item, price, asOf: new Date().toISOString(), status: 'realtime' };
@@ -62,8 +67,8 @@ export async function staticQuotes(items: QuoteRequestItem[]): Promise<QuoteResu
   const snapshot = await loadSnapshot();
   return Promise.all(
     items.map(async (item) => {
-      if (item.source === 'binance') {
-        const live = await binance(item.symbol);
+      if (BINANCE_URL[item.source]) {
+        const live = await binance(item.source, item.symbol);
         if (!live.error) return live;
       }
       return (

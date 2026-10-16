@@ -410,7 +410,8 @@ export default function InstrumentsTab() {
               >
                 <option value="manual">manual（手動）</option>
                 <option value="yahoo">yahoo</option>
-                <option value="binance">binance</option>
+                <option value="binance">binance（現貨）</option>
+                <option value="binance_futures">binance_futures（永續合約）</option>
                 <option value="taifex">taifex（期交所）</option>
               </select>
             </Field>
@@ -419,7 +420,7 @@ export default function InstrumentsTab() {
               hint={
                 d.quoteSource === 'yahoo'
                   ? '如 0050.TW、VOO、ES=F'
-                  : d.quoteSource === 'binance'
+                  : d.quoteSource === 'binance' || d.quoteSource === 'binance_futures'
                     ? '如 BTCUSDT'
                     : d.quoteSource === 'taifex'
                       ? '商品代碼如 TXF、MXF、TMF（取近月），或完整契約如 TXFK6-F'

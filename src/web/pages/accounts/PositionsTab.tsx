@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { positionTotals, type ValuedPosition } from '@core/index';
 import { useData } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
+import { QuickPosition } from '../../components/QuickPosition';
 import { Badge, Card, Empty } from '../../components/ui';
 import { fmtMoney, fmtNum, fmtPct, fmtTime, signClass } from '../../format';
 import { PRICE_STATUS_LABELS, PRICE_STATUS_TONES } from './labels';
@@ -11,6 +12,7 @@ export default function PositionsTab() {
   const { valuation: v } = usePortfolio();
   const [accountId, setAccountId] = useState('');
   const [grouped, setGrouped] = useState(true);
+  const [adding, setAdding] = useState(false);
   const base = v.baseCurrency;
   const accountName = (id: string) => data.accounts.find((a) => a.id === id)?.name ?? id;
 
@@ -62,6 +64,9 @@ export default function PositionsTab() {
       title="持倉"
       actions={
         <>
+          <button className="primary" onClick={() => setAdding(true)}>
+            ＋ 新增倉位
+          </button>
           <label>
             <input
               type="checkbox"
@@ -154,6 +159,7 @@ export default function PositionsTab() {
         期貨 / 永續合約市值為 0（損益結算到現金），曝險為名目價值 ×
         每日目標槓桿。已實現損益未扣手續費。
       </p>
+      {adding && <QuickPosition onClose={() => setAdding(false)} />}
     </Card>
   );
 }

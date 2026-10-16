@@ -901,6 +901,10 @@ function quoteUrl_(item) {
     // Market-data-only host: api.binance.com refuses requests from some regions.
     return 'https://data-api.binance.vision/api/v3/ticker/price?symbol=' + symbol;
   }
+  if (item.source === 'binance_futures') {
+    // USDⓈ-M perpetuals, including TradFi contracts such as SPYUSDT.
+    return 'https://fapi.binance.com/fapi/v1/ticker/price?symbol=' + symbol;
+  }
   return '';
 }
 

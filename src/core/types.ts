@@ -55,21 +55,82 @@ export interface Account {
   note?: string;
 }
 
-export type Market = 'TW' | 'US' | 'GLOBAL' | 'CRYPTO' | 'OTHER';
+export type Market =
+  | 'TW'
+  | 'US'
+  | 'JP'
+  | 'KR'
+  | 'HK'
+  | 'CN'
+  | 'IN'
+  | 'EU'
+  | 'UK'
+  | 'AMERICAS'
+  | 'APAC'
+  | 'EM'
+  | 'GLOBAL'
+  | 'CRYPTO'
+  | 'OTHER';
+
+/** Display order of markets. */
+export const MARKETS: Market[] = [
+  'TW',
+  'US',
+  'JP',
+  'KR',
+  'HK',
+  'CN',
+  'IN',
+  'EU',
+  'UK',
+  'AMERICAS',
+  'APAC',
+  'EM',
+  'GLOBAL',
+  'CRYPTO',
+  'OTHER',
+];
+
+export const MARKET_LABELS: Record<Market, string> = {
+  TW: '台灣',
+  US: '美國',
+  JP: '日本',
+  KR: '韓國',
+  HK: '香港',
+  CN: '中國',
+  IN: '印度',
+  EU: '歐洲',
+  UK: '英國',
+  AMERICAS: '美洲其他',
+  APAC: '亞太其他',
+  EM: '新興市場',
+  GLOBAL: '全球',
+  CRYPTO: '加密資產',
+  OTHER: '其他',
+};
 
 export interface UnderlyingIndex {
   id: ID;
   name: string;
   market: Market;
   currency: Currency;
+  /** How constituents are weighted. Most broad indices are free-float market-cap weighted. */
+  weighting?: 'market_cap' | 'price' | 'other';
   note?: string;
 }
 
 export type InstrumentType = 'stock' | 'etf' | 'future' | 'perpetual' | 'crypto' | 'option';
 
-export type QuoteSource = 'manual' | 'yahoo' | 'binance' | 'taifex';
+/** `binance_futures`: Binance USDⓈ-M perpetuals, including TradFi contracts such as SPYUSDT. */
+export type QuoteSource = 'manual' | 'yahoo' | 'binance' | 'binance_futures' | 'taifex';
 
-export const QUOTE_SOURCES: QuoteSource[] = ['manual', 'yahoo', 'binance', 'taifex'];
+export const QUOTE_SOURCES: QuoteSource[] = [
+  'manual',
+  'yahoo',
+  'binance',
+  'binance_futures',
+  'taifex',
+];
 
 export interface Instrument {
   id: ID;

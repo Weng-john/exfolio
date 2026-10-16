@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
   indexReferences,
+  MARKET_LABELS,
+  MARKETS,
   mergeIndices,
   newId,
   type Market,
@@ -9,8 +11,6 @@ import {
 import { removeRow, replaceAll, upsertRow, useData } from '../../store';
 import { Card, Empty, Field, Modal } from '../../components/ui';
 import { describeRefs, ErrorList } from './shared';
-
-const MARKETS: Market[] = ['TW', 'US', 'GLOBAL', 'CRYPTO', 'OTHER'];
 
 export default function IndicesTab() {
   const data = useData();
@@ -237,7 +237,7 @@ export default function IndicesTab() {
               >
                 {MARKETS.map((m) => (
                   <option key={m} value={m}>
-                    {m}
+                    {MARKET_LABELS[m]}（{m}）
                   </option>
                 ))}
               </select>

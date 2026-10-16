@@ -10,6 +10,7 @@ import {
   serializeBackup,
   validateInstrument,
   type Instrument,
+  SEED_INDICES,
 } from '@core/index';
 import { fresh, tx } from './helpers';
 
@@ -73,7 +74,7 @@ describe('backup round trip', () => {
   });
 
   it('counts rows per table', () => {
-    expect(rowCounts(seedData()).indices).toBe(7);
+    expect(rowCounts(seedData()).indices).toBe(SEED_INDICES.length);
   });
 });
 
@@ -148,7 +149,10 @@ describe('references', () => {
   });
   it('finds instruments and targets for an index', () => {
     const data = seedData();
-    expect(indexReferences(data, 'tw50')[0]).toEqual({ table: '商品', count: 2 });
+    expect(indexReferences(data, 'tw50')[0]).toEqual({
+      table: '商品',
+      count: data.instruments.filter((i) => i.indexId === 'tw50').length,
+    });
     expect(indexReferences(data, 'nope')).toEqual([]);
   });
 });

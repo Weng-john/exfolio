@@ -266,14 +266,15 @@ describe('replacementAnalysis', () => {
   it('computes switching cost and break-even from the current holding', () => {
     const d = held();
     const a = run(d, 'tw_00631L');
-    expect(a.rows.map((r) => r.symbol)).toEqual(['0050', '00631L']);
+    expect(a.rows.map((r) => r.symbol)).toEqual(expect.arrayContaining(['0050', '00631L']));
+    expect(a.rows.some((r) => r.instrumentId === 'tw_00632R')).toBe(false);
     const r = a.rows.find((x) => x.symbol === '0050')!;
     // sell 500,000: 356.25 fee + 500 tax; buy 1,000,000: 712.5 fee; slippage 0.1% x 1.5M
     expect(r.switching!.total).toBeCloseTo(356.25 + 500 + 712.5 + 1500);
     expect(r.annualSaving).toBeCloseTo(37_000);
     expect(r.breakEvenYears).toBeCloseTo(3068.75 / 37_000);
-    expect(a.rows[1].isCurrent).toBe(true);
-    expect(a.rows[1].notes.join()).toContain('路徑相依');
+    expect(a.rows.find((r) => r.symbol === '00631L')!.isCurrent).toBe(true);
+    expect(a.rows.find((r) => r.symbol === '00631L')!.notes.join()).toContain('路徑相依');
   });
 
   it('leaves break-even undefined when the candidate costs more', () => {

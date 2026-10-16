@@ -10,6 +10,7 @@ import {
   type ID,
   type Instrument,
   type Market,
+  MARKETS,
 } from './types';
 
 // Passive target allocation and the new-money allocator. Everything here is
@@ -102,7 +103,7 @@ export interface AllocationComparison {
   warnings: string[];
 }
 
-const MARKET_ORDER: Market[] = ['TW', 'US', 'GLOBAL', 'CRYPTO', 'OTHER'];
+const MARKET_ORDER: Market[] = MARKETS;
 
 /** Target vs actual core exposure for every index with a target or exposure. */
 export function compareAllocation(data: AppData, valuation: Valuation): AllocationComparison {

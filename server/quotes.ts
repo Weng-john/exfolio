@@ -46,6 +46,19 @@ async function binance(symbol: string): Promise<Partial<QuoteResult>> {
   return { price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 
+/** Binance USDⓈ-M perpetuals, including TradFi contracts such as SPYUSDT. */
+async function binanceFutures(symbol: string): Promise<Partial<QuoteResult>> {
+  const url = `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(symbol)}`;
+  const body = await getJson(url);
+  const price = Number(body?.price);
+  if (!Number.isFinite(price) || !(price > 0)) throw new Error('No price in response');
+  return {
+    price,
+    asOf: new Date(Number(body?.time) || Date.now()).toISOString(),
+    status: 'realtime',
+  };
+}
+
 // One call returns every contract month of a product, so the list is cached
 // per product and session, and calls are made one at a time: the site
 // answers bursts with errors.
@@ -158,7 +171,9 @@ async function fetchOne(item: QuoteRequestItem): Promise<QuoteResult> {
   try {
     if (item.source === 'yahoo') result = { ...item, ...(await yahoo(item.symbol)) };
     else if (item.source === 'binance') result = { ...item, ...(await binance(item.symbol)) };
-    else if (item.source === 'taifex') result = { ...item, ...(await taifex(item.symbol)) };
+    else if (item.source === 'binance_futures') {
+      result = { ...item, ...(await binanceFutures(item.symbol)) };
+    } else if (item.source === 'taifex') result = { ...item, ...(await taifex(item.symbol)) };
     else result = { ...item, error: 'Manual source has no remote quote' };
   } catch (err) {
     result = { ...item, error: err instanceof Error ? err.message : String(err) };
@@ -167,8 +182,24 @@ async function fetchOne(item: QuoteRequestItem): Promise<QuoteResult> {
   return result;
 }
 
-export function fetchQuotes(items: QuoteRequestItem[]): Promise<QuoteResult[]> {
-  return Promise.all((items ?? []).slice(0, 200).map(fetchOne));
+const MAX_PARALLEL = 6;
+
+/**
+ * Quotes for up to 300 items, a few requests at a time: firing a long
+ * catalogue at a source all at once gets the whole batch rate-limited.
+ */
+export async function fetchQuotes(items: QuoteRequestItem[]): Promise<QuoteResult[]> {
+  const list = (items ?? []).slice(0, 300);
+  const results: QuoteResult[] = new Array(list.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const i = next++;
+      results[i] = await fetchOne(list[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL, list.length) }, worker));
+  return results;
 }
 
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
