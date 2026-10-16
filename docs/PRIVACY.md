@@ -19,7 +19,7 @@
 | 持倉、現金、交易、貸款等個人資料 | `data/exfolio.json` | `.gitignore`；可用 `EXFOLIO_DATA_DIR` 移到專案資料夾外 |
 | 備份與匯出檔 | `backups/`、`exports/`、`*backup*.json` | `.gitignore` |
 | 券商對帳單、要匯入的 CSV | `imports/`、`statements/`、`*.csv`、`*.xlsx`、`*.pdf` | `.gitignore` |
-| 後端網址與登入 session | 瀏覽器 localStorage | 不寫入任何檔案 |
+| 後端網址與登入 session | 完整版：瀏覽器 localStorage；公開版：只在分頁記憶體（GAS 網址在建置時帶入） | 不寫入任何檔案 |
 | 會員帳號、密碼雜湊、稽核紀錄 | `data/auth.json`、`data/users/`，或 GAS 的控制試算表 | `.gitignore`；不在這個資料夾內 |
 | Google 帳號與指令碼連結 | `.clasp.json`、`.clasprc.json` | `.gitignore` |
 | 環境變數與金鑰檔 | `.env*`、`*.pem`、`*.key`、`credentials*.json` | `.gitignore` |
@@ -61,7 +61,9 @@ npm run check:privacy -- --history # 每一筆提交裡的每一個檔案，以�
 **會員（Google 登入）**
 
 - 會員資料存在網站管理員部署的 Google Apps Script 後端，寫進管理員 Google Drive 裡的試算表，每位會員一份。**管理員（部署者）可以直接打開這些試算表**，網站上的「允許管理員檢視」設定約束不了這一點，必須如實告知會員。
-- 只接受 Google 登入；新會員要經管理員核准。登入狀態（session token）只放在分頁記憶體裡，不寫進 localStorage，所以同來源的其他網頁讀不到，關閉或重新整理分頁就登出。
+- 只接受 Google 登入；每次登入都要先向後端取得一次性的 challenge（Google 會把它寫進 ID token 的 `nonce`），在別處截到或用過的 token 不能拿來登入。新會員要經管理員核准。
+- 登入狀態（session token）只放在分頁記憶體裡，不寫進 localStorage。關閉或重新整理分頁、閒置 30 分鐘、或按登出，這個分頁就會忘記它；按登出還會在後端撤銷。**只是關閉分頁不會撤銷後端的 session**：若 token 已被竊，在後端到期前（預設 12 小時）仍可使用。每位會員最多同時 5 個 session，超過時最舊的失效。
+- 登出前會先把變更存進帳號；存不進去時會詢問是否捨棄。
 - 登入前在試算模式輸入的資料：帳號是空的會直接存入；帳號已有資料時，由會員選擇取代或捨棄。
 - GAS 網址由 GitHub repository variable `EXFOLIO_GAS_URL` 在建置時帶入，不進版本庫；但它必然出現在建置出的網站程式碼裡，不是秘密。前端只接受 `https://script.google.com/macros/s/…/exec` 形式的網址。
 
@@ -69,14 +71,14 @@ npm run check:privacy -- --history # 每一筆提交裡的每一個檔案，以�
 
 - 本站自己的檔案，包含報價快照（`quotes.json`）與文字辨識引擎。
 - Binance 的公開價格，只在有啟用 Binance 報價的商品時；Binance 會看到查詢的交易對代號與使用者的 IP。
-- 有會員功能時：Google 登入元件（`accounts.google.com/gsi/`），以及 GAS 後端（`script.google.com`，回應經由 `script.googleusercontent.com`）。只有按下「會員登入」才會載入 Google 的元件。
+- 有會員功能時：Google 登入元件（`accounts.google.com/gsi/`），以及 GAS 後端（CSP 只允許那一個 `/exec` 網址；回應經由 `script.googleusercontent.com`，這是所有 Apps Script 共用的主機，CSP 無法再收窄，所以理論上已在頁面執行的惡意程式可以把資料送到別人的 Apps Script）。只有按下「會員登入」才會載入 Google 的元件。
 - 對帳單截圖的辨識在瀏覽器內的 worker 執行，同樣受 CSP 限制，不從 CDN 載入任何東西。
 
 **同來源的限制**
 
-GitHub Pages 上，同一個帳號的所有專案網站共用 `<帳號>.github.io` 這個來源。同來源的其他網頁若被植入惡意程式，可以在使用者開著本站時讀取畫面或攔截輸入；CSP 只管本站自己的網頁。因為現在不在瀏覽器裡存放資料或 session，這個風險只存在於分頁開著的期間。要真正隔離，網站必須放在獨立的網域。
+GitHub Pages 上，同一個帳號的所有專案網站共用 `<帳號>.github.io` 這個來源。同來源的其他網頁若被植入惡意程式，可以開啟或操作本站的分頁、讀取畫面、攔截輸入與送出的請求（包含 session token）；CSP 只管本站自己的網頁。被攔下的 token 在後端到期前都能用，被帶走的資料也不會因為關閉分頁而消失。不在瀏覽器裡存放資料或 session，只是讓「事後從瀏覽器讀出來」不可能，並不能把本站和同來源的其他網頁隔開。**要真正隔離，網站必須放在獨立的來源**（自訂網域，或只放這一個網站的 GitHub 帳號／組織），OAuth 的已授權來源也要跟著改。在那之前，會員資料應視為與同帳號其他 Pages 網站的安全性綁在一起。
 
-另外有兩個小設定會存在瀏覽器：顯示主題，以及商品替代比較的假設參數（融資利率、波動率等，不含持倉）。
+另外有兩個小設定會存在瀏覽器：顯示主題，以及商品替代比較的假設參數（融資利率、波動率等，不含持倉）。對帳單截圖的辨識引擎會把語言資料快取在 IndexedDB（不含截圖或辨識結果）。「刪除舊資料」會清除本站在 localStorage 的全部項目（含主題與上述假設），但不會清掉已經帶進試算模式、還在記憶體裡的資料。
 
 ## 寫程式與文件時
 

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { handleApi } from './server/handler';
+import { gasExecUrl } from './src/web/gasUrl';
 
 // Serve the local backend from the dev server, so `npm run dev` is one process.
 function localApi(): Plugin {
@@ -19,16 +20,19 @@ function localApi(): Plugin {
 // it names. (The dev server is left alone: its tooling needs inline scripts.)
 function contentSecurityPolicy(): Plugin {
   const isPublic = process.env.VITE_EXFOLIO_EDITION === 'public';
-  // The public edition offers members only when built with a GAS address.
-  const members = !isPublic || Boolean(process.env.VITE_EXFOLIO_GAS_URL?.trim());
+  // The public edition offers members only when built with a valid GAS
+  // address, judged by the same rule the app uses.
+  const gasUrl = gasExecUrl(process.env.VITE_EXFOLIO_GAS_URL);
+  const members = !isPublic || gasUrl !== '';
   // Google's sign-in button: its script, its stylesheet, its iframe.
   const gsi = members ? ' https://accounts.google.com/gsi/' : '';
   const connect = isPublic
     ? [
         'https://data-api.binance.vision https://fapi.binance.com',
-        // An Apps Script web app answers from script.google.com, then
-        // redirects the response to script.googleusercontent.com.
-        members ? 'https://script.google.com https://script.googleusercontent.com' : '',
+        // The one Apps Script web app, by its exact address. It answers by
+        // redirecting to script.googleusercontent.com, a host shared by all
+        // Apps Script responses, which a policy cannot narrow further.
+        members ? `${gasUrl} https://script.googleusercontent.com` : '',
         gsi.trim(),
       ]
         .filter(Boolean)

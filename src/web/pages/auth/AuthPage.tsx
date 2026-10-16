@@ -1,5 +1,5 @@
-import { useCallback, useState, type FormEvent } from 'react';
-import { login, loginWithGoogle, register, useAuth } from '../../auth';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { login, loginChallenge, loginWithGoogle, register, useAuth } from '../../auth';
 import { BackendAddress } from '../../components/BackendAddress';
 import { GoogleButton } from '../../components/GoogleButton';
 import { Field } from '../../components/ui';
@@ -47,7 +47,22 @@ export default function AuthPage(props: { onBack?: () => void }) {
     void run(() => register(username, password, displayName));
   };
 
-  const onGoogle = useCallback((idToken: string) => void run(() => loginWithGoogle(idToken)), []);
+  // A GAS backend issues a one-time challenge per Google sign-in; the local
+  // Node backend issues none, and then the button works without one.
+  const [nonce, setNonce] = useState<string>();
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    let current = true;
+    if (config?.googleClientId) void loginChallenge().then((n) => current && setNonce(n));
+    return () => {
+      current = false;
+    };
+  }, [round, config?.googleClientId]);
+  const onGoogle = useCallback(
+    (idToken: string) =>
+      void run(() => loginWithGoogle(idToken, nonce)).finally(() => setRound((r) => r + 1)),
+    [nonce],
+  );
 
   return (
     <div className="auth-page">
@@ -150,7 +165,7 @@ export default function AuthPage(props: { onBack?: () => void }) {
             {config?.googleClientId && (
               <div className="auth-google">
                 <span className="muted">或</span>
-                <GoogleButton clientId={config.googleClientId} onToken={onGoogle} />
+                <GoogleButton clientId={config.googleClientId} onToken={onGoogle} nonce={nonce} />
               </div>
             )}
           </>

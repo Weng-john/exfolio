@@ -162,7 +162,9 @@ export type ApiRequest = { session?: string } & (
   | { action: 'config' }
   | { action: 'register'; username: string; displayName?: string; passwordKey: string }
   | { action: 'login'; username: string; passwordKey: string }
-  | { action: 'loginGoogle'; idToken: string }
+  /** GAS: a one-time value Google must put into the next ID token. */
+  | { action: 'loginChallenge' }
+  | { action: 'loginGoogle'; idToken: string; nonce?: string }
   | { action: 'logout' }
   | { action: 'me' }
   | { action: 'updateProfile'; displayName?: string; allowAdminView?: boolean }
@@ -218,6 +220,8 @@ export type ApiResponse =
       users?: PublicUser[];
       /** Session token: present after a successful login or registration. */
       session?: string;
+      /** Answer to loginChallenge. */
+      nonce?: string;
       audit?: AuditEntry[];
       integrations?: IntegrationStatus;
       snapshot?: ExchangeSnapshot;

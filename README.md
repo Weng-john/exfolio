@@ -50,7 +50,7 @@ gas/        Google Apps Script 後端：與 server/ 相同的 API，資料存在
 tests/      Vitest 測試。
 ```
 
-後端只負責儲存與報價，所有計算都在 `src/core/`。兩個後端使用同一個協定（[src/core/api.ts](src/core/api.ts)）：對單一網址 POST 一個帶 `action` 的 JSON。前端依序嘗試設定的後端，都連不上時改用瀏覽器 localStorage。
+後端只負責儲存與報價，所有計算都在 `src/core/`。兩個後端使用同一個協定（[src/core/api.ts](src/core/api.ts)）：對單一網址 POST 一個帶 `action` 的 JSON。前端依序嘗試設定的後端，都連不上時改用瀏覽器 localStorage（只限完整版；公開版見上文）。
 
 ## 帳務口徑
 

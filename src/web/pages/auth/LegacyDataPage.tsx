@@ -65,7 +65,8 @@ export default function LegacyDataPage(props: { onDone: () => void }) {
           </button>
         </form>
         <p className="muted">
-          確認資料已保存到別處後，可以把它從這個瀏覽器刪除。{' '}
+          確認資料已保存到別處後，可以把它從這個瀏覽器刪除（會一併清除本站存在瀏覽器的主題等設定；
+          已帶進試算的資料不受影響，關閉分頁才會消失）。{' '}
           <button className="ghost danger" onClick={erase}>
             刪除舊資料
           </button>

@@ -54,6 +54,13 @@ let state: StoreState = {
 };
 let backend: Backend | undefined;
 let revision = 0;
+/**
+ * Bumped whenever the dataset changes hands: a load starts, the visitor
+ * switches to the demo or the calculator, or the data is dropped on sign-out.
+ * A load or save that finishes under an older generation must not touch the
+ * current state: it belongs to someone, or something, else.
+ */
+let generation = 0;
 const dirty = new Set<TableName>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -106,13 +113,14 @@ export function setSignedOutHandler(handler: () => void) {
 // memory while viewing someone else's portfolio.
 const DERIVED_TABLES: TableName[] = ['prices', 'fxRates', 'snapshots', 'priceHistory'];
 
-let loading: Promise<void> | undefined;
+let loading: { key: string; promise: Promise<void> } | undefined;
 
 /**
  * Show the fictional demo portfolio. Edits work in memory so a visitor can
  * try the pages, but nothing is ever sent to a backend.
  */
 export function loadDemo() {
+  generation++;
   clearTimeout(timer);
   dirty.clear();
   set({
@@ -132,6 +140,7 @@ export function loadDemo() {
  * keep every change in memory. Closing the tab discards it.
  */
 export function loadScratch(data?: Partial<AppData>) {
+  generation++;
   clearTimeout(timer);
   dirty.clear();
   set({
@@ -157,10 +166,17 @@ export function scratchToCarry(): AppData | undefined {
  * `asUser`, loads that member's data for an admin, read-only.
  */
 export function initStore(asUser?: string, carry?: AppData): Promise<void> {
-  // Concurrent calls share one load: two would both seed an empty store
-  // and the second save would be rejected as a conflict.
-  loading ??= load(asUser, carry).finally(() => (loading = undefined));
-  return loading;
+  // Identical concurrent calls share one load: two would both seed an empty
+  // store and the second save would be rejected as a conflict. A different
+  // request (another member to view, figures to carry) starts its own load,
+  // which supersedes the first.
+  const key = `${asUser ?? ''}|${carry ? 'carry' : ''}`;
+  if (loading?.key === key) return loading.promise;
+  const promise: Promise<void> = load(asUser, carry).finally(() => {
+    if (loading?.promise === promise) loading = undefined;
+  });
+  loading = { key, promise };
+  return promise;
 }
 
 /**
@@ -168,6 +184,7 @@ export function initStore(asUser?: string, carry?: AppData): Promise<void> {
  * an account that already holds data keeps it until the member decides.
  */
 async function load(asUser?: string, carry?: AppData): Promise<void> {
+  const gen = ++generation;
   clearTimeout(timer);
   dirty.clear();
   const readOnly = Boolean(asUser);
@@ -183,6 +200,7 @@ async function load(asUser?: string, carry?: AppData): Promise<void> {
   try {
     backend = await ensureBackend();
     const res = await backend.call({ action: 'load', ...(asUser ? { asUser } : {}) });
+    if (gen !== generation) return;
     if (!res.ok) {
       if (res.error === 'unauthenticated') onSignedOut?.();
       throw new Error(res.error);
@@ -215,6 +233,7 @@ async function load(asUser?: string, carry?: AppData): Promise<void> {
       scheduleSave();
     }
   } catch (err) {
+    if (gen !== generation) return;
     set({ status: 'error', error: message(err), backendLabel: backend?.label ?? '' });
   }
 }
@@ -281,12 +300,15 @@ export async function flush(): Promise<boolean> {
 }
 
 async function writeDirty(): Promise<boolean> {
+  const gen = generation;
   const names = [...dirty];
   dirty.clear();
   const tables = Object.fromEntries(names.map((n) => [n, state.data[n]])) as Partial<AppData>;
   set({ status: 'saving' });
   try {
     const res = await backend!.call({ action: 'save', tables, baseRevision: revision });
+    // The data changed hands meanwhile: this answer is about someone else's.
+    if (gen !== generation) return false;
     if (!res.ok) {
       names.forEach((n) => dirty.add(n));
       if (res.error === 'unauthenticated') onSignedOut?.();
@@ -302,6 +324,7 @@ async function writeDirty(): Promise<boolean> {
     if (dirty.size) scheduleSave();
     return dirty.size === 0;
   } catch (err) {
+    if (gen !== generation) return false;
     names.forEach((n) => dirty.add(n));
     set({ status: 'error', error: message(err) });
     return false;
@@ -317,6 +340,8 @@ export function markChangedElsewhere() {
 
 /** Drop the in-memory dataset, e.g. when the local vault is locked. */
 export function clearData() {
+  generation++;
+  loading = undefined;
   clearTimeout(timer);
   dirty.clear();
   revision = 0;

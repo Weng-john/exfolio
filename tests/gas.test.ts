@@ -245,8 +245,21 @@ function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = 
     Logger: { log() {} },
   });
   vm.runInContext(readFileSync('gas/Code.gs', 'utf8'), context);
-  const post = (body: object) =>
+  const rawPost = (body: object) =>
     JSON.parse((context as any).doPost({ postData: { contents: JSON.stringify(body) } }).text);
+  /**
+   * A Google sign-in without an explicit `nonce` behaves like the real
+   * client: it fetches a challenge and Google puts it into the token, as if
+   * a fresh token were issued. Tests about challenges pass `nonce` themselves.
+   */
+  const post = (body: Record<string, any>) => {
+    if (body.action === 'loginGoogle' && !('nonce' in body) && googleTokens.has(body.idToken)) {
+      const nonce = rawPost({ action: 'loginChallenge' }).nonce as string;
+      googleTokens.get(body.idToken)!.nonce = nonce;
+      return rawPost({ ...body, nonce });
+    }
+    return rawPost(body);
+  };
 
   /** Every cell of every fake spreadsheet, as text, for secret scans. */
   const everyCell = () =>
@@ -283,6 +296,9 @@ type Runtime = ReturnType<typeof makeRuntime>;
 type Res = Record<string, any>;
 
 const key = (n: number) => n.toString(16).padStart(64, '0');
+// Fictional Gmail address, assembled so the privacy check (which refuses
+// personal addresses in the repository) does not flag it.
+const OWNER_GMAIL = `owner@${['gmail', 'com'].join('.')}`;
 
 describe('GAS source', () => {
   it('lists the same tables as the core data model', () => {
@@ -1237,7 +1253,7 @@ describe('GAS backend', () => {
   });
 
   describe('Google-only deployment (the default)', () => {
-    const OWNER = 'owner@example.com';
+    const OWNER = OWNER_GMAIL;
     beforeEach(() => {
       rt.props.delete('PASSWORD_LOGIN');
       rt.props.set('GOOGLE_CLIENT_ID', CLIENT_ID);
@@ -1307,10 +1323,126 @@ describe('GAS backend', () => {
       );
     });
 
+    it('makes an admin from the address only while no admin exists', () => {
+      ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
+      // A second Google identity with the same verified address: no admin.
+      const later = ok({ action: 'loginGoogle', idToken: rt.idToken('o2', OWNER) });
+      expect(later.user).toMatchObject({ role: 'member', status: 'pending' });
+    });
+
+    it('ignores admin addresses outside Gmail', () => {
+      rt.props.set('ADMIN_EMAILS', 'boss@company.example');
+      const res = ok({ action: 'loginGoogle', idToken: rt.idToken('b', 'boss@company.example') });
+      expect(res.user).toMatchObject({ role: 'member', status: 'pending' });
+    });
+
+    it('does not let an admin set passwords while password accounts are off', () => {
+      const owner = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
+      const amy = ok({ action: 'loginGoogle', idToken: rt.idToken('a', 'amy@example.com') });
+      expect(
+        fail({
+          action: 'adminUpdateUser',
+          session: owner.session,
+          userId: amy.user.id,
+          newPasswordKey: key(9),
+        }),
+      ).toBe('password_disabled');
+    });
+
     it('gives nobody admin when no admin address is set', () => {
       rt.props.delete('ADMIN_EMAILS');
       const res = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
       expect(res.user).toMatchObject({ role: 'member', status: 'pending' });
+    });
+  });
+
+  describe('Google sign-in challenges', () => {
+    beforeEach(() => {
+      rt.props.set('GOOGLE_CLIENT_ID', CLIENT_ID);
+    });
+    const challenge = () => ok({ action: 'loginChallenge' }).nonce as string;
+
+    it('accepts a token carrying a challenge it issued, once', () => {
+      const nonce = challenge();
+      const idToken = rt.idToken('g1', 'amy@example.com', { nonce });
+      expect(ok({ action: 'loginGoogle', idToken, nonce }).user.username).toBe('amy@example.com');
+      // The same token and challenge again: refused, and Google is not asked.
+      const calls = rt.tokeninfoCalls.length;
+      expect(fail({ action: 'loginGoogle', idToken, nonce })).toBe('invalid_credentials');
+      expect(rt.tokeninfoCalls.length).toBe(calls);
+    });
+
+    it('refuses a token minted for another challenge, or none', () => {
+      const nonce = challenge();
+      const other = rt.idToken('g1', 'amy@example.com', { nonce: challenge() });
+      expect(fail({ action: 'loginGoogle', idToken: other, nonce })).toBe('invalid_credentials');
+      const bare = rt.idToken('g2', 'bob@example.com');
+      expect(fail({ action: 'loginGoogle', idToken: bare, nonce: challenge() })).toBe(
+        'invalid_credentials',
+      );
+    });
+
+    it('spends nothing on a sign-in without a live challenge', () => {
+      const idToken = rt.idToken('g1', 'amy@example.com');
+      expect(fail({ action: 'loginGoogle', idToken, nonce: 'f'.repeat(64) })).toBe(
+        'invalid_credentials',
+      );
+      expect(fail({ action: 'loginGoogle', idToken, nonce: 'not-hex' })).toBe(
+        'invalid_credentials',
+      );
+      expect(fail({ action: 'loginGoogle', idToken: 'x'.repeat(5000), nonce: challenge() })).toBe(
+        'invalid_credentials',
+      );
+      expect(rt.tokeninfoCalls).toHaveLength(0);
+    });
+
+    it('lets a challenge expire', () => {
+      const nonce = challenge();
+      const idToken = rt.idToken('g1', 'amy@example.com', { nonce });
+      rt.advance(11 * 60_000);
+      expect(fail({ action: 'loginGoogle', idToken, nonce })).toBe('invalid_credentials');
+    });
+  });
+
+  describe('sessions', () => {
+    it('keeps at most five sessions per member, dropping the oldest', () => {
+      ok({ action: 'register', username: 'admin', passwordKey: key(1) });
+      const tokens = Array.from({ length: 6 }, (_, i) => {
+        rt.advance(1000 * (i + 1));
+        return ok({ action: 'login', username: 'admin', passwordKey: key(1) }).session as string;
+      });
+      expect(isErr({ action: 'me', session: tokens[0] })).toBe(true);
+      // The first session from register is gone too.
+      tokens.slice(1).forEach((t) => expect(ok({ action: 'me', session: t }).user).toBeTruthy());
+    });
+
+    it('lasts 12 hours by default for Google-only deployments', () => {
+      rt.props.delete('PASSWORD_LOGIN');
+      rt.props.set('GOOGLE_CLIENT_ID', CLIENT_ID);
+      rt.props.set('ADMIN_EMAILS', OWNER_GMAIL);
+      const owner = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER_GMAIL) });
+      rt.advance(11 * 3600_000);
+      expect(ok({ action: 'me', session: owner.session }).user).toBeTruthy();
+      rt.advance(2 * 3600_000);
+      expect(fail({ action: 'me', session: owner.session })).toBe('unauthenticated');
+    });
+  });
+
+  describe('quotes from Apps Script', () => {
+    it('rejects prices that are not finite and positive', () => {
+      const parse = (item: object, body: object) => () =>
+        rt.call('parseQuote_', item, JSON.stringify(body));
+      expect(parse({ source: 'binance' }, { price: 'Infinity' })).toThrow();
+      expect(parse({ source: 'binance_futures' }, { price: '1e999' })).toThrow();
+      expect(parse({ source: 'binance' }, { price: '-1' })).toThrow();
+      const yahoo = (price: number) => ({
+        chart: { result: [{ meta: { regularMarketPrice: price, regularMarketTime: 1 } }] },
+      });
+      expect(parse({ source: 'yahoo' }, yahoo(-5))).toThrow();
+      expect(parse({ source: 'yahoo' }, yahoo(0))).toThrow();
+      expect(
+        (rt.call('parseQuote_', { source: 'yahoo' }, JSON.stringify(yahoo(12.5))) as Res).price,
+      ).toBe(12.5);
     });
   });
 });

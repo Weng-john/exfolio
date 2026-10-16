@@ -168,7 +168,9 @@ export default function AdminPage() {
                       >
                         {u.role === 'admin' ? '改為會員' : '設為管理員'}
                       </button>
-                      <button onClick={() => setResetting(u)}>重設密碼</button>
+                      {auth.config?.passwordLogin !== false && (
+                        <button onClick={() => setResetting(u)}>重設密碼</button>
+                      )}
                       {!self && u.allowAdminView && u.status === 'active' && (
                         <button onClick={() => void open(u)}>唯讀檢視</button>
                       )}

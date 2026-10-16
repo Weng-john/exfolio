@@ -13,6 +13,8 @@
 - 公開版 CSP 在有 GAS 網址時加上 `accounts.google.com/gsi/`、`script.google.com`、`script.googleusercontent.com`。
 - Futures & Rollover 頁開放給公開版。
 - 商品目錄（`src/core/catalog.ts`）擴充到主要市場：各國市值加權指數、對應 ETF、槓桿／反向 ETF、指數期貨、Binance 永續（含 SPYUSDT 等股票代幣永續，報價來源 `binance_futures`）。Accounts & Positions 的「＋ 新增倉位」（`QuickPosition.tsx`、`src/core/quickEntry.ts`）可直接建立倉位或自訂商品。
+- 第三輪資安覆核（PASS WITH FIXES，8 項）已處理：store 以 `generation` 丟棄過時的載入與儲存回應、登出立即清掉記憶體中的會員資料；登入以 `attempt` 丟棄過時回應；Google 登入改用一次性 challenge（`loginChallenge` → GIS `nonce`，GAS 先消耗 challenge 才呼叫 tokeninfo）；`ADMIN_EMAILS` 只接受 Gmail，且只在尚無啟用管理員時生效一次；session 預設 12 小時、每人最多 5 個；公開 `config` 快取 60 秒；登出先 `flush()`，失敗會詢問；會員閒置 30 分鐘自動登出；快速輸入與 GAS 報價拒絕非有限數值；Google-only 模式下管理員不能設定密碼；CSP 只允許那一個 `/exec` 網址。
+- 仍未處理（需擁有者決定）：公開版與同帳號其他 Pages 網站共用來源，同來源頁面可攔截 session 與資料；要隔離須改用獨立來源（自訂網域或獨立帳號／組織）。GAS 沒有入口限流，只適合受邀的小群體。
 - 待辦：擁有者部署 GAS、設定 `EXFOLIO_GAS_URL` 與 OAuth 已授權來源；workflow 的變更需要有 `workflow` 權限的 token 推送。
 
 ## 帳本擴充（2026-10-09）
@@ -107,7 +109,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 
 ## 已知限制
 
-- 發布前的資安覆核由另一個模型獨立進行過兩輪（報告不在版本庫內）。仍未處理的：GAS 的申請名額可被陌生人佔滿、配額可被耗用（見 `gas/README.md`；管理員搶註已改由 `ADMIN_EMAILS` 解決）；登入節流可被用來鎖定特定帳號；備份還原只檢查大小與基本格式；公開版與同帳號其他 GitHub Pages 專案共用來源（現在不在瀏覽器存資料或 session，風險只在分頁開著時，見 `docs/PRIVACY.md`）；公開版的試算／會員流程沒有瀏覽器自動化實測；報價快照以整體成功率把關，沒有逐商品的新鮮度門檻；GAS 的公式防護未在真實的 Google Sheets 上驗證。
+- 發布前的資安覆核由另一個模型獨立進行過兩輪（報告不在版本庫內）。第三輪後仍未處理的：GAS 的申請名額可被陌生人佔滿、配額可被耗用（沒有入口限流）（見 `gas/README.md`；管理員搶註已改由 `ADMIN_EMAILS` 解決）；登入節流可被用來鎖定特定帳號；備份還原只檢查大小與基本格式；公開版與同帳號其他 GitHub Pages 專案共用來源（現在不在瀏覽器存資料或 session，風險只在分頁開著時，見 `docs/PRIVACY.md`）；公開版的試算／會員流程沒有瀏覽器自動化實測；報價快照以整體成功率把關，沒有逐商品的新鮮度門檻；GAS 的公式防護未在真實的 Google Sheets 上驗證。
 
 - Risk Lab：兩種模擬皆為資訊用途，不限制操作。壓力測試是瞬間衝擊近似；生存模擬的市場路徑為線性或指定日期的單次衝擊，槓桿 ETF 以每日目標槓桿逐日複利（模型，非預測）。期貨／永續合約帳戶的現金只作保證金，不支付生活支出與還款。
 

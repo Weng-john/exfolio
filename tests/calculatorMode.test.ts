@@ -18,6 +18,7 @@ const memory = new Map<string, string>();
 memory.set('exfolio.backend', JSON.stringify({ mode: 'browser', url: '/api' }));
 
 const store = await import('../src/web/store');
+const auth = await import('../src/web/auth');
 const vault = await import('../src/web/localVault');
 
 const broker = (name: string) => ({ id: 'b1', name });
@@ -90,5 +91,45 @@ describe('calculator mode', () => {
   it('opens data from an older visit with figures marked as the visitor’s', () => {
     store.loadScratch({ brokers: [broker('舊資料')] });
     expect(store.scratchToCarry()?.brokers).toEqual([broker('舊資料')]);
+  });
+
+  it('ignores a member load that finishes after the visitor switched to the calculator', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('帳號原有'));
+    await store.flush();
+    // Sign-out happens while a load is still on its way.
+    const late = store.initStore(undefined, undefined);
+    store.loadScratch();
+    await late;
+    expect(store.getState()).toMatchObject({ scratch: true, scratchEdited: false });
+    expect(store.getState().data.brokers).toEqual([]);
+    expect(store.scratchToCarry()).toBeUndefined();
+  });
+
+  it('starts a separate load for a different request instead of reusing the pending one', async () => {
+    store.loadScratch();
+    store.upsertRow('brokers', broker('試算券商'));
+    const carry = store.scratchToCarry();
+    const plain = store.initStore();
+    const withCarry = store.initStore(undefined, carry);
+    expect(withCarry).not.toBe(plain);
+    await Promise.all([plain, withCarry]);
+    // The later request wins; the earlier one changes nothing when it lands.
+    expect(store.getState().data.brokers).toEqual([broker('試算券商')]);
+  });
+
+  it('drops the member data from memory as soon as they sign out', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('帳號原有'));
+    expect(await auth.logout()).toBe(true);
+    expect(store.getState().data.brokers).toEqual([]);
+    expect(store.scratchToCarry()).toBeUndefined();
+  });
+
+  it('saves pending changes before signing out', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('剛新增'));
+    expect(await auth.logout()).toBe(true);
+    expect(stored()).toContain('剛新增');
   });
 });

@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
-import { hasLegacyLocalData, initAuth, lockLocalData, logout, stopViewing, useAuth } from './auth';
+import {
+  hasLegacyLocalData,
+  initAuth,
+  lockLocalData,
+  logout,
+  logoutAsking,
+  stopViewing,
+  useAuth,
+} from './auth';
 import { Badge } from './components/ui';
 import { IS_PUBLIC, MEMBERS_ENABLED } from './edition';
 import { fmtTime } from './format';
@@ -151,7 +159,7 @@ function TopBar(props: { onSignIn: () => void }) {
         {auth.user && (
           <>
             <span className="muted">{auth.user.displayName}</span>
-            <button onClick={() => void logout()}>登出</button>
+            <button onClick={() => void logoutAsking()}>登出</button>
           </>
         )}
         {auth.phase !== 'ready' && MEMBERS_ENABLED && (
@@ -191,6 +199,31 @@ function useLocalVaultGuards(active: boolean) {
   }, [active]);
 }
 
+const MEMBER_IDLE_MS = 30 * 60_000;
+
+/**
+ * Public edition: sign a member out after a stretch with no activity, so a
+ * tab left open does not keep their data on screen. Unsaved changes are
+ * written first; if that fails the member stays signed in.
+ */
+function useMemberIdleSignOut(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const restart = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => void logout(), MEMBER_IDLE_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'scroll'] as const;
+    events.forEach((name) => window.addEventListener(name, restart, { passive: true }));
+    restart();
+    return () => {
+      clearTimeout(idle);
+      events.forEach((name) => window.removeEventListener(name, restart));
+    };
+  }, [active]);
+}
+
 export default function App() {
   const auth = useAuth();
   const store = useStore();
@@ -223,6 +256,7 @@ export default function App() {
       ((signedIn && !store.demo) || store.scratch),
   );
   useLocalVaultGuards(signedIn && auth.accountless && !store.backendRemote);
+  useMemberIdleSignOut(IS_PUBLIC && signedIn);
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;

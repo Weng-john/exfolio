@@ -1,5 +1,5 @@
 import { useCallback, useState, type FormEvent } from 'react';
-import { changePassword, linkGoogle, logout, updateProfile, useAuth } from '../auth';
+import { changePassword, linkGoogle, logoutAsking, updateProfile, useAuth } from '../auth';
 import { GoogleButton } from '../components/GoogleButton';
 import { Badge, Card, Field, PageHeader } from '../components/ui';
 import { fmtTime } from '../format';
@@ -53,7 +53,7 @@ export default function AccountPage() {
       <PageHeader
         title="我的帳號"
         subtitle={`${user.username} · ${user.role === 'admin' ? '管理員' : '會員'}`}
-        actions={<button onClick={() => void logout()}>登出</button>}
+        actions={<button onClick={() => void logoutAsking()}>登出</button>}
       />
       {msg && <div className={`notice ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
 

@@ -185,4 +185,24 @@ describe('searchInstruments', () => {
     expect(searchInstruments(data, '日經').some((i) => i.id === 'jp_1570')).toBe(true);
     expect(searchInstruments(data, 'KOSPI 200').length).toBeGreaterThan(3);
   });
+
+  it('refuses numbers that are not finite, or a cost that overflows', () => {
+    const data = seedData();
+    const base = {
+      instrumentId: data.instruments[0].id,
+      newAccountName: '測試帳戶',
+      side: 'long' as const,
+      fundFromOutside: false,
+    };
+    for (const [quantity, averageCost] of [
+      [Infinity, 10],
+      [Number('1e309'), 10],
+      [10, NaN],
+      [1e200, 1e200],
+    ]) {
+      const res = quickPosition(data, { ...base, quantity, averageCost });
+      expect(res.errors.length).toBeGreaterThan(0);
+      expect(res.transactions).toEqual([]);
+    }
+  });
 });

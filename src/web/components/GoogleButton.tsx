@@ -7,6 +7,7 @@ interface GoogleId {
   initialize(options: {
     client_id: string;
     callback: (response: { credential?: string }) => void;
+    nonce?: string;
   }): void;
   renderButton(element: HTMLElement, options: Record<string, unknown>): void;
 }
@@ -38,10 +39,12 @@ export function GoogleButton(props: {
   clientId: string;
   onToken: (idToken: string) => void;
   label?: 'signin_with' | 'continue_with';
+  /** Backend challenge Google puts into the token; a new one re-arms the button. */
+  nonce?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
-  const { clientId, onToken, label } = props;
+  const { clientId, onToken, label, nonce } = props;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +54,7 @@ export function GoogleButton(props: {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response) => response.credential && onToken(response.credential),
+          ...(nonce ? { nonce } : {}),
         });
         window.google.accounts.id.renderButton(ref.current, {
           theme: 'outline',
@@ -62,7 +66,7 @@ export function GoogleButton(props: {
     return () => {
       cancelled = true;
     };
-  }, [clientId, onToken, label]);
+  }, [clientId, onToken, label, nonce]);
 
   return error ? <p className="neg">{error}</p> : <div ref={ref} />;
 }

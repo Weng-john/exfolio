@@ -17,10 +17,15 @@
  *                     is not bound to one.
  *   GOOGLE_CLIENT_ID  optional. OAuth client id for Google sign-in; takes
  *                     precedence over the one an admin saved on the site.
- *   ADMIN_EMAILS      Comma-separated Google addresses that become active
- *                     admins the first time they sign in with Google. With
- *                     password accounts off this is the only way to get an
- *                     admin, so set it before sharing the site.
+ *   ADMIN_EMAILS      Comma-separated Gmail addresses. While there is no
+ *                     active admin, the first of them to sign in with
+ *                     Google becomes one (only @gmail.com: those addresses
+ *                     are never handed to someone else). Once an admin
+ *                     exists, further admins are made on the site. With
+ *                     password accounts off this is the only way to get
+ *                     the first admin, so set it before sharing the site.
+ *   SESSION_HOURS     optional. Session lifetime; default 12 hours, or 30
+ *                     days when password accounts are on.
  *   PASSWORD_LOGIN    'on' to allow username/password accounts. Off by
  *                     default: members sign in with Google only.
  *   MAX_MEMBERS       optional, default 200. No new accounts beyond this.
@@ -47,6 +52,12 @@ var USER_HIDDEN = ['passwordSalt', 'passwordHash', 'passwordRounds', 'googleSub'
 var SESSION_HIDDEN = ['tokenHash'];
 
 var SESSION_DAYS = 30;
+var GOOGLE_SESSION_HOURS = 12;
+var MAX_SESSIONS_PER_USER = 5;
+var NONCE_TTL_SECONDS = 600;
+var MAX_ID_TOKEN_LENGTH = 4096;
+var CONFIG_CACHE_KEY = 'public_config';
+var CONFIG_CACHE_SECONDS = 60;
 var MAX_FAILURES = 8;
 var FAILURE_WINDOW_SECONDS = 15 * 60;
 var MAX_AUDIT = 1000;
@@ -107,7 +118,9 @@ function route_(request) {
     case 'ping':
       return { ok: true, backend: 'gas' };
     case 'config':
-      return { ok: true, config: publicConfig_(loadAuth_()) };
+      return { ok: true, config: cachedConfig_() };
+    case 'loginChallenge':
+      return { ok: true, nonce: newChallenge_() };
     case 'register':
       requirePasswordLogin_();
       return withOk_(register_(request));
@@ -137,6 +150,7 @@ function route_(request) {
       requireAdmin_(user);
       return { ok: true, users: a.users.map(toPublic_) };
     case 'adminUpdateUser':
+      if (request.newPasswordKey !== undefined) requirePasswordLogin_();
       return { ok: true, user: adminUpdateUser_(request) };
     case 'adminDeleteUser':
       adminDeleteUser_(request);
@@ -309,6 +323,9 @@ function commitAuth_(a) {
   if (after.sessions !== a.saved.sessions) writeTable_(a.ss, SESSIONS_SHEET, a.sessions, SESSION_HIDDEN);
   if (after.audit !== a.saved.audit) writeTable_(a.ss, AUDIT_SHEET, a.audit, []);
   if (after.config !== a.saved.config) writeTable_(a.ss, CONFIG_SHEET, [a.config], []);
+  if (after.users !== a.saved.users || after.config !== a.saved.config) {
+    CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  }
   a.saved = after;
 }
 
@@ -339,6 +356,16 @@ function publicConfig_(a) {
   return config;
 }
 
+/** The open `config` answer, cached briefly: anyone can ask for it. */
+function cachedConfig_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(CONFIG_CACHE_KEY);
+  if (hit) return JSON.parse(hit);
+  var config = publicConfig_(loadAuth_());
+  cache.put(CONFIG_CACHE_KEY, JSON.stringify(config), CONFIG_CACHE_SECONDS);
+  return config;
+}
+
 // ---- Deployment settings (script properties) ---------------------------------
 
 function property_(name) {
@@ -359,11 +386,21 @@ function limit_(name, fallback) {
   return n > 0 ? n : fallback;
 }
 
-/** Google addresses allowed to become admin on their first Google sign-in. */
+/**
+ * Gmail addresses allowed to become the first admin. Other domains are
+ * ignored: a Workspace or other address can be handed to someone else
+ * later, and a verified address is then no proof of being the deployer.
+ */
 function adminEmails_() {
   return property_('ADMIN_EMAILS').split(',')
     .map(function (e) { return e.trim().toLowerCase(); })
-    .filter(function (e) { return e; });
+    .filter(function (e) { return /^[^@\s]+@(gmail|googlemail)\.com$/.test(e); });
+}
+
+function sessionMs_() {
+  var hours = parseFloat(property_('SESSION_HOURS'));
+  if (hours > 0) return hours * 3600000;
+  return passwordLogin_() ? SESSION_DAYS * 86400000 : GOOGLE_SESSION_HOURS * 3600000;
 }
 
 /** Refuse new accounts once the deployment is full or the queue is long. */
@@ -444,10 +481,17 @@ function dropSessions_(a, userId, keepHash) {
 
 function openSession_(a, user) {
   var token = newToken_();
+  // Keep at most MAX_SESSIONS_PER_USER per member: the oldest go first.
+  var mine = a.sessions.filter(function (s) { return s.userId === user.id; });
+  var drop = mine.length - (MAX_SESSIONS_PER_USER - 1);
+  if (drop > 0) {
+    var oldest = mine.sort(function (x, y) { return x.expiresAt < y.expiresAt ? -1 : 1; }).slice(0, drop);
+    a.sessions = a.sessions.filter(function (s) { return oldest.indexOf(s) < 0; });
+  }
   a.sessions.push({
     tokenHash: sha256Hex_(token),
     userId: user.id,
-    expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString()
+    expiresAt: new Date(Date.now() + sessionMs_()).toISOString()
   });
   user.lastLoginAt = new Date().toISOString();
   return token;
@@ -517,10 +561,13 @@ function clearFailures_(username) {
  */
 function createUser_(a, fields) {
   var first = a.users.length === 0;
-  var byEmail = Boolean(fields.verifiedEmail) && adminEmails_().indexOf(fields.verifiedEmail) >= 0;
+  var noAdminYet = activeAdmins_(a).length === 0;
+  // Only while no admin exists: the address bootstraps the first admin once,
+  // and is never again a way in for whoever holds it later.
+  var byEmail = noAdminYet && Boolean(fields.verifiedEmail) &&
+    adminEmails_().indexOf(fields.verifiedEmail) >= 0;
   var admin = byEmail || (first && passwordLogin_());
   if (!admin) requireRoom_(a);
-  var noAdminYet = activeAdmins_(a).length === 0;
   var user = {
     id: newId_('u'),
     username: fields.username,
@@ -589,9 +636,40 @@ function login_(request) {
   });
 }
 
+// ---- Google sign-in challenges ------------------------------------------------
+// Every Google sign-in starts with a one-time value from this backend that
+// Google puts into the ID token (`nonce`). A token captured elsewhere, or
+// used once already, is refused before anything else is spent on it.
+
+function newChallenge_() {
+  var nonce = sha256Hex_(Utilities.getUuid() + ':' + Utilities.getUuid());
+  CacheService.getScriptCache().put('nonce:' + nonce, '1', NONCE_TTL_SECONDS);
+  return nonce;
+}
+
+/** Use up a challenge. Under the lock, so two requests cannot both use it. */
+function consumeChallenge_(nonce) {
+  if (typeof nonce !== 'string' || !/^[0-9a-f]{64}$/.test(nonce)) throw new ApiError_('invalid_credentials');
+  locked_(function () {
+    var cache = CacheService.getScriptCache();
+    if (!cache.get('nonce:' + nonce)) throw new ApiError_('invalid_credentials');
+    cache.remove('nonce:' + nonce);
+  });
+}
+
+/** Client id without reading the control sheets when the property is set. */
+function clientId_() {
+  return property_('GOOGLE_CLIENT_ID') || loadAuth_().clientId;
+}
+
 function loginGoogle_(request) {
-  var clientId = loadAuth_().clientId;
-  var identity = googleIdentity_(clientId, request.idToken);
+  if (typeof request.idToken !== 'string' || !request.idToken ||
+      request.idToken.length > MAX_ID_TOKEN_LENGTH) {
+    throw new ApiError_('invalid_credentials');
+  }
+  consumeChallenge_(request.nonce);
+  var clientId = clientId_();
+  var identity = googleIdentity_(clientId, request.idToken, request.nonce);
   return mutate_(function (a) {
     if (a.clientId !== clientId) throw new ApiError_('invalid_credentials');
     var user = null;
@@ -665,7 +743,7 @@ function linkGoogle_(request) {
 // ---- Google sign-in --------------------------------------------------------
 
 /** Ask Google to validate the token, then check it was issued for this app. */
-function googleIdentity_(clientId, idToken) {
+function googleIdentity_(clientId, idToken, nonce) {
   if (!clientId) throw new ApiError_('尚未啟用 Google 登入');
   if (typeof idToken !== 'string' || !idToken) throw new ApiError_('invalid_credentials');
   try {
@@ -677,7 +755,9 @@ function googleIdentity_(clientId, idToken) {
     var info = JSON.parse(response.getContentText());
     var issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com';
     var fresh = Number(info.exp) * 1000 > Date.now();
-    if (info.aud !== clientId || !issuerOk || !fresh || String(info.email_verified) !== 'true' || !info.sub) {
+    var nonceOk = nonce === undefined || info.nonce === nonce;
+    if (info.aud !== clientId || !issuerOk || !fresh || !nonceOk ||
+        String(info.email_verified) !== 'true' || !info.sub) {
       throw new Error('invalid token');
     }
     return { sub: String(info.sub), email: info.email, name: info.name };
@@ -975,7 +1055,10 @@ function parseQuote_(item, text) {
   var body = JSON.parse(text);
   if (item.source === 'yahoo') {
     var meta = body && body.chart && body.chart.result && body.chart.result[0] && body.chart.result[0].meta;
-    if (!meta || typeof meta.regularMarketPrice !== 'number') throw new Error('No price in response');
+    if (!meta || typeof meta.regularMarketPrice !== 'number' || !isFinite(meta.regularMarketPrice) ||
+        !(meta.regularMarketPrice > 0)) {
+      throw new Error('No price in response');
+    }
     var seconds = meta.regularMarketTime || Date.now() / 1000;
     return {
       price: meta.regularMarketPrice,
@@ -985,7 +1068,7 @@ function parseQuote_(item, text) {
     };
   }
   var price = Number(body && body.price);
-  if (!(price > 0)) throw new Error('No price in response');
+  if (!isFinite(price) || !(price > 0)) throw new Error('No price in response');
   return { price: price, asOf: new Date().toISOString(), status: 'realtime' };
 }
 

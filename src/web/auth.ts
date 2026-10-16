@@ -79,8 +79,17 @@ export async function api(request: ApiRequest): Promise<Ok> {
   return res;
 }
 
+/**
+ * Bumped on every sign-out. A sign-in answer that arrives after the visitor
+ * signed out, or after a newer attempt began, is dropped.
+ */
+let attempt = 0;
+
 function signedOut() {
+  attempt++;
   setSession(undefined);
+  // Drop the member's data from memory now, not when the page next renders.
+  clearData();
   set({ phase: 'signedOut', user: undefined, viewing: undefined });
 }
 
@@ -223,6 +232,27 @@ export async function derivePasswordKey(username: string, password: string): Pro
   return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Run a sign-in call; its answer counts only if nothing changed meanwhile. */
+async function signIn(request: ApiRequest): Promise<PublicUser> {
+  const mine = ++attempt;
+  const res = await api(request);
+  if (mine !== attempt) throw new Error('這次登入已被取消，請重試');
+  return accept(res);
+}
+
+/**
+ * A one-time value for the next Google sign-in, when the backend issues
+ * them (the GAS backend requires one; the local Node backend has none).
+ */
+export async function loginChallenge(): Promise<string | undefined> {
+  try {
+    const res = await (await ensureBackend()).call({ action: 'loginChallenge' });
+    return res.ok ? res.nonce : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function accept(res: Ok): PublicUser {
   const user = res.user!;
   if (res.session) {
@@ -244,24 +274,41 @@ export async function register(
   displayName: string,
 ): Promise<PublicUser> {
   const passwordKey = await derivePasswordKey(username, password);
-  return accept(await api({ action: 'register', username, displayName, passwordKey }));
+  return signIn({ action: 'register', username, displayName, passwordKey });
 }
 
 export async function login(username: string, password: string): Promise<PublicUser> {
   const passwordKey = await derivePasswordKey(username, password);
-  return accept(await api({ action: 'login', username, passwordKey }));
+  return signIn({ action: 'login', username, passwordKey });
 }
 
-export async function loginWithGoogle(idToken: string): Promise<PublicUser> {
-  return accept(await api({ action: 'loginGoogle', idToken }));
+export async function loginWithGoogle(idToken: string, nonce?: string): Promise<PublicUser> {
+  return signIn({ action: 'loginGoogle', idToken, ...(nonce ? { nonce } : {}) });
 }
 
-export async function logout(): Promise<void> {
+/**
+ * Sign out. Unsaved changes are written first; when that fails it returns
+ * false and stays signed in, unless `discard` says to drop them.
+ */
+export async function logout(discard = false): Promise<boolean> {
+  if (!discard && !(await flush())) return false;
   try {
     await (await ensureBackend()).call({ action: 'logout' });
+  } catch {
+    // Signed out here regardless; the session expires on the backend.
   } finally {
     signedOut();
   }
+  return true;
+}
+
+/** Sign out from a button: asks before dropping changes that could not be saved. */
+export async function logoutAsking(): Promise<void> {
+  if (await logout()) return;
+  const drop = window.confirm(
+    '有變更還沒存進帳號（可能是連線問題）。仍要登出並捨棄這些變更嗎？\n建議先到 Settings 匯出備份。',
+  );
+  if (drop) await logout(true);
 }
 
 export async function updateProfile(patch: {

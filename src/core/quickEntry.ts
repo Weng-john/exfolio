@@ -52,12 +52,17 @@ export const UNSPECIFIED_BROKER: Broker = {
   kind: 'broker',
 };
 
+/** Positive and finite: rejects 0, negatives, NaN, Infinity and 1e309. */
+function positiveFinite(n: number): boolean {
+  return Number.isFinite(n) && n > 0;
+}
+
 export function quickPosition(data: AppData, input: QuickPositionInput): QuickPositionResult {
   const errors: string[] = [];
   const instrument = data.instruments.find((i) => i.id === input.instrumentId);
   if (!instrument) errors.push('請選擇商品');
-  if (!(input.quantity > 0)) errors.push('數量必須大於 0');
-  if (!(input.averageCost > 0)) errors.push('均價必須大於 0');
+  if (!positiveFinite(input.quantity)) errors.push('數量必須是大於 0 的有限數字');
+  if (!positiveFinite(input.averageCost)) errors.push('均價必須是大於 0 的有限數字');
   if (instrument && input.side === 'short' && !isDerivative(instrument.type)) {
     errors.push('只有期貨與永續合約可以直接建立空單；放空股票請用交易紀錄');
   }
@@ -81,6 +86,9 @@ export function quickPosition(data: AppData, input: QuickPositionInput): QuickPo
     }
   }
   if (errors.length || !instrument || !account) return { transactions: [], errors };
+  if (!positiveFinite(input.quantity * input.averageCost * instrument.multiplier)) {
+    return { transactions: [], errors: ['數量與均價太大，無法計算成本'] };
+  }
 
   const date = input.date || today();
   const bucket = input.bucket || CORE_BUCKET;
@@ -148,7 +156,7 @@ export function customInstrument(
   if (!Number.isFinite(input.leverage) || input.leverage === 0) {
     errors.push('槓桿倍數不可為 0；反向商品請填負數，例如 -1、-2');
   }
-  if (!(input.multiplier > 0)) errors.push('契約乘數必須大於 0（股票與 ETF 填 1）');
+  if (!positiveFinite(input.multiplier)) errors.push('契約乘數必須大於 0（股票與 ETF 填 1）');
   if (input.indexId && !data.indices.some((i) => i.id === input.indexId)) {
     errors.push('找不到這個標的指數');
   }
