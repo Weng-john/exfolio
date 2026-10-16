@@ -186,15 +186,24 @@ export default function BackendTab() {
     <>
       {IS_PUBLIC ? (
         <div className="notice">
-          這個網站沒有後端，也沒有帳號：你輸入的資料存在這個瀏覽器裡，網站不會把它上傳到任何伺服器。
+          {store.backendRemote ? (
+            <>
+              你已用 Google 登入：資料存在網站管理員的 Google 試算表（每位會員一份），管理員看得到。
+              登入狀態只留在這個分頁。
+            </>
+          ) : (
+            <>
+              試算模式：資料只在這個分頁的記憶體裡，網站不會上傳或儲存，關閉或重新整理分頁就會消失。
+              想留下來，請匯出備份檔，或用 Google 登入成為會員。
+            </>
+          )}{' '}
           網站會連到兩個地方取得公開報價：本站的報價快照，以及 Binance（只有你有啟用 Binance
           報價的商品時；Binance 會看到你查詢的交易對代號與你的 IP）。
-          換瀏覽器、換裝置或清除網站資料前，請先匯出備份；在新的地方還原備份即可繼續使用。
         </div>
       ) : (
         <BackendCard />
       )}
-      {!store.backendRemote && <LocalDataCard />}
+      {!IS_PUBLIC && !store.backendRemote && <LocalDataCard />}
       <BackupCard />
       <SeedCard />
     </>

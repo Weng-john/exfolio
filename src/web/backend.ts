@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiResponse } from '@core/api';
-import { IS_PUBLIC } from './edition';
+import { IS_PUBLIC, PUBLIC_GAS_URL } from './edition';
 import * as vault from './localVault';
 import { staticQuotes } from './staticQuotes';
 
@@ -30,13 +30,20 @@ export function saveBackendConfig(config: BackendConfig) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 }
 
+// The public edition shares its origin (<user>.github.io) with every other
+// Pages site of the same account, so it keeps the session in memory only:
+// closing or reloading the tab signs the member out.
+let memorySession = '';
+
 /** Session token of the signed-in member, kept in this browser only. */
 export function getSession(): string {
+  if (IS_PUBLIC) return memorySession;
   return localStorage.getItem(SESSION_KEY) ?? '';
 }
 
 export function setSession(token: string | undefined) {
-  if (token) localStorage.setItem(SESSION_KEY, token);
+  if (IS_PUBLIC) memorySession = token ?? '';
+  else if (token) localStorage.setItem(SESSION_KEY, token);
   else localStorage.removeItem(SESSION_KEY);
 }
 
@@ -99,10 +106,50 @@ function browserBackend(): Backend {
   };
 }
 
+/**
+ * Public edition: members' data goes to the Apps Script backend; prices come
+ * from the published snapshot and Binance, the same as for visitors, which
+ * is faster than asking Apps Script and needs no session.
+ */
+function publicBackend(): Backend {
+  const remote = remoteBackend({ mode: 'remote', url: PUBLIC_GAS_URL });
+  return {
+    label: '會員資料（Google 試算表）',
+    remote: true,
+    call(request) {
+      if (request.action === 'quotes' || request.action === 'history') {
+        return browserBackend().call(request);
+      }
+      return remote.call(request);
+    },
+  };
+}
+
+/** Public edition without a members' backend: prices only, nothing stored. */
+function calculatorBackend(): Backend {
+  const browser = browserBackend();
+  return {
+    label: '試算模式（不儲存）',
+    remote: false,
+    call(request) {
+      if (request.action === 'quotes' || request.action === 'history') return browser.call(request);
+      if (request.action === 'ping') return browser.call(request);
+      if (request.action === 'config') {
+        return Promise.resolve({
+          ok: true,
+          config: { authRequired: true, registration: 'approval', hasUsers: false },
+        });
+      }
+      return Promise.resolve({ ok: false, error: '這個網站沒有提供會員功能' });
+    },
+  };
+}
+
 /** Pick the backend: the configured one, or the first that answers a ping. */
 export async function connectBackend(config = loadBackendConfig()): Promise<Backend> {
-  // The public edition never talks to a backend, whatever was configured.
-  if (IS_PUBLIC || config.mode === 'browser') return browserBackend();
+  // The public edition ignores whatever was configured in this browser.
+  if (IS_PUBLIC) return PUBLIC_GAS_URL ? publicBackend() : calculatorBackend();
+  if (config.mode === 'browser') return browserBackend();
   const remote = remoteBackend(config);
   if (config.mode === 'remote') return remote;
   try {

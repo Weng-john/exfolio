@@ -1,12 +1,11 @@
 // Which edition of the site this build is.
 //
 // 'full'   — everything, for running with a backend: members, sync, every page.
-// 'public' — the static site for GitHub Pages: no backend and no accounts,
-//            focused on the current allocation, risk and new-money planning.
-//            Data stays in the visitor's own browser.
-//
-// The member system and the other pages stay in the codebase; the public
-// edition simply does not offer them.
+// 'public' — the static site for GitHub Pages, focused on the current
+//            allocation, risk and new-money planning. Visitors who are not
+//            signed in use it as a calculator: what they enter lives only in
+//            the open tab. Members sign in with Google and their data is
+//            kept by the shared Apps Script backend named at build time.
 
 export type Edition = 'full' | 'public';
 
@@ -14,3 +13,16 @@ export const EDITION: Edition =
   import.meta.env.VITE_EXFOLIO_EDITION === 'public' ? 'public' : 'full';
 
 export const IS_PUBLIC = EDITION === 'public';
+
+// Only an Apps Script web app address is accepted, so a mistyped variable
+// can never send members' data anywhere else.
+const GAS_URL = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,200}\/exec$/;
+
+/** Public edition: the members' backend, or '' when this build has none. */
+export const PUBLIC_GAS_URL: string = (() => {
+  const url = String(import.meta.env.VITE_EXFOLIO_GAS_URL ?? '').trim();
+  return IS_PUBLIC && GAS_URL.test(url) ? url : '';
+})();
+
+/** Whether this build offers sign-in at all. */
+export const MEMBERS_ENABLED = !IS_PUBLIC || PUBLIC_GAS_URL !== '';

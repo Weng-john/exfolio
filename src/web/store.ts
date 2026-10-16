@@ -22,8 +22,20 @@ export interface StoreState {
   backendLabel: string;
   /** True while an admin is looking at another member's data. */
   readOnly: boolean;
-  /** True for a signed-out visitor exploring the fictional demo portfolio. */
+  /**
+   * True while nothing is ever saved: a signed-out visitor exploring the
+   * fictional demo portfolio, or using the calculator (`scratch`).
+   */
   demo: boolean;
+  /** Calculator mode: the visitor's own figures, held in this tab only. */
+  scratch: boolean;
+  /** The visitor has changed something in calculator mode. */
+  scratchEdited: boolean;
+  /**
+   * Figures entered before signing in, waiting for the member to decide
+   * whether they replace what the account already holds.
+   */
+  pendingCarry?: AppData;
   /** True when data lives on a backend, false when it is kept in this browser. */
   backendRemote: boolean;
   error?: string;
@@ -36,6 +48,8 @@ let state: StoreState = {
   backendLabel: '',
   readOnly: false,
   demo: false,
+  scratch: false,
+  scratchEdited: false,
   backendRemote: false,
 };
 let backend: Backend | undefined;
@@ -107,26 +121,65 @@ export function loadDemo() {
     backendLabel: '示範資料',
     readOnly: false,
     demo: true,
+    scratch: false,
+    scratchEdited: false,
     error: undefined,
   });
+}
+
+/**
+ * Calculator mode: start from the reference catalogue (or from `data`) and
+ * keep every change in memory. Closing the tab discards it.
+ */
+export function loadScratch(data?: Partial<AppData>) {
+  clearTimeout(timer);
+  dirty.clear();
+  set({
+    data: data ? { ...emptyData(), ...stripEmpty(data) } : seedData(),
+    status: 'ready',
+    backendLabel: '試算模式（不儲存）',
+    readOnly: false,
+    demo: true,
+    scratch: true,
+    scratchEdited: Boolean(data),
+    pendingCarry: undefined,
+    error: undefined,
+  });
+}
+
+/** The calculator's figures, when the visitor entered any. */
+export function scratchToCarry(): AppData | undefined {
+  return state.scratch && state.scratchEdited ? state.data : undefined;
 }
 
 /**
  * Connect and load. Seeds reference data into an empty store. With
  * `asUser`, loads that member's data for an admin, read-only.
  */
-export function initStore(asUser?: string): Promise<void> {
+export function initStore(asUser?: string, carry?: AppData): Promise<void> {
   // Concurrent calls share one load: two would both seed an empty store
   // and the second save would be rejected as a conflict.
-  loading ??= load(asUser).finally(() => (loading = undefined));
+  loading ??= load(asUser, carry).finally(() => (loading = undefined));
   return loading;
 }
 
-async function load(asUser?: string): Promise<void> {
+/**
+ * `carry`: figures from calculator mode. They fill an empty account at once;
+ * an account that already holds data keeps it until the member decides.
+ */
+async function load(asUser?: string, carry?: AppData): Promise<void> {
   clearTimeout(timer);
   dirty.clear();
   const readOnly = Boolean(asUser);
-  set({ status: 'loading', error: undefined, readOnly, demo: false });
+  set({
+    status: 'loading',
+    error: undefined,
+    readOnly,
+    demo: false,
+    scratch: false,
+    scratchEdited: false,
+    pendingCarry: undefined,
+  });
   try {
     backend = await ensureBackend();
     const res = await backend.call({ action: 'load', ...(asUser ? { asUser } : {}) });
@@ -137,11 +190,22 @@ async function load(asUser?: string): Promise<void> {
     revision = res.revision ?? 0;
     const tables = res.tables ?? {};
     const isEmpty = TABLE_NAMES.every((t) => !tables[t]?.length);
-    const data = isEmpty ? seedData() : { ...emptyData(), ...stripEmpty(tables) };
+    const adopt = Boolean(carry) && isEmpty && !readOnly;
+    const data = adopt
+      ? { ...emptyData(), ...carry }
+      : isEmpty
+        ? seedData()
+        : { ...emptyData(), ...stripEmpty(tables) };
     if (!data.settings.length) data.settings = emptyData().settings;
     const upgraded = adoptSeedQuoteSources(data);
     dirty.clear();
-    set({ data, status: 'ready', backendLabel: backend.label, backendRemote: backend.remote });
+    set({
+      data,
+      status: 'ready',
+      backendLabel: backend.label,
+      backendRemote: backend.remote,
+      pendingCarry: carry && !adopt && !readOnly ? carry : undefined,
+    });
     if (readOnly) return;
     if (isEmpty) {
       TABLE_NAMES.forEach((t) => dirty.add(t));
@@ -177,6 +241,19 @@ function stripEmpty(tables: Partial<AppData>): Partial<AppData> {
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Replace the account's data with the figures entered before signing in. */
+export function adoptCarry() {
+  const carry = state.pendingCarry;
+  if (!carry) return;
+  set({ pendingCarry: undefined });
+  replaceAll(carry);
+}
+
+/** Keep the account's data and forget the calculator's figures. */
+export function dropCarry() {
+  set({ pendingCarry: undefined });
 }
 
 function scheduleSave() {
@@ -243,7 +320,16 @@ export function clearData() {
   clearTimeout(timer);
   dirty.clear();
   revision = 0;
-  set({ data: emptyData(), status: 'loading', error: undefined, demo: false, readOnly: false });
+  set({
+    data: emptyData(),
+    status: 'loading',
+    error: undefined,
+    demo: false,
+    scratch: false,
+    scratchEdited: false,
+    pendingCarry: undefined,
+    readOnly: false,
+  });
 }
 
 /** Replace a whole table. */
@@ -255,7 +341,8 @@ export function setTable<T extends TableName>(table: T, rows: AppData[T]) {
     return;
   }
   dirty.add(table);
-  set({ data: { ...state.data, [table]: rows } });
+  const edited = state.scratch && !DERIVED_TABLES.includes(table);
+  set({ data: { ...state.data, [table]: rows }, ...(edited ? { scratchEdited: true } : {}) });
   scheduleSave();
 }
 
@@ -278,7 +365,7 @@ export function removeRow<T extends TableName>(table: T, id: string) {
 export function replaceAll(data: AppData) {
   if (state.readOnly) return;
   if (state.demo) {
-    set({ data: { ...emptyData(), ...data } });
+    set({ data: { ...emptyData(), ...data }, ...(state.scratch ? { scratchEdited: true } : {}) });
     return;
   }
   TABLE_NAMES.forEach((t) => dirty.add(t));

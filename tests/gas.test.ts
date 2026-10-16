@@ -104,7 +104,8 @@ const toBuffer = (v: string | Bytes) =>
 const signed = (buf: Buffer): Bytes => Array.from(buf, (b) => (b > 127 ? b - 256 : b));
 
 function makeRuntime(fetchAll: (reqs: Array<{ url: string }>) => FetchReply[] = () => []) {
-  const props = new Map<string, string>();
+  // Most suites exercise password accounts; the Google-only default has its own.
+  const props = new Map<string, string>([['PASSWORD_LOGIN', 'on']]);
   const cacheStore = new Map<string, { value: string; expires: number }>();
   const clock = { now: Date.UTC(2026, 9, 1, 12, 0, 0) };
   const state = { locked: false, lockCalls: 0, hmacCalls: 0 };
@@ -1232,6 +1233,84 @@ describe('GAS backend', () => {
       rt.props.set('SHEET_ID', 'control');
       ok({ action: 'register', username: 'admin', passwordKey: key(1) });
       expect(rt.sheets.has('_users')).toBe(true);
+    });
+  });
+
+  describe('Google-only deployment (the default)', () => {
+    const OWNER = 'owner@example.com';
+    beforeEach(() => {
+      rt.props.delete('PASSWORD_LOGIN');
+      rt.props.set('GOOGLE_CLIENT_ID', CLIENT_ID);
+      rt.props.set('ADMIN_EMAILS', ` Someone@else.example , ${OWNER.toUpperCase()} `);
+    });
+
+    it('refuses password registration, login and password changes', () => {
+      expect(fail({ action: 'register', username: 'admin', passwordKey: key(1) })).toBe(
+        'password_disabled',
+      );
+      expect(fail({ action: 'login', username: 'admin', passwordKey: key(1) })).toBe(
+        'password_disabled',
+      );
+      expect(rt.sheets.get('_users')?.cells.length ?? 0).toBe(0);
+      const config = ok({ action: 'config' }).config;
+      expect(config).toMatchObject({ passwordLogin: false, googleClientId: CLIENT_ID });
+    });
+
+    it('takes the client id from the script property over the saved one', () => {
+      const owner = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
+      ok({
+        action: 'adminSetConfig',
+        session: owner.session,
+        googleClientId: 'other-client.example',
+      });
+      expect(ok({ action: 'config' }).config.googleClientId).toBe(CLIENT_ID);
+      expect(ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) }).session).toBeTruthy();
+    });
+
+    it('makes a listed address an admin, whoever signed in first', () => {
+      const early = ok({ action: 'loginGoogle', idToken: rt.idToken('x', 'squatter@example.com') });
+      expect(early.user).toMatchObject({ role: 'member', status: 'pending' });
+      expect(early.session).toBeUndefined();
+      const owner = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
+      expect(owner.user).toMatchObject({ role: 'admin', status: 'active' });
+      expect(owner.session).toBeTruthy();
+    });
+
+    it('does not trust an unverified address, for admin or anything else', () => {
+      expect(
+        fail({
+          action: 'loginGoogle',
+          idToken: rt.idToken('o', OWNER, { email_verified: 'false' }),
+        }),
+      ).toBe('invalid_credentials');
+      expect(rt.sheets.get('_users')?.cells.length ?? 0).toBe(0);
+    });
+
+    it('stops taking sign-ups when the approval queue or the member count is full', () => {
+      rt.props.set('MAX_PENDING', '2');
+      ok({ action: 'loginGoogle', idToken: rt.idToken('a', 'a@example.com') });
+      ok({ action: 'loginGoogle', idToken: rt.idToken('b', 'b@example.com') });
+      expect(fail({ action: 'loginGoogle', idToken: rt.idToken('c', 'c@example.com') })).toBe(
+        'registration_full',
+      );
+      // Known members still sign in, and the admin address always gets in.
+      expect(
+        ok({ action: 'loginGoogle', idToken: rt.idToken('a', 'a@example.com') }).user.status,
+      ).toBe('pending');
+      expect(ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) }).user.role).toBe(
+        'admin',
+      );
+      rt.props.set('MAX_PENDING', '50');
+      rt.props.set('MAX_MEMBERS', '3');
+      expect(fail({ action: 'loginGoogle', idToken: rt.idToken('d', 'd@example.com') })).toBe(
+        'registration_full',
+      );
+    });
+
+    it('gives nobody admin when no admin address is set', () => {
+      rt.props.delete('ADMIN_EMAILS');
+      const res = ok({ action: 'loginGoogle', idToken: rt.idToken('o', OWNER) });
+      expect(res.user).toMatchObject({ role: 'member', status: 'pending' });
     });
   });
 });

@@ -19,22 +19,37 @@ function localApi(): Plugin {
 // it names. (The dev server is left alone: its tooling needs inline scripts.)
 function contentSecurityPolicy(): Plugin {
   const isPublic = process.env.VITE_EXFOLIO_EDITION === 'public';
+  // The public edition offers members only when built with a GAS address.
+  const members = !isPublic || Boolean(process.env.VITE_EXFOLIO_GAS_URL?.trim());
+  // Google's sign-in button: its script, its stylesheet, its iframe.
+  const gsi = members ? ' https://accounts.google.com/gsi/' : '';
+  const connect = isPublic
+    ? [
+        'https://data-api.binance.vision https://fapi.binance.com',
+        // An Apps Script web app answers from script.google.com, then
+        // redirects the response to script.googleusercontent.com.
+        members ? 'https://script.google.com https://script.googleusercontent.com' : '',
+        gsi.trim(),
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : 'https:';
   const policy = [
     "default-src 'self'",
-    // WebAssembly is the text-recognition engine; Google's script is the
-    // sign-in button, which only the full edition can show.
-    `script-src 'self' 'wasm-unsafe-eval'${isPublic ? '' : ' https://accounts.google.com'}`,
+    // WebAssembly is the text-recognition engine.
+    `script-src 'self' 'wasm-unsafe-eval'${isPublic ? gsi : ' https://accounts.google.com'}`,
     // The text-recognition worker starts from a blob so that it inherits this policy.
     "worker-src 'self' blob:",
     // React and the charts set inline style attributes.
-    `style-src 'self' 'unsafe-inline'${isPublic ? '' : ' https://accounts.google.com'}`,
+    `style-src 'self' 'unsafe-inline'${isPublic ? gsi : ' https://accounts.google.com'}`,
     "img-src 'self' blob: data:",
     // Small font slices are inlined into the stylesheet by the build.
     "font-src 'self' data:",
-    // Public edition: its own files and Binance's public prices, nothing
-    // else. Full edition: also whichever HTTPS backend the user configures.
-    `connect-src 'self' ${isPublic ? 'https://data-api.binance.vision https://fapi.binance.com' : 'https:'}`,
-    `frame-src ${isPublic ? "'none'" : 'https://accounts.google.com'}`,
+    // Public edition: its own files, Binance's public prices and, with
+    // members, the Apps Script backend and Google sign-in. Full edition:
+    // whichever HTTPS backend the user configures.
+    `connect-src 'self' ${connect}`,
+    `frame-src ${isPublic ? (members ? gsi.trim() : "'none'") : 'https://accounts.google.com'}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

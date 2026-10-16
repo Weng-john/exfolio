@@ -108,45 +108,47 @@ export default function AccountPage() {
           </button>
         </Card>
 
-        <Card title={user.hasPassword ? '變更密碼' : '設定密碼'}>
-          <form onSubmit={savePassword} className="form-grid">
-            {user.hasPassword && (
-              <Field label="目前密碼">
+        {config?.passwordLogin !== false && (
+          <Card title={user.hasPassword ? '變更密碼' : '設定密碼'}>
+            <form onSubmit={savePassword} className="form-grid">
+              {user.hasPassword && (
+                <Field label="目前密碼">
+                  <input
+                    type="password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </Field>
+              )}
+              <Field label="新密碼" hint="至少 10 個字元">
                 <input
                   type="password"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  autoComplete="current-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
               </Field>
-            )}
-            <Field label="新密碼" hint="至少 10 個字元">
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-            <Field label="再輸入一次新密碼">
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-            <div>
-              <button className="primary" type="submit">
-                更新密碼
-              </button>
-            </div>
-          </form>
-          <p className="muted">系統不寄送電子郵件；忘記密碼時請管理員重設。</p>
-        </Card>
+              <Field label="再輸入一次新密碼">
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+              <div>
+                <button className="primary" type="submit">
+                  更新密碼
+                </button>
+              </div>
+            </form>
+            <p className="muted">系統不寄送電子郵件；忘記密碼時請管理員重設。</p>
+          </Card>
+        )}
 
         <Card title="Google 登入">
           {user.googleLinked ? (

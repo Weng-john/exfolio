@@ -20,7 +20,7 @@ import {
 } from '@core/index';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
-import { replaceAll, useData, useStore } from '../store';
+import { loadDemo, replaceAll, useData, useStore } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { FundingNotice } from '../components/FundingEvidence';
 
@@ -65,9 +65,12 @@ export default function OverviewPage() {
         <div className="notice">
           還沒有任何資料。先到 <Link to="/accounts">Accounts & Positions</Link> 記錄入金與交易，
           或到 <Link to="/settings">Settings</Link> 還原備份。想先看看功能，可以{' '}
-          <button onClick={() => replaceAll(demoData())}>載入虛構的示範資料</button>
+          <button onClick={() => (store.scratch ? loadDemo() : replaceAll(demoData()))}>
+            載入虛構的示範資料
+          </button>
           （之後可在 Settings 還原備份或清除）。
-          {!store.backendRemote && (
+          {store.scratch && <> 目前是試算模式：輸入的資料只留在這個分頁，關閉就會消失。</>}
+          {!store.backendRemote && !store.demo && (
             <>
               {' '}
               你的資料會存在這個瀏覽器裡；輸入真實資料前，請先看{' '}

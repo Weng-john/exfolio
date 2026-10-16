@@ -2,7 +2,18 @@
 
 給接手這個專案的開發者或 agent。需求與決策的完整內容在 `private/portfolio_management_spec.md`（私人文件，不進版本庫；找不到時向專案擁有者索取）。每次完成或變更工作，都要更新這份文件。
 
-最後更新：2026-10-09
+最後更新：2026-10-17
+
+## 公開版改版：試算 + 會員（2026-10-17）
+
+- 公開版不登入＝試算模式：從商品目錄開始，資料只在記憶體（`store.loadScratch`，`scratch`／`scratchEdited`），什麼都不存。取消了強制設定加密密碼的流程；舊版留在瀏覽器的資料可用 `LegacyDataPage` 打開帶進試算或刪除。
+- 會員：只用 Google 登入（`GoogleSignIn.tsx`），資料存在共用的 GAS 後端；網址在建置時取自 `VITE_EXFOLIO_GAS_URL`（CI 由 repository variable `EXFOLIO_GAS_URL` 帶入），`src/web/edition.ts` 只接受 `https://script.google.com/macros/s/…/exec`。session 只放記憶體。報價仍走快照與 Binance（`publicBackend`），不經 GAS。
+- 登入時試算資料會帶過去：帳號空的直接採用，否則顯示提示讓會員選擇取代或捨棄（`pendingCarry`、`adoptCarry`、`dropCarry`）。
+- GAS：預設只接受 Google 登入（`PASSWORD_LOGIN=on` 才開放密碼）；管理員來自指令碼屬性 `ADMIN_EMAILS`（不再是第一個註冊者）；`GOOGLE_CLIENT_ID` 屬性優先於管理頁設定；`MAX_MEMBERS`／`MAX_PENDING` 限制申請量（`registration_full`）。
+- 公開版 CSP 在有 GAS 網址時加上 `accounts.google.com/gsi/`、`script.google.com`、`script.googleusercontent.com`。
+- Futures & Rollover 頁開放給公開版。
+- 商品目錄（`src/core/catalog.ts`）擴充到主要市場：各國市值加權指數、對應 ETF、槓桿／反向 ETF、指數期貨、Binance 永續（含 SPYUSDT 等股票代幣永續，報價來源 `binance_futures`）。Accounts & Positions 的「＋ 新增倉位」（`QuickPosition.tsx`、`src/core/quickEntry.ts`）可直接建立倉位或自訂商品。
+- 待辦：擁有者部署 GAS、設定 `EXFOLIO_GAS_URL` 與 OAuth 已授權來源；workflow 的變更需要有 `workflow` 權限的 token 推送。
 
 ## 帳本擴充（2026-10-09）
 
@@ -21,11 +32,11 @@
 | P0-C | 目標配置、新資金分配、信貸與質押帳務 | 完成 |
 | 基礎建設 | Node 本機後端、GAS + Sheets 後端、報價代理、隱私檢查 | 完成（GAS 未在真實環境驗證） |
 | 介面 | 明亮／黑色模式、中文字型後備、多機構與手續費設定 | 完成 |
-| 會員 | 註冊、登入（密碼 + Google）、管理、資料隔離、訪客預覽 | 完成（GAS 版未在真實環境驗證） |
+| 會員 | 註冊、登入（密碼 + Google）、管理、資料隔離、訪客預覽；公開版只用 Google 登入 | 完成（GAS 版未在真實環境驗證） |
 | P1-A | Strategy Registry、Trade Journal、策略資金帳本、輪動週期 | 完成 |
 | P1-B | TWR、XIRR、基準比較、主被動四層級 | 完成（核心被動層級尚無基準） |
 | P1-C | 兩種風險模擬、期貨轉倉、通知 | 完成 |
-| 公開版 | 無後端、無帳號的靜態版本（配置、風險、再投入），GitHub Pages 發布流程 | 完成；Pages 尚未啟用 |
+| 公開版 | 靜態網站（配置、風險、再投入、期貨）：不登入可試算，會員以 Google 登入存到共用 GAS；GitHub Pages 發布流程 | 完成；Pages 已上線，GAS 待擁有者部署 |
 | P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 商品替代與歷史進階分析已完成；Binance 唯讀同步已實作（真實帳戶未驗證）。其他券商沒有可用的唯讀 API，改以對帳單匯入（CSV 或截圖） |
 | Future | 選擇權多腿與 Greeks、半自動與自動轉倉 | 未開始 |
 
@@ -96,7 +107,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 
 ## 已知限制
 
-- 發布前的資安覆核由另一個模型獨立進行過兩輪（報告不在版本庫內）。仍未處理的：GAS 的第一位管理員搶註與註冊濫用（見 `gas/README.md`）；登入節流可被用來鎖定特定帳號；備份還原只檢查大小與基本格式；公開版與同帳號其他 GitHub Pages 專案共用來源（以強制加密與說明緩解，沒有使用獨立網域，見 `docs/PRIVACY.md`）；報價快照以整體成功率把關，沒有逐商品的新鮮度門檻；GAS 的公式防護未在真實的 Google Sheets 上驗證。
+- 發布前的資安覆核由另一個模型獨立進行過兩輪（報告不在版本庫內）。仍未處理的：GAS 的申請名額可被陌生人佔滿、配額可被耗用（見 `gas/README.md`；管理員搶註已改由 `ADMIN_EMAILS` 解決）；登入節流可被用來鎖定特定帳號；備份還原只檢查大小與基本格式；公開版與同帳號其他 GitHub Pages 專案共用來源（現在不在瀏覽器存資料或 session，風險只在分頁開著時，見 `docs/PRIVACY.md`）；公開版的試算／會員流程沒有瀏覽器自動化實測；報價快照以整體成功率把關，沒有逐商品的新鮮度門檻；GAS 的公式防護未在真實的 Google Sheets 上驗證。
 
 - Risk Lab：兩種模擬皆為資訊用途，不限制操作。壓力測試是瞬間衝擊近似；生存模擬的市場路徑為線性或指定日期的單次衝擊，槓桿 ETF 以每日目標槓桿逐日複利（模型，非預測）。期貨／永續合約帳戶的現金只作保證金，不支付生活支出與還款。
 

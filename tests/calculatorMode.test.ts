@@ -1,0 +1,94 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+// Calculator mode keeps a visitor's figures in memory only; signing in can
+// take them along. Runs against browser storage standing in for a backend.
+
+const memory = new Map<string, string>();
+(globalThis as { localStorage?: unknown }).localStorage = new Proxy(
+  {
+    getItem: (k: string) => memory.get(k) ?? null,
+    setItem: (k: string, v: string) => void memory.set(k, v),
+    removeItem: (k: string) => void memory.delete(k),
+  },
+  {
+    ownKeys: () => [...memory.keys()],
+    getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+  },
+);
+memory.set('exfolio.backend', JSON.stringify({ mode: 'browser', url: '/api' }));
+
+const store = await import('../src/web/store');
+const vault = await import('../src/web/localVault');
+
+const broker = (name: string) => ({ id: 'b1', name });
+const stored = () => memory.get('exfolio.data') ?? '';
+
+beforeEach(async () => {
+  await vault.eraseEverything();
+  memory.set('exfolio.backend', JSON.stringify({ mode: 'browser', url: '/api' }));
+});
+
+describe('calculator mode', () => {
+  it('starts from the catalogue and never writes anything', async () => {
+    store.loadScratch();
+    const state = store.getState();
+    expect(state).toMatchObject({ scratch: true, demo: true, scratchEdited: false });
+    expect(state.data.instruments.length).toBeGreaterThan(100);
+    store.upsertRow('brokers', broker('試算券商'));
+    expect(await store.flush()).toBe(true);
+    expect(stored()).toBe('');
+    expect(store.getState().scratchEdited).toBe(true);
+  });
+
+  it('does not count refreshed prices as the visitor’s own figures', () => {
+    store.loadScratch();
+    store.setTable('prices', []);
+    expect(store.scratchToCarry()).toBeUndefined();
+  });
+
+  it('fills an empty account with the figures entered before signing in', async () => {
+    store.loadScratch();
+    store.upsertRow('brokers', broker('試算券商'));
+    const carry = store.scratchToCarry();
+    expect(carry).toBeDefined();
+    await store.initStore(undefined, carry);
+    expect(store.getState()).toMatchObject({ scratch: false, demo: false });
+    expect(store.getState().pendingCarry).toBeUndefined();
+    expect(await store.flush()).toBe(true);
+    expect(stored()).toContain('試算券商');
+  });
+
+  it('leaves an account that has data alone until the member chooses', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('帳號原有'));
+    expect(await store.flush()).toBe(true);
+
+    store.loadScratch();
+    store.upsertRow('brokers', broker('試算券商'));
+    await store.initStore(undefined, store.scratchToCarry());
+    expect(store.getState().data.brokers).toEqual([broker('帳號原有')]);
+    expect(store.getState().pendingCarry?.brokers).toEqual([broker('試算券商')]);
+
+    store.dropCarry();
+    expect(store.getState().pendingCarry).toBeUndefined();
+    expect(store.getState().data.brokers).toEqual([broker('帳號原有')]);
+  });
+
+  it('replaces the account data only when the member says so', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('帳號原有'));
+    await store.flush();
+    store.loadScratch();
+    store.upsertRow('brokers', broker('試算券商'));
+    await store.initStore(undefined, store.scratchToCarry());
+    store.adoptCarry();
+    expect(await store.flush()).toBe(true);
+    expect(stored()).toContain('試算券商');
+    expect(stored()).not.toContain('帳號原有');
+  });
+
+  it('opens data from an older visit with figures marked as the visitor’s', () => {
+    store.loadScratch({ brokers: [broker('舊資料')] });
+    expect(store.scratchToCarry()?.brokers).toEqual([broker('舊資料')]);
+  });
+});

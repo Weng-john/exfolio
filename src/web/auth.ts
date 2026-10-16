@@ -8,6 +8,7 @@ import {
   ensureBackend,
   flush,
   initStore,
+  loadScratch,
   resetBackend,
   setSignedOutHandler,
 } from './store';
@@ -63,6 +64,8 @@ const MESSAGES: Record<string, string> = {
   invalid_credentials: '帳號或密碼不正確',
   username_taken: '這個帳號名稱已被使用',
   rate_limited: '嘗試次數過多，請稍後再試',
+  password_disabled: '這個網站只接受 Google 登入',
+  registration_full: '目前暫停受理新會員，請稍後再試',
 };
 
 /** Call the backend, turning an error code into a readable message. */
@@ -125,6 +128,37 @@ export async function lockLocalData(): Promise<boolean> {
   clearData();
   set({ phase: 'locked' });
   return true;
+}
+
+/**
+ * Public edition: earlier versions kept data encrypted in this browser.
+ * Open it once and bring it into the calculator, from where signing in
+ * saves it to the member's account. Returns false for a wrong passphrase.
+ */
+export async function openLegacyLocalData(passphrase: string): Promise<boolean> {
+  if (vault.isEncrypted() && !(await vault.unlock(passphrase))) return false;
+  try {
+    const { tables } = await vault.read();
+    loadScratch(tables);
+  } finally {
+    await vault.lock();
+  }
+  return true;
+}
+
+/** Whether this browser still holds data from the browser-only version. */
+export function hasLegacyLocalData(): boolean {
+  return IS_PUBLIC && vault.hasData();
+}
+
+/** Whether that data needs its passphrase to open. */
+export function legacyLocalDataEncrypted(): boolean {
+  return vault.isEncrypted();
+}
+
+/** Delete the browser-only version's data for good. */
+export function eraseLegacyLocalData(): Promise<void> {
+  return vault.eraseEverything();
 }
 
 /** Find the backend and learn whether someone is already signed in. */

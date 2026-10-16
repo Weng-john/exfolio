@@ -239,7 +239,10 @@ export default function AdminPage() {
               儲存
             </button>
           </p>
-          <p className="muted">用戶端 ID 不是機密，但它存在後端而不是程式碼裡。</p>
+          <p className="muted">
+            用戶端 ID 不是機密，但它存在後端而不是程式碼裡。GAS 後端若設定了指令碼屬性
+            GOOGLE_CLIENT_ID，會以該屬性為準。
+          </p>
         </Card>
       </div>
 

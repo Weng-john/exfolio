@@ -59,6 +59,8 @@ export interface ServerConfig {
   googleClientId?: string;
   /** False until the first account exists: that account becomes the admin. */
   hasUsers: boolean;
+  /** False when only Google sign-in is accepted. Absent means true. */
+  passwordLogin?: boolean;
 }
 
 export interface AuditEntry {
@@ -81,7 +83,11 @@ export type ApiErrorCode =
   | 'invalid_credentials'
   | 'username_taken'
   | 'rate_limited'
-  | 'conflict';
+  | 'conflict'
+  /** This backend accepts Google sign-in only. */
+  | 'password_disabled'
+  /** No room for new accounts: too many members or too many awaiting approval. */
+  | 'registration_full';
 
 // ---- Read-only exchange sync -------------------------------------------
 

@@ -13,8 +13,19 @@
  *   `_meta` for the revision.
  *
  * Script properties (Project Settings -> Script properties):
- *   SHEET_ID  optional. Control spreadsheet to use when the script is not
- *             bound to one.
+ *   SHEET_ID          optional. Control spreadsheet to use when the script
+ *                     is not bound to one.
+ *   GOOGLE_CLIENT_ID  optional. OAuth client id for Google sign-in; takes
+ *                     precedence over the one an admin saved on the site.
+ *   ADMIN_EMAILS      Comma-separated Google addresses that become active
+ *                     admins the first time they sign in with Google. With
+ *                     password accounts off this is the only way to get an
+ *                     admin, so set it before sharing the site.
+ *   PASSWORD_LOGIN    'on' to allow username/password accounts. Off by
+ *                     default: members sign in with Google only.
+ *   MAX_MEMBERS       optional, default 200. No new accounts beyond this.
+ *   MAX_PENDING       optional, default 30. No new accounts while this many
+ *                     wait for approval.
  *
  * Nothing secret belongs in this file: it is committed to the repository.
  */
@@ -41,6 +52,8 @@ var FAILURE_WINDOW_SECONDS = 15 * 60;
 var MAX_AUDIT = 1000;
 var LOCK_WAIT_MS = 20000;
 var QUOTE_TTL_SECONDS = 20;
+var DEFAULT_MAX_MEMBERS = 200;
+var DEFAULT_MAX_PENDING = 30;
 
 /**
  * PBKDF2-HMAC-SHA-256 rounds applied to the browser's passwordKey. The
@@ -96,8 +109,10 @@ function route_(request) {
     case 'config':
       return { ok: true, config: publicConfig_(loadAuth_()) };
     case 'register':
+      requirePasswordLogin_();
       return withOk_(register_(request));
     case 'login':
+      requirePasswordLogin_();
       return withOk_(login_(request));
     case 'loginGoogle':
       return withOk_(loginGoogle_(request));
@@ -114,6 +129,7 @@ function route_(request) {
     case 'updateProfile':
       return { ok: true, user: updateProfile_(request) };
     case 'changePassword':
+      requirePasswordLogin_();
       return { ok: true, user: changePassword_(request) };
     case 'linkGoogle':
       return { ok: true, user: linkGoogle_(request) };
@@ -268,6 +284,7 @@ function loadAuth_() {
     config: { registration: raw.registration === 'open' ? 'open' : 'approval' }
   };
   if (raw.googleClientId) a.config.googleClientId = raw.googleClientId;
+  a.clientId = property_('GOOGLE_CLIENT_ID') || a.config.googleClientId;
   if (raw.legacyHandedOver) a.config.legacyHandedOver = raw.legacyHandedOver;
   a.saved = snapshot_(a);
   return a;
@@ -315,10 +332,45 @@ function publicConfig_(a) {
   var config = {
     authRequired: true,
     registration: a.config.registration,
-    hasUsers: a.users.length > 0
+    hasUsers: a.users.length > 0,
+    passwordLogin: passwordLogin_()
   };
-  if (a.config.googleClientId) config.googleClientId = a.config.googleClientId;
+  if (a.clientId) config.googleClientId = a.clientId;
   return config;
+}
+
+// ---- Deployment settings (script properties) ---------------------------------
+
+function property_(name) {
+  var value = PropertiesService.getScriptProperties().getProperty(name);
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function passwordLogin_() {
+  return property_('PASSWORD_LOGIN').toLowerCase() === 'on';
+}
+
+function requirePasswordLogin_() {
+  if (!passwordLogin_()) throw new ApiError_('password_disabled');
+}
+
+function limit_(name, fallback) {
+  var n = parseInt(property_(name), 10);
+  return n > 0 ? n : fallback;
+}
+
+/** Google addresses allowed to become admin on their first Google sign-in. */
+function adminEmails_() {
+  return property_('ADMIN_EMAILS').split(',')
+    .map(function (e) { return e.trim().toLowerCase(); })
+    .filter(function (e) { return e; });
+}
+
+/** Refuse new accounts once the deployment is full or the queue is long. */
+function requireRoom_(a) {
+  if (a.users.length >= limit_('MAX_MEMBERS', DEFAULT_MAX_MEMBERS)) throw new ApiError_('registration_full');
+  var pending = a.users.filter(function (u) { return u.status === 'pending'; }).length;
+  if (pending >= limit_('MAX_PENDING', DEFAULT_MAX_PENDING)) throw new ApiError_('registration_full');
 }
 
 function toPublic_(u) {
@@ -458,15 +510,23 @@ function clearFailures_(username) {
 
 // ---- Public operations -----------------------------------------------------
 
-/** Create a member. The first one becomes an active admin. */
+/**
+ * Create a member. An admin comes from one of two rules: a Google identity
+ * whose verified address is an admin address (ADMIN_EMAILS, or the deployer),
+ * or, only when password accounts are on, the very first account.
+ */
 function createUser_(a, fields) {
   var first = a.users.length === 0;
+  var byEmail = Boolean(fields.verifiedEmail) && adminEmails_().indexOf(fields.verifiedEmail) >= 0;
+  var admin = byEmail || (first && passwordLogin_());
+  if (!admin) requireRoom_(a);
+  var noAdminYet = activeAdmins_(a).length === 0;
   var user = {
     id: newId_('u'),
     username: fields.username,
     displayName: fields.displayName || fields.username,
-    role: first ? 'admin' : 'member',
-    status: first || a.config.registration === 'open' ? 'active' : 'pending',
+    role: admin ? 'admin' : 'member',
+    status: admin || a.config.registration === 'open' ? 'active' : 'pending',
     // On while the product is in testing; each member can turn it off.
     allowAdminView: true,
     createdAt: new Date().toISOString()
@@ -478,8 +538,9 @@ function createUser_(a, fields) {
   }
   if (fields.googleSub) user.googleSub = fields.googleSub;
   a.users.push(user);
-  audit_(a, user, 'register', null, first ? 'first account: admin' : user.status);
-  if (first) handOverLegacy_(a, user);
+  audit_(a, user, 'register', null,
+    byEmail ? 'admin address: admin' : admin ? 'first account: admin' : user.status);
+  if (admin && noAdminYet) handOverLegacy_(a, user);
   return user;
 }
 
@@ -529,10 +590,10 @@ function login_(request) {
 }
 
 function loginGoogle_(request) {
-  var clientId = loadAuth_().config.googleClientId;
+  var clientId = loadAuth_().clientId;
   var identity = googleIdentity_(clientId, request.idToken);
   return mutate_(function (a) {
-    if (a.config.googleClientId !== clientId) throw new ApiError_('invalid_credentials');
+    if (a.clientId !== clientId) throw new ApiError_('invalid_credentials');
     var user = null;
     for (var i = 0; i < a.users.length; i++) {
       if (a.users[i].googleSub === identity.sub) user = a.users[i];
@@ -547,7 +608,8 @@ function loginGoogle_(request) {
       user = createUser_(a, {
         username: username,
         displayName: cleanName_(identity.name, identity.email),
-        googleSub: identity.sub
+        googleSub: identity.sub,
+        verifiedEmail: String(identity.email || '').trim().toLowerCase()
       });
     }
     if (user.status !== 'active') return { user: toPublic_(user) };
@@ -586,10 +648,10 @@ function changePassword_(request) {
 }
 
 function linkGoogle_(request) {
-  var clientId = loadAuth_().config.googleClientId;
+  var clientId = loadAuth_().clientId;
   var identity = googleIdentity_(clientId, request.idToken);
   return mutateAs_(request.session, function (a, actor) {
-    if (a.config.googleClientId !== clientId) throw new ApiError_('invalid_credentials');
+    if (a.clientId !== clientId) throw new ApiError_('invalid_credentials');
     if (a.users.some(function (u) { return u.googleSub === identity.sub && u.id !== actor.id; })) {
       throw new ApiError_('這個 Google 帳號已綁定其他會員');
     }
@@ -689,6 +751,7 @@ function adminSetConfig_(request) {
       if (id && !/^[A-Za-z0-9._-]{10,200}$/.test(id)) throw new ApiError_('Google 用戶端 ID 格式不正確');
       if (id) a.config.googleClientId = id;
       else delete a.config.googleClientId;
+      a.clientId = property_('GOOGLE_CLIENT_ID') || a.config.googleClientId;
       audit_(a, actor, 'set-google-client', null, id ? 'set' : 'cleared');
     }
     var config = publicConfig_(a);

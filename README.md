@@ -26,17 +26,17 @@ npm run check:privacy  # 檢查版本庫內沒有個人資料或金鑰
 | | 公開版 | 完整版 |
 |---|---|---|
 | 用途 | 放在 GitHub Pages 的靜態網站 | 在自己的機器上搭配後端使用 |
-| 後端與帳號 | 沒有 | Node 或 GAS 後端，會員登入 |
-| 資料存放 | 只在使用者自己的瀏覽器 | 後端 |
-| 頁面 | Overview、Core Allocation、New Money Allocator、Accounts & Positions、Loans & Collateral、Risk Lab、Settings | 全部 |
+| 後端與帳號 | 不登入可試算；會員用 Google 登入，資料存在共用的 GAS 後端 | Node 或 GAS 後端，會員登入 |
+| 資料存放 | 試算：只在分頁記憶體；會員：管理員的 Google 試算表 | 後端 |
+| 頁面 | Overview、Core Allocation、New Money Allocator、Accounts & Positions、Loans & Collateral、Futures & Rollover、Risk Lab、Settings（會員另有我的帳號、會員管理） | 全部 |
 | 報價 | 定時產生的公開報價快照；Binance 由瀏覽器直接查詢 | 後端代理，每 30 秒更新 |
 | 建置 | `npm run build:public` | `npm run build` |
 
-公開版聚焦在三件事：計算目前的配置、評估風險、計算新資金怎麼投入。會員系統、策略、績效、期貨轉倉與交易所同步的程式碼都還在，只是公開版不提供。
+公開版聚焦在三件事：計算目前的配置、評估風險、計算新資金怎麼投入。策略、績效與交易所同步的程式碼都還在，只是公開版不提供。商品目錄涵蓋主要市場的市值加權指數、對應的 ETF、槓桿與反向 ETF、指數期貨與 Binance 永續合約（例如 SPYUSDT）；在 Accounts & Positions 用「＋ 新增倉位」即可選商品或自訂商品。
 
 公開版由 `.github/workflows/pages.yml` 建置與發布：推送到 `main` 時、以及每 30 分鐘（更新報價快照）各執行一次。要啟用網站，到儲存庫的 Settings → Pages，把來源設為 GitHub Actions。
 
-公開版沒有帳號，資料以你設定的密碼加密後存在瀏覽器裡：第一次使用先設定密碼，之後每次開啟輸入密碼即可，不必重新輸入資料。沒設定密碼時只能用虛構資料預覽。要搬到另一個瀏覽器或裝置，用 Settings → 後端與資料的匯出備份與還原。加密保護什麼、保護不了什麼，見 [docs/PRIVACY.md](docs/PRIVACY.md)。
+不登入時是試算模式：輸入的資料只在分頁記憶體裡，關閉就消失。會員用 Google 登入，資料存在網站管理員部署的 GAS 後端（見 [gas/README.md](gas/README.md)）；它的網址在建置時取自 repository variable `EXFOLIO_GAS_URL`，沒設定時網站只有試算模式。保護什麼、保護不了什麼，見 [docs/PRIVACY.md](docs/PRIVACY.md)。
 
 本機後端只回應來自本機網址的請求（`localhost`、`127.0.0.1`），其他網站的網頁無法呼叫它。要用別的主機名稱連線，設定 `EXFOLIO_ALLOWED_HOSTS`（見 `.env.example`）。
 
