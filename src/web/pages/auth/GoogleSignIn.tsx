@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { loginChallenge, loginWithGoogle, useAuth } from '../../auth';
+import { cancelSignIn, loginChallenge, loginWithGoogle, useAuth } from '../../auth';
 import { GoogleButton } from '../../components/GoogleButton';
 import './auth.css';
+
+// The backend keeps a challenge for 10 minutes; fetch a new one before that.
+const CHALLENGE_REFRESH_MS = 8 * 60_000;
 
 const PENDING = '已收到申請，管理員核准後再用 Google 登入一次即可使用。';
 
@@ -16,18 +19,24 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
   // Google writes into the token; `round` asks for the next one.
   const [nonce, setNonce] = useState<string>();
   const [round, setRound] = useState(0);
+  const [challengeFailed, setChallengeFailed] = useState(false);
   useEffect(() => {
     let current = true;
     setNonce(undefined);
+    setChallengeFailed(false);
     void loginChallenge().then((n) => {
       if (!current) return;
       if (n) setNonce(n);
-      else setError('無法向會員後端取得登入憑證，請稍後重試');
+      else setChallengeFailed(true);
     });
+    const renew = setTimeout(() => setRound((r) => r + 1), CHALLENGE_REFRESH_MS);
     return () => {
       current = false;
+      clearTimeout(renew);
     };
   }, [round]);
+  // Leaving this page voids a sign-in still on its way.
+  useEffect(() => cancelSignIn, []);
 
   const onToken = useCallback(
     (idToken: string) => {
@@ -65,8 +74,8 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
             ，請自行判斷要輸入哪些資料；不想交給任何人保管的話，用試算模式即可，什麼都不會存。
           </li>
           <li>
-            登入狀態只留在這個分頁：重新整理或關閉分頁後要重新登入，閒置 30
-            分鐘也會自動登出。後端的登入憑證最長 12 小時後失效。
+            登入狀態只留在這個分頁：重新整理或關閉分頁後要重新登入；閒置 30
+            分鐘會遮住資料並登出。後端的登入憑證預設 12 小時後失效。
           </li>
           <li>登入前在試算模式輸入的資料，登入後可以選擇存進帳號。</li>
         </ul>
@@ -80,6 +89,11 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
               label="continue_with"
               nonce={nonce}
             />
+          </div>
+        ) : clientId && challengeFailed ? (
+          <div className="notice warn">
+            無法向會員後端取得登入憑證。{' '}
+            <button onClick={() => setRound((r) => r + 1)}>重試</button>
           </div>
         ) : clientId ? (
           <p className="muted">準備登入…</p>

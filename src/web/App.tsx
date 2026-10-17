@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
 import {
   hasLegacyLocalData,
@@ -202,17 +202,16 @@ function useLocalVaultGuards(active: boolean) {
 const MEMBER_IDLE_MS = 30 * 60_000;
 
 /**
- * Public edition: sign a member out after a stretch with no activity, so a
- * tab left open does not keep their data on screen. Unsaved changes are
- * written first; if that fails the member stays signed in.
+ * Public edition: after a stretch with no activity, call `onIdle`, which
+ * hides the member's data and signs them out.
  */
-function useMemberIdleSignOut(active: boolean) {
+function useMemberIdleSignOut(active: boolean, onIdle: () => void) {
   useEffect(() => {
     if (!active) return;
     let idle: ReturnType<typeof setTimeout>;
     const restart = () => {
       clearTimeout(idle);
-      idle = setTimeout(() => void logout(), MEMBER_IDLE_MS);
+      idle = setTimeout(onIdle, MEMBER_IDLE_MS);
     };
     const events = ['pointerdown', 'keydown', 'scroll'] as const;
     events.forEach((name) => window.addEventListener(name, restart, { passive: true }));
@@ -221,7 +220,36 @@ function useMemberIdleSignOut(active: boolean) {
       clearTimeout(idle);
       events.forEach((name) => window.removeEventListener(name, restart));
     };
-  }, [active]);
+  }, [active, onIdle]);
+}
+
+/** Shown instead of a member's data once they have been idle too long. */
+function IdleCover(props: {
+  state: 'busy' | 'failed';
+  onRetry: () => void;
+  onDiscard: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="empty">
+      {props.state === 'busy' ? (
+        <p>閒置超過 30 分鐘，正在儲存並登出…</p>
+      ) : (
+        <>
+          <p>閒置超過 30 分鐘。有變更存不進帳號（可能是連線問題），所以還沒登出，資料先遮住。</p>
+          <p className="actions">
+            <button className="primary" onClick={props.onRetry}>
+              重試儲存並登出
+            </button>
+            <button className="danger" onClick={props.onDiscard}>
+              捨棄變更並登出
+            </button>
+            <button onClick={props.onBack}>我還在，回到網站</button>
+          </p>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function App() {
@@ -256,10 +284,26 @@ export default function App() {
       ((signedIn && !store.demo) || store.scratch),
   );
   useLocalVaultGuards(signedIn && auth.accountless && !store.backendRemote);
-  useMemberIdleSignOut(IS_PUBLIC && signedIn);
+  const [idleState, setIdleState] = useState<'none' | 'busy' | 'failed'>('none');
+  const idleSignOut = useCallback((discard = false) => {
+    setIdleState('busy');
+    void logout(discard).then((done) => setIdleState(done ? 'none' : 'failed'));
+  }, []);
+  const onIdle = useCallback(() => idleSignOut(), [idleSignOut]);
+  useMemberIdleSignOut(IS_PUBLIC && signedIn && idleState === 'none', onIdle);
   useDailySnapshot();
 
   if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
+  if (signedIn && idleState !== 'none') {
+    return (
+      <IdleCover
+        state={idleState}
+        onRetry={() => idleSignOut()}
+        onDiscard={() => idleSignOut(true)}
+        onBack={() => setIdleState('none')}
+      />
+    );
+  }
   if (auth.phase === 'locked') return <UnlockPage />;
   if (auth.phase === 'setup') return <SetupPage />;
   if (guest && showLegacy) {

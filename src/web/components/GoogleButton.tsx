@@ -53,7 +53,8 @@ export function GoogleButton(props: {
         if (cancelled || !ref.current || !window.google) return;
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: (response) => response.credential && onToken(response.credential),
+          // A button that has gone away (page left, new challenge) is void.
+          callback: (response) => !cancelled && response.credential && onToken(response.credential),
           ...(nonce ? { nonce } : {}),
         });
         window.google.accounts.id.renderButton(ref.current, {

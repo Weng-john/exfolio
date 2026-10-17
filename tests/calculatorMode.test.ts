@@ -132,4 +132,30 @@ describe('calculator mode', () => {
     expect(await auth.logout()).toBe(true);
     expect(stored()).toContain('剛新增');
   });
+
+  it('does not reuse or accept a load begun for the previous person', async () => {
+    await store.initStore();
+    store.upsertRow('brokers', broker('前一位'));
+    await store.flush();
+    const old = store.initStore();
+    // Someone else signs in while that load is on its way.
+    store.newIdentity();
+    store.loadScratch();
+    store.upsertRow('brokers', broker('新的人'));
+    const fresh = store.initStore(undefined, store.scratchToCarry());
+    expect(fresh).not.toBe(old);
+    await Promise.all([old, fresh]);
+    expect(store.getState().data.brokers).toEqual([broker('前一位')]);
+    expect(store.getState().pendingCarry?.brokers).toEqual([broker('新的人')]);
+  });
+
+  it('refuses edits while signing out, so none is silently lost', async () => {
+    await store.initStore();
+    const leaving = auth.logout();
+    store.upsertRow('brokers', broker('登出中新增'));
+    expect(store.getState().data.brokers).toEqual([]);
+    expect(store.getState().error).toMatch(/登出/);
+    expect(await leaving).toBe(true);
+    expect(stored()).not.toContain('登出中新增');
+  });
 });

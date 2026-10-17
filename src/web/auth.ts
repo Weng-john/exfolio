@@ -9,7 +9,9 @@ import {
   flush,
   initStore,
   loadScratch,
+  newIdentity,
   resetBackend,
+  setFrozen,
   setSignedOutHandler,
 } from './store';
 
@@ -71,9 +73,12 @@ const MESSAGES: Record<string, string> = {
 /** Call the backend, turning an error code into a readable message. */
 export async function api(request: ApiRequest): Promise<Ok> {
   const backend = await ensureBackend();
+  const session = getSession();
   const res = await backend.call(request);
   if (!res.ok) {
-    if (res.error === 'unauthenticated') signedOut();
+    // Only when it is still the same session: an old request's answer must
+    // not sign out whoever signed in meanwhile.
+    if (res.error === 'unauthenticated' && getSession() === session) signedOut();
     throw new Error(MESSAGES[res.error] ?? res.error);
   }
   return res;
@@ -240,6 +245,11 @@ async function signIn(request: ApiRequest): Promise<PublicUser> {
   return accept(res);
 }
 
+/** The visitor left the sign-in page: a sign-in still on its way is void. */
+export function cancelSignIn() {
+  attempt++;
+}
+
 /**
  * A one-time value for the next Google sign-in, when the backend issues
  * them (the GAS backend requires one; the local Node backend has none).
@@ -256,6 +266,8 @@ export async function loginChallenge(): Promise<string | undefined> {
 function accept(res: Ok): PublicUser {
   const user = res.user!;
   if (res.session) {
+    // Loads and saves begun for the previous person must not land now.
+    newIdentity();
     setSession(res.session);
     set({
       phase: 'ready',
@@ -291,7 +303,12 @@ export async function loginWithGoogle(idToken: string, nonce?: string): Promise<
  * false and stays signed in, unless `discard` says to drop them.
  */
 export async function logout(discard = false): Promise<boolean> {
-  if (!discard && !(await flush())) return false;
+  // No edits from here on: one made while signing out would be lost.
+  setFrozen(true);
+  if (!discard && !(await flush())) {
+    setFrozen(false);
+    return false;
+  }
   try {
     await (await ensureBackend()).call({ action: 'logout' });
   } catch {

@@ -54,6 +54,8 @@ export interface Backend {
   call(request: ApiRequest): Promise<ApiResponse>;
 }
 
+const REQUEST_TIMEOUT_MS = 45_000;
+
 function remoteBackend(config: BackendConfig): Backend {
   return {
     label: config.url.startsWith('/') ? '本機 Node 後端' : '遠端後端（GAS）',
@@ -66,6 +68,8 @@ function remoteBackend(config: BackendConfig): Backend {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ ...request, session: getSession() || undefined }),
         redirect: 'follow',
+        // Never wait forever: signing out and saving must be able to fail.
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`後端回應 HTTP ${res.status}`);
       return (await res.json()) as ApiResponse;

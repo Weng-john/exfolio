@@ -31,6 +31,8 @@ export interface StoreState {
   scratch: boolean;
   /** The visitor has changed something in calculator mode. */
   scratchEdited: boolean;
+  /** True while signing out: changes are refused so none can be lost. */
+  frozen: boolean;
   /**
    * Figures entered before signing in, waiting for the member to decide
    * whether they replace what the account already holds.
@@ -50,6 +52,7 @@ let state: StoreState = {
   demo: false,
   scratch: false,
   scratchEdited: false,
+  frozen: false,
   backendRemote: false,
 };
 let backend: Backend | undefined;
@@ -119,8 +122,25 @@ let loading: { key: string; promise: Promise<void> } | undefined;
  * Show the fictional demo portfolio. Edits work in memory so a visitor can
  * try the pages, but nothing is ever sent to a backend.
  */
+/**
+ * A different person is now signed in (or nobody is): whatever load or save
+ * is still on its way belongs to the previous one and must not land.
+ */
+export function newIdentity() {
+  generation++;
+  loading = undefined;
+  clearTimeout(timer);
+}
+
+/** Refuse changes while signing out (true), or accept them again. */
+export function setFrozen(frozen: boolean) {
+  clearTimeout(timer);
+  set({ frozen });
+}
+
 export function loadDemo() {
   generation++;
+  loading = undefined;
   clearTimeout(timer);
   dirty.clear();
   set({
@@ -131,6 +151,7 @@ export function loadDemo() {
     demo: true,
     scratch: false,
     scratchEdited: false,
+    frozen: false,
     error: undefined,
   });
 }
@@ -141,6 +162,7 @@ export function loadDemo() {
  */
 export function loadScratch(data?: Partial<AppData>) {
   generation++;
+  loading = undefined;
   clearTimeout(timer);
   dirty.clear();
   set({
@@ -151,6 +173,7 @@ export function loadScratch(data?: Partial<AppData>) {
     demo: true,
     scratch: true,
     scratchEdited: Boolean(data),
+    frozen: false,
     pendingCarry: undefined,
     error: undefined,
   });
@@ -352,6 +375,7 @@ export function clearData() {
     demo: false,
     scratch: false,
     scratchEdited: false,
+    frozen: false,
     pendingCarry: undefined,
     readOnly: false,
   });
@@ -359,6 +383,10 @@ export function clearData() {
 
 /** Replace a whole table. */
 export function setTable<T extends TableName>(table: T, rows: AppData[T]) {
+  if (state.frozen) {
+    set({ error: '正在登出，暫時無法修改資料' });
+    return;
+  }
   if (state.readOnly) {
     // Nothing is ever written back; only market data may change in memory.
     if (DERIVED_TABLES.includes(table)) set({ data: { ...state.data, [table]: rows } });
@@ -388,7 +416,7 @@ export function removeRow<T extends TableName>(table: T, id: string) {
 
 /** Replace the entire dataset, e.g. when restoring a backup. */
 export function replaceAll(data: AppData) {
-  if (state.readOnly) return;
+  if (state.readOnly || state.frozen) return;
   if (state.demo) {
     set({ data: { ...emptyData(), ...data }, ...(state.scratch ? { scratchEdited: true } : {}) });
     return;
