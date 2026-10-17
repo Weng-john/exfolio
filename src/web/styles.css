@@ -903,3 +903,12 @@ input[type='checkbox'] {
 tr.selected-row td {
   background: var(--panel-2);
 }
+
+a {
+  color: var(--primary-text);
+}
+
+.header-actions button,
+.header-actions .badge {
+  white-space: nowrap;
+}
