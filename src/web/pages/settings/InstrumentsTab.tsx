@@ -12,6 +12,7 @@ import { removeRow, upsertRow, useData } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import { Check, describeRefs, ErrorList, numStr, parseNum } from './shared';
+import { confirmDialog } from '../../dialog';
 
 const TYPE_LABEL: Record<InstrumentType, string> = {
   stock: '股票',
@@ -167,10 +168,15 @@ export default function InstrumentsTab() {
     setErrors([]);
   };
 
-  const tryDelete = (inst: Instrument) => {
+  const tryDelete = async (inst: Instrument) => {
     const held = ledger.positions.some((p) => p.instrumentId === inst.id);
     if (instrumentReferences(data, inst.id, held).length) return setBlocked(inst);
-    if (window.confirm(`確定刪除商品「${inst.symbol} ${inst.name}」？`))
+    if (
+      await confirmDialog(`確定刪除商品「${inst.symbol} ${inst.name}」？`, {
+        tone: 'danger',
+        confirmText: '刪除',
+      })
+    )
       removeRow('instruments', inst.id);
   };
 

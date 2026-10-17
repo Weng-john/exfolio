@@ -16,6 +16,7 @@ import LoanDetail from './loans/LoanDetail';
 import LoanForm from './loans/LoanForm';
 import { baseRate, hasTransactions, KIND_LABEL, METHOD_LABEL } from './loans/shared';
 import './loans/loans.css';
+import { confirmDialog } from '../dialog';
 
 export default function LoansPage() {
   const data = useData();
@@ -54,14 +55,20 @@ export default function LoansPage() {
 
   const selected = rows.find((r) => r.loan.id === selectedId) ?? rows[0];
 
-  const remove = (loan: Loan) => {
+  const remove = async (loan: Loan) => {
     if (hasTransactions(data, loan)) {
-      if (window.confirm(`「${loan.name}」已有交易紀錄，無法刪除。要改為停用嗎？`)) {
+      if (
+        await confirmDialog(`「${loan.name}」已有交易紀錄，無法刪除。要改為停用嗎？`, {
+          title: '無法刪除',
+          confirmText: '改為停用',
+        })
+      ) {
         upsertRow('loans', { ...loan, active: false });
       }
       return;
     }
-    if (window.confirm(`確定刪除「${loan.name}」？`)) removeRow('loans', loan.id);
+    if (await confirmDialog(`確定刪除「${loan.name}」？`, { tone: 'danger', confirmText: '刪除' }))
+      removeRow('loans', loan.id);
   };
 
   const forecastLoans = data.loans.filter((l) =>

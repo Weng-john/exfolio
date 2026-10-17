@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { initAuth, unlockLocalData } from '../../auth';
 import { Field } from '../../components/ui';
 import { eraseEverything } from '../../localVault';
+import { Brand } from '../../components/Brand';
 import './auth.css';
+import { confirmDialog } from '../../dialog';
 
 /** Asks for the passphrase that encrypts the data kept in this browser. */
 export default function UnlockPage() {
@@ -22,8 +24,14 @@ export default function UnlockPage() {
     setBusy(false);
   };
 
-  const erase = () => {
-    if (!window.confirm('清除這個瀏覽器中的全部 Exfolio 資料？沒有備份就無法復原。')) return;
+  const erase = async () => {
+    if (
+      !(await confirmDialog('清除這個瀏覽器中的全部 Exfolio 資料？沒有備份就無法復原。', {
+        tone: 'danger',
+        confirmText: '清除',
+      }))
+    )
+      return;
     void eraseEverything().then(initAuth);
   };
 
@@ -31,7 +39,7 @@ export default function UnlockPage() {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="auth-head">
-          <div className="brand">Exfolio</div>
+          <Brand />
         </div>
         <p className="muted">
           這個瀏覽器中的資料已加密。輸入密碼後才會解開，密碼只留在這個分頁的記憶體裡。

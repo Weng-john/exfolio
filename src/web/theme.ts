@@ -1,42 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
-// Colour theme: follow the system, or force light / dark. The choice is a
-// per-browser preference kept in localStorage.
+// Light / dark theme. A first visit follows the system setting, and keeps
+// following it until the visitor picks one; that choice is then kept in
+// localStorage. main.tsx imports this module before rendering anything, so
+// the page never flashes the wrong colours (the CSP allows no inline script).
 
-export type Theme = 'system' | 'light' | 'dark';
+export type Theme = 'light' | 'dark';
 
 const KEY = 'exfolio.theme';
-const ORDER: Theme[] = ['system', 'light', 'dark'];
-export const THEME_LABELS: Record<Theme, string> = {
-  system: '跟隨系統',
-  light: '明亮',
-  dark: '黑色',
-};
+const listeners = new Set<() => void>();
+const systemQuery =
+  typeof window !== 'undefined' ? window.matchMedia?.('(prefers-color-scheme: dark)') : undefined;
 
-export function loadTheme(): Theme {
+function saved(): Theme | null {
   try {
-    const stored = localStorage.getItem(KEY) as Theme | null;
-    return stored && ORDER.includes(stored) ? stored : 'system';
+    const value = localStorage.getItem(KEY);
+    return value === 'light' || value === 'dark' ? value : null;
   } catch {
-    return 'system';
+    return null;
   }
 }
 
-export function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === 'system') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', theme);
+let current: Theme = saved() ?? (systemQuery?.matches ? 'dark' : 'light');
+
+function apply() {
+  if (typeof document !== 'undefined') document.documentElement.dataset.theme = current;
+  listeners.forEach((l) => l());
+}
+apply();
+
+systemQuery?.addEventListener?.('change', (e) => {
+  if (saved()) return;
+  current = e.matches ? 'dark' : 'light';
+  apply();
+});
+
+export function toggleTheme() {
+  current = current === 'dark' ? 'light' : 'dark';
+  try {
+    localStorage.setItem(KEY, current);
+  } catch {
+    // Storage unavailable: the switch holds for this page view only.
+  }
+  apply();
 }
 
-export function useTheme(): { theme: Theme; cycle: () => void } {
-  const [theme, setTheme] = useState<Theme>(loadTheme);
-  useEffect(() => {
-    applyTheme(theme);
-    try {
-      localStorage.setItem(KEY, theme);
-    } catch {
-      // Storage unavailable: the choice lasts for this page view only.
-    }
-  }, [theme]);
-  return { theme, cycle: () => setTheme((t) => ORDER[(ORDER.indexOf(t) + 1) % ORDER.length]) };
+/** The theme in use: 'light' or 'dark'. */
+export function useTheme(): Theme {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => current,
+  );
 }

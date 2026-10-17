@@ -17,6 +17,7 @@ import StatementImport from './StatementImport';
 import TxForm from './TxForm';
 import { TX_LABELS } from './labels';
 import { FundingBadges, FundingNotice } from '../../components/FundingEvidence';
+import { confirmDialog } from '../../dialog';
 
 interface Preview {
   fileName: string;
@@ -42,8 +43,13 @@ export default function TransactionsTab() {
     id ? (data.instruments.find((i) => i.id === id)?.symbol ?? id) : '';
   const patch = (p: Partial<TxFilter>) => setFilter((f) => ({ ...f, ...p }));
 
-  const remove = (t: Transaction) => {
-    if (window.confirm(`刪除 ${t.date} ${TX_LABELS[t.type]} 交易？此動作無法復原。`))
+  const remove = async (t: Transaction) => {
+    if (
+      await confirmDialog(`刪除 ${t.date} ${TX_LABELS[t.type]} 交易？此動作無法復原。`, {
+        tone: 'danger',
+        confirmText: '刪除',
+      })
+    )
       removeRow('transactions', t.id);
   };
 

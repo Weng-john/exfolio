@@ -4,6 +4,7 @@ import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import { fmtMoney } from '../../format';
 import { removeRow, upsertRow, useData } from '../../store';
 import { NumInput } from './shared';
+import { confirmDialog } from '../../dialog';
 
 const FREQ: Record<CashflowItem['frequency'], string> = {
   once: '一次性',
@@ -100,8 +101,10 @@ export default function CashflowTable() {
                       <button
                         className="ghost danger"
                         onClick={() =>
-                          window.confirm(`確定刪除「${c.name}」？`) &&
-                          removeRow('cashflowItems', c.id)
+                          void confirmDialog(`確定刪除「${c.name}」？`, {
+                            tone: 'danger',
+                            confirmText: '刪除',
+                          }).then((ok) => ok && removeRow('cashflowItems', c.id))
                         }
                       >
                         刪除

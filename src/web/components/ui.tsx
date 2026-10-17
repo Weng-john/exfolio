@@ -111,3 +111,13 @@ export function Planned(props: { phase: string; items: string[] }) {
     </Card>
   );
 }
+
+/** Spinning ring with a short message, for whole-page waits. */
+export function Spinner(props: { text?: string }) {
+  return (
+    <div className="loading" role="status">
+      <span className="loading-spinner" />
+      {props.text && <span>{props.text}</span>}
+    </div>
+  );
+}

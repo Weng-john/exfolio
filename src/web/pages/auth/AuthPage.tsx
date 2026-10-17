@@ -3,7 +3,8 @@ import { login, loginChallenge, loginWithGoogle, register, useAuth } from '../..
 import { BackendAddress } from '../../components/BackendAddress';
 import { GoogleButton } from '../../components/GoogleButton';
 import { Field } from '../../components/ui';
-import { THEME_LABELS, useTheme } from '../../theme';
+import { Brand } from '../../components/Brand';
+import { ThemeButton } from '../../components/ThemeButton';
 import './auth.css';
 
 type Mode = 'login' | 'register';
@@ -13,7 +14,6 @@ const PENDING = '註冊已送出，待管理員核准後即可登入。';
 /** Sign-in and registration: all a visitor sees before they have a session. */
 export default function AuthPage(props: { onBack?: () => void }) {
   const auth = useAuth();
-  const { theme, cycle } = useTheme();
   const config = auth.config;
   const first = config ? !config.hasUsers : false;
   const [mode, setMode] = useState<Mode>(first ? 'register' : 'login');
@@ -68,16 +68,14 @@ export default function AuthPage(props: { onBack?: () => void }) {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="auth-head">
-          <div className="brand">Exfolio</div>
+          <Brand />
           <div className="actions">
             {props.onBack && (
               <button className="ghost" onClick={props.onBack}>
                 ← 返回預覽
               </button>
             )}
-            <button className="ghost" onClick={cycle}>
-              主題：{THEME_LABELS[theme]}
-            </button>
+            <ThemeButton />
           </div>
         </div>
 

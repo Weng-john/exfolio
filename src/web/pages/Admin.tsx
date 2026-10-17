@@ -4,6 +4,7 @@ import type { AuditEntry, PublicUser, RegistrationMode, UserStatus } from '@core
 import { api, derivePasswordKey, useAuth, viewAs } from '../auth';
 import { Badge, Card, Empty, Field, Modal, PageHeader } from '../components/ui';
 import { fmtTime } from '../format';
+import { confirmDialog } from '../dialog';
 
 const STATUS: Record<UserStatus, { tone: 'ok' | 'warn' | 'bad'; text: string }> = {
   active: { tone: 'ok', text: '啟用中' },
@@ -80,8 +81,12 @@ export default function AdminPage() {
     done: string,
   ) => void run(() => api({ action: 'adminUpdateUser', userId: u.id, ...patch }), done);
 
-  const remove = (u: PublicUser) => {
-    if (!window.confirm(`刪除帳號「${u.username}」及其全部資料？這個動作無法復原。`)) return;
+  const remove = async (u: PublicUser) => {
+    const ok = await confirmDialog(`刪除帳號「${u.username}」及其全部資料？這個動作無法復原。`, {
+      tone: 'danger',
+      confirmText: '刪除',
+    });
+    if (!ok) return;
     void run(() => api({ action: 'adminDeleteUser', userId: u.id }), `已刪除 ${u.username}`);
   };
 

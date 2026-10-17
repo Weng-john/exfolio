@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { eraseLegacyLocalData, legacyLocalDataEncrypted, openLegacyLocalData } from '../../auth';
 import { Field } from '../../components/ui';
+import { Brand } from '../../components/Brand';
 import './auth.css';
+import { confirmDialog } from '../../dialog';
 
 /**
  * Data saved in this browser by the earlier, browser-only version of the
@@ -26,8 +28,14 @@ export default function LegacyDataPage(props: { onDone: () => void }) {
     setBusy(false);
   };
 
-  const erase = () => {
-    if (!window.confirm('刪除這個瀏覽器裡的舊資料？沒有備份就無法復原。')) return;
+  const erase = async () => {
+    if (
+      !(await confirmDialog('刪除這個瀏覽器裡的舊資料？沒有備份就無法復原。', {
+        tone: 'danger',
+        confirmText: '刪除',
+      }))
+    )
+      return;
     void eraseLegacyLocalData().then(props.onDone);
   };
 
@@ -35,7 +43,7 @@ export default function LegacyDataPage(props: { onDone: () => void }) {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="auth-head">
-          <div className="brand">Exfolio</div>
+          <Brand />
           <div className="actions">
             <button className="ghost" onClick={props.onDone}>
               ← 返回試算

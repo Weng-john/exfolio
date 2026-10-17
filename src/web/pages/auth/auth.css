@@ -8,7 +8,10 @@
 
 .auth-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 24px;
 }
 
 .auth-head {
@@ -18,8 +21,8 @@
   margin-bottom: 8px;
 }
 
-.auth-head .brand {
-  padding: 0;
+.auth-head {
+  margin-bottom: 16px;
 }
 
 .auth-form {

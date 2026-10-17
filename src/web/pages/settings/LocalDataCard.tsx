@@ -4,6 +4,7 @@ import { Badge, Card, Field } from '../../components/ui';
 import { IS_PUBLIC } from '../../edition';
 import * as vault from '../../localVault';
 import { flush } from '../../store';
+import { confirmDialog } from '../../dialog';
 
 /** Protection and removal of the data kept in this browser. */
 export default function LocalDataCard() {
@@ -54,8 +55,12 @@ export default function LocalDataCard() {
     }
   };
 
-  const erase = () => {
-    if (!window.confirm('清除這個瀏覽器中的全部 Exfolio 資料與設定？沒有備份就無法復原。')) return;
+  const erase = async () => {
+    const ok = await confirmDialog(
+      '清除這個瀏覽器中的全部 Exfolio 資料與設定？沒有備份就無法復原。',
+      { tone: 'danger', confirmText: '清除' },
+    );
+    if (!ok) return;
     void vault.eraseEverything().then(() => window.location.reload());
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { newId, type AppData, type Currency, type Portfolio, type Scenario } from '@core/index';
 import { Field } from '../../components/ui';
 import { removeRow, upsertRow } from '../../store';
+import { confirmDialog } from '../../dialog';
 
 /** Fraction <-> percent text for the inputs: 0.125 shows as "12.5". */
 const toText = (v: number | undefined) =>
@@ -100,11 +101,18 @@ export function ScenarioBar(props: {
   const [name, setName] = useState('');
   const chosen = list.find((s) => s.id === selected);
 
-  const save = () => {
+  const save = async () => {
     const n = name.trim();
     if (!n) return;
     const existing = list.find((s) => s.name === n);
-    if (existing && !window.confirm(`已有同名情境「${n}」，要覆蓋嗎？`)) return;
+    if (
+      existing &&
+      !(await confirmDialog(`已有同名情境「${n}」，要覆蓋嗎？`, {
+        tone: 'warning',
+        confirmText: '覆蓋',
+      }))
+    )
+      return;
     const id = existing?.id ?? newId('scn');
     upsertRow('scenarios', { id, kind, name: n, params: props.current() });
     setSelected(id);
@@ -135,8 +143,14 @@ export function ScenarioBar(props: {
       <button
         className="danger"
         disabled={!chosen}
-        onClick={() => {
-          if (chosen && window.confirm(`確定刪除情境「${chosen.name}」？`)) {
+        onClick={async () => {
+          if (
+            chosen &&
+            (await confirmDialog(`確定刪除情境「${chosen.name}」？`, {
+              tone: 'danger',
+              confirmText: '刪除',
+            }))
+          ) {
             removeRow('scenarios', chosen.id);
             setSelected('');
           }

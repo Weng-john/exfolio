@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cancelSignIn, loginChallenge, loginWithGoogle, useAuth } from '../../auth';
 import { GoogleButton } from '../../components/GoogleButton';
+import { Brand } from '../../components/Brand';
 import './auth.css';
 
 // The backend keeps a challenge for 10 minutes; fetch a new one before that.
@@ -58,7 +59,7 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="auth-head">
-          <div className="brand">Exfolio 會員</div>
+          <Brand suffix="會員" />
           <div className="actions">
             <button className="ghost" onClick={props.onBack}>
               ← 返回試算

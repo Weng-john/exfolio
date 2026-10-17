@@ -12,6 +12,7 @@ import { removeRow, upsertRow, useData } from '../../store';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import InstitutionForm, { KIND_LABELS } from './InstitutionForm';
 import { ACCOUNT_TYPE_LABELS } from './labels';
+import { confirmDialog } from '../../dialog';
 
 export default function StructureTab() {
   const data = useData();
@@ -20,7 +21,7 @@ export default function StructureTab() {
   const [notice, setNotice] = useState('');
   const brokerName = (id: string) => data.brokers.find((b) => b.id === id)?.name ?? id;
 
-  const removeBroker = (b: Broker) => {
+  const removeBroker = async (b: Broker) => {
     const ref = brokerReferences(data, b.id);
     if (ref.accounts || ref.instruments) {
       const parts = [
@@ -32,13 +33,13 @@ export default function StructureTab() {
       );
       return;
     }
-    if (window.confirm(`刪除機構「${b.name}」？`)) {
+    if (await confirmDialog(`刪除機構「${b.name}」？`, { tone: 'danger', confirmText: '刪除' })) {
       removeRow('brokers', b.id);
       setNotice('');
     }
   };
 
-  const removeAccount = (a: Account) => {
+  const removeAccount = async (a: Account) => {
     const ref = accountReferences(data, a.id);
     if (ref.transactions || ref.collateral) {
       const parts = [
@@ -50,7 +51,7 @@ export default function StructureTab() {
       );
       return;
     }
-    if (window.confirm(`刪除帳戶「${a.name}」？`)) {
+    if (await confirmDialog(`刪除帳戶「${a.name}」？`, { tone: 'danger', confirmText: '刪除' })) {
       removeRow('accounts', a.id);
       setNotice('');
     }

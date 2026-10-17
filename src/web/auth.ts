@@ -14,6 +14,7 @@ import {
   setFrozen,
   setSignedOutHandler,
 } from './store';
+import { confirmDialog } from './dialog';
 
 // Who is signed in. The backend decides everything about access; this
 // module only tracks the session and offers the calls the pages need.
@@ -302,7 +303,16 @@ export async function loginWithGoogle(idToken: string, nonce?: string): Promise<
  * Sign out. Unsaved changes are written first; when that fails it returns
  * false and stays signed in, unless `discard` says to drop them.
  */
-export async function logout(discard = false): Promise<boolean> {
+let leaving: Promise<boolean> | undefined;
+
+export function logout(discard = false): Promise<boolean> {
+  // One sign-out at a time: a second click joins the one under way.
+  leaving ??= signOutNow(discard).finally(() => (leaving = undefined));
+  return leaving;
+}
+
+async function signOutNow(discard: boolean): Promise<boolean> {
+  const session = getSession();
   // No edits from here on: one made while signing out would be lost.
   setFrozen(true);
   if (!discard && !(await flush())) {
@@ -314,7 +324,8 @@ export async function logout(discard = false): Promise<boolean> {
   } catch {
     // Signed out here regardless; the session expires on the backend.
   } finally {
-    signedOut();
+    // Someone else may have signed in meanwhile: leave them alone.
+    if (getSession() === session) signedOut();
   }
   return true;
 }
@@ -322,8 +333,9 @@ export async function logout(discard = false): Promise<boolean> {
 /** Sign out from a button: asks before dropping changes that could not be saved. */
 export async function logoutAsking(): Promise<void> {
   if (await logout()) return;
-  const drop = window.confirm(
-    '有變更還沒存進帳號（可能是連線問題）。仍要登出並捨棄這些變更嗎？\n建議先到 Settings 匯出備份。',
+  const drop = await confirmDialog(
+    '有變更還沒存進帳號（可能是連線問題）。仍要登出並捨棄這些變更嗎？建議先到 Settings 匯出備份。',
+    { title: '尚未儲存', tone: 'danger', confirmText: '捨棄並登出', cancelText: '留在網站' },
   );
   if (drop) await logout(true);
 }

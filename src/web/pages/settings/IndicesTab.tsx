@@ -11,6 +11,7 @@ import {
 import { removeRow, replaceAll, upsertRow, useData } from '../../store';
 import { Card, Empty, Field, Modal } from '../../components/ui';
 import { describeRefs, ErrorList } from './shared';
+import { confirmDialog } from '../../dialog';
 
 export default function IndicesTab() {
   const data = useData();
@@ -55,9 +56,10 @@ export default function IndicesTab() {
     setEditing(undefined);
   };
 
-  const tryDelete = (x: UnderlyingIndex) => {
+  const tryDelete = async (x: UnderlyingIndex) => {
     if (indexReferences(data, x.id).length) return setBlocked(x);
-    if (window.confirm(`確定刪除指數「${x.name}」？`)) removeRow('indices', x.id);
+    if (await confirmDialog(`確定刪除指數「${x.name}」？`, { tone: 'danger', confirmText: '刪除' }))
+      removeRow('indices', x.id);
   };
 
   return (

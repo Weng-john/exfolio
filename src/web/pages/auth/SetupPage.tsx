@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { protectLocalData, startPreview } from '../../auth';
 import { Field } from '../../components/ui';
 import { hasData, MIN_PASSPHRASE_LENGTH } from '../../localVault';
-import { THEME_LABELS, useTheme } from '../../theme';
+import { Brand } from '../../components/Brand';
+import { ThemeButton } from '../../components/ThemeButton';
 import './auth.css';
 
 /**
@@ -10,7 +11,6 @@ import './auth.css';
  * so a passphrase comes before anything can be entered.
  */
 export default function SetupPage() {
-  const { theme, cycle } = useTheme();
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -37,10 +37,8 @@ export default function SetupPage() {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="auth-head">
-          <div className="brand">Exfolio</div>
-          <button className="ghost" onClick={cycle}>
-            主題：{THEME_LABELS[theme]}
-          </button>
+          <Brand />
+          <ThemeButton />
         </div>
         <p>
           這個網站沒有帳號，也沒有伺服器：你的資料只存在這個瀏覽器裡，並且一律以你設定的密碼加密後才存放。

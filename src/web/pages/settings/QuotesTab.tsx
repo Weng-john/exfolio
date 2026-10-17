@@ -6,6 +6,7 @@ import { refreshQuotes, useQuoteSync, REFRESH_MS } from '../../quotes';
 import { fmtNum, fmtTime } from '../../format';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import { ErrorList } from './shared';
+import { confirmDialog } from '../../dialog';
 
 function statusOf(q: PriceQuote | undefined, staleMin: number, now: number) {
   if (!q) return <Badge tone="bad">無報價</Badge>;
@@ -230,7 +231,10 @@ export default function QuotesTab() {
                         <button
                           className="danger"
                           onClick={() =>
-                            window.confirm(`刪除 ${r.id}？`) && removeRow('fxRates', r.id)
+                            void confirmDialog(`刪除 ${r.id}？`, {
+                              tone: 'danger',
+                              confirmText: '刪除',
+                            }).then((ok) => ok && removeRow('fxRates', r.id))
                           }
                         >
                           刪除

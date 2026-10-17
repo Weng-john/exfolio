@@ -158,4 +158,11 @@ describe('calculator mode', () => {
     expect(await leaving).toBe(true);
     expect(stored()).not.toContain('登出中新增');
   });
+
+  it('joins a second sign-out to the first instead of running it twice', async () => {
+    await store.initStore();
+    const first = auth.logout();
+    expect(auth.logout()).toBe(first);
+    expect(await first).toBe(true);
+  });
 });

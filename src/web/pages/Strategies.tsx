@@ -9,6 +9,7 @@ import StrategyForm from './strategies/StrategyForm';
 import SummaryTable from './strategies/SummaryTable';
 import { STATUS_LABEL, STATUS_TONE } from './strategies/shared';
 import './strategies/strategies.css';
+import { confirmDialog } from '../dialog';
 
 export default function StrategiesPage() {
   const data = useData();
@@ -22,19 +23,20 @@ export default function StrategiesPage() {
   const summaryOf = (id: string) => summaries.strategies.find((r) => r.bucket === id);
 
   const close = (s: Strategy) => upsertRow('strategies', { ...s, status: 'closed' });
-  const remove = (s: Strategy) => {
+  const remove = async (s: Strategy) => {
     const refs = strategyReferences(data, s.id);
     if (refs.total > 0) {
       if (
-        window.confirm(
+        await confirmDialog(
           `「${s.name}」已有 ${refs.transactions} 筆交易、${refs.tradeGroups} 個交易群組、${refs.rotationCycles} 個輪動週期，無法刪除。要改為「已結束」嗎？`,
+          { title: '無法刪除', confirmText: '改為已結束' },
         )
       ) {
         close(s);
       }
       return;
     }
-    if (window.confirm(`確定刪除「${s.name}」？`)) {
+    if (await confirmDialog(`確定刪除「${s.name}」？`, { tone: 'danger', confirmText: '刪除' })) {
       removeRow('strategies', s.id);
       if (selectedId === s.id) setSelectedId(undefined);
     }

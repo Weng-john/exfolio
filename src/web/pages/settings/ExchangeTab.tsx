@@ -12,6 +12,7 @@ import { Badge, Card, Empty, Field } from '../../components/ui';
 import { fmtNum, fmtTime } from '../../format';
 import { setTable, useData, useStore } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
+import { confirmDialog } from '../../dialog';
 
 /** Read-only exchange connections: compare the exchange with the ledger and import fills. */
 export default function ExchangeTab() {
@@ -62,8 +63,14 @@ export default function ExchangeTab() {
       setStatus((await api({ action: 'integrationStatus' })).integrations);
     });
 
-  const remove = (integration: IntegrationInfo) => {
-    if (!window.confirm(`刪除連線「${integration.label}」？後端保存的金鑰會一併刪除。`)) return;
+  const remove = async (integration: IntegrationInfo) => {
+    if (
+      !(await confirmDialog(`刪除連線「${integration.label}」？後端保存的金鑰會一併刪除。`, {
+        tone: 'danger',
+        confirmText: '刪除',
+      }))
+    )
+      return;
     void run(async () => {
       setStatus((await api({ action: 'integrationDelete', id: integration.id })).integrations);
       if (selected?.id === integration.id) {

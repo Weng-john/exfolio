@@ -4,6 +4,7 @@ import { Badge, Card, Empty, Field } from '../../components/ui';
 import { fmtMoney, signClass } from '../../format';
 import { removeRow, upsertRow, useData } from '../../store';
 import { bucketName } from '../strategies/shared';
+import { confirmDialog } from '../../dialog';
 
 /** Trade groups: the multi-leg unit (future option spreads, paired trades). */
 export default function TradeGroups(props: { base: string }) {
@@ -42,12 +43,12 @@ export default function TradeGroups(props: { base: string }) {
     setEditing(undefined);
   };
 
-  const remove = (g: TradeGroup) => {
+  const remove = async (g: TradeGroup) => {
     const legs = data.transactions.filter((t) => t.tradeGroupId === g.id).length;
     const msg = legs
       ? `「${g.name}」有 ${legs} 筆交易掛在這個群組。刪除後這些交易會變成沒有群組（交易本身不會被刪除）。確定？`
       : `確定刪除「${g.name}」？`;
-    if (!window.confirm(msg)) return;
+    if (!(await confirmDialog(msg, { tone: 'danger', confirmText: '刪除' }))) return;
     if (legs) {
       for (const t of data.transactions.filter((x) => x.tradeGroupId === g.id)) {
         const { tradeGroupId: _g, ...rest } = t;

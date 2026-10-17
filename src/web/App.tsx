@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { HashRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
   hasLegacyLocalData,
   initAuth,
@@ -9,7 +9,19 @@ import {
   stopViewing,
   useAuth,
 } from './auth';
-import { Badge } from './components/ui';
+import { Brand } from './components/Brand';
+import {
+  IconClose,
+  IconLogout,
+  IconMenu,
+  IconRefresh,
+  IconSettings,
+  IconUser,
+  IconUsers,
+} from './components/icons';
+import { ThemeButton, ThemeSwitch } from './components/ThemeButton';
+import { Badge, Spinner } from './components/ui';
+import { confirmDialog } from './dialog';
 import { IS_PUBLIC, MEMBERS_ENABLED } from './edition';
 import { fmtTime } from './format';
 import AccountPage from './pages/Account';
@@ -44,7 +56,6 @@ import {
   useStore,
   type SyncStatus,
 } from './store';
-import { THEME_LABELS, useTheme } from './theme';
 import { useDailySnapshot } from './useDailySnapshot';
 
 const NAV: Array<{
@@ -117,15 +128,84 @@ const STATUS: Record<SyncStatus, { tone: 'ok' | 'warn' | 'bad' | 'info'; text: s
   conflict: { tone: 'bad', text: '版本衝突' },
 };
 
-function TopBar(props: { onSignIn: () => void }) {
+/** Avatar button with the member's menu: account, members, sign-out. */
+function UserMenu() {
+  const auth = useAuth();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+  const user = auth.user!;
+  return (
+    <div className="user-menu" ref={ref}>
+      <button
+        type="button"
+        className={`avatar-btn ${open ? 'active' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="帳號選單"
+      >
+        <IconUser size={22} />
+      </button>
+      {open && (
+        <div className="dropdown-menu" role="menu" onClick={() => setOpen(false)}>
+          <div className="menu-profile">
+            <span className="menu-name">{user.displayName}</span>
+            <span className="menu-sub">{user.username}</span>
+          </div>
+          <div className="menu-divider" />
+          <Link to="/account" className="menu-item" role="menuitem">
+            <IconUser /> 我的帳號
+          </Link>
+          {user.role === 'admin' && (
+            <Link to="/admin" className="menu-item" role="menuitem">
+              <IconUsers /> 會員管理
+            </Link>
+          )}
+          <Link to="/settings" className="menu-item" role="menuitem">
+            <IconSettings /> 設定
+          </Link>
+          <div className="menu-divider" />
+          <button
+            type="button"
+            className="menu-item danger"
+            role="menuitem"
+            onClick={() => void logoutAsking()}
+          >
+            <IconLogout /> 登出
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Header(props: { onSignIn: () => void; onMenu: () => void }) {
   const store = useStore();
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
-  const { theme, cycle } = useTheme();
   const auth = useAuth();
+  const snapshot = (IS_PUBLIC || !store.backendRemote) && snapshotGeneratedAt();
   return (
-    <div className="topbar">
-      <div className="topbar-item">
+    <header className="app-header">
+      <button
+        type="button"
+        className="icon-btn nav-toggle"
+        aria-label="開啟選單"
+        onClick={props.onMenu}
+      >
+        <IconMenu />
+      </button>
+      <Link to="/" className="header-brand">
+        <Brand />
+      </Link>
+      <div className="header-status">
         {store.scratch ? (
           <Badge tone="warn">試算</Badge>
         ) : store.demo ? (
@@ -133,7 +213,7 @@ function TopBar(props: { onSignIn: () => void }) {
         ) : (
           <Badge tone={status.tone}>{status.text}</Badge>
         )}
-        <span className="muted">{store.backendLabel}</span>
+        <span className="muted hide-sm">{store.backendLabel}</span>
         {store.error && <span className="neg">{store.error}</span>}
         {(store.status === 'error' || store.status === 'conflict') && (
           <button className="ghost" onClick={() => void initStore(auth.viewing?.id)}>
@@ -141,34 +221,38 @@ function TopBar(props: { onSignIn: () => void }) {
           </button>
         )}
       </div>
-      <div className="topbar-item">
-        <span className="muted" title={quotes.errors.join('\n')}>
-          {(IS_PUBLIC || !store.backendRemote) && snapshotGeneratedAt()
-            ? `報價快照：${fmtTime(snapshotGeneratedAt())}`
-            : `報價更新：${fmtTime(quotes.lastSuccessAt)}`}
+      <div className="header-actions">
+        <span className="muted hide-sm" title={quotes.errors.join('\n')}>
+          {snapshot ? `報價快照 ${fmtTime(snapshot)}` : `報價 ${fmtTime(quotes.lastSuccessAt)}`}
           {quotes.errors.length > 0 && `（${quotes.errors.length} 項失敗）`}
         </span>
         {(!store.demo || store.scratch) && (
-          <button onClick={() => void refreshQuotes()} disabled={quotes.refreshing}>
-            {quotes.refreshing ? '更新中…' : '更新報價'}
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => void refreshQuotes()}
+            disabled={quotes.refreshing}
+            title="更新報價"
+            aria-label="更新報價"
+          >
+            <span className={quotes.refreshing ? 'spin' : ''}>
+              <IconRefresh />
+            </span>
           </button>
         )}
-        <button onClick={cycle} title="切換明亮 / 黑色模式">
-          主題：{THEME_LABELS[theme]}
-        </button>
-        {auth.user && (
-          <>
-            <span className="muted">{auth.user.displayName}</span>
-            <button onClick={() => void logoutAsking()}>登出</button>
-          </>
-        )}
-        {auth.phase !== 'ready' && MEMBERS_ENABLED && (
-          <button className="primary" onClick={props.onSignIn}>
-            {IS_PUBLIC ? '會員登入' : '登入 / 註冊'}
-          </button>
+        <ThemeButton />
+        {auth.user ? (
+          <UserMenu />
+        ) : (
+          auth.phase !== 'ready' &&
+          MEMBERS_ENABLED && (
+            <button className="primary" onClick={props.onSignIn}>
+              {IS_PUBLIC ? '會員登入' : '登入 / 註冊'}
+            </button>
+          )
         )}
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -252,6 +336,14 @@ function IdleCover(props: {
   );
 }
 
+/** Closes the small-screen menu drawer whenever the route changes. */
+function CloseDrawerOnNavigate(props: { onNavigate: () => void }) {
+  const location = useLocation();
+  const { onNavigate } = props;
+  useEffect(() => onNavigate(), [location.pathname, onNavigate]);
+  return null;
+}
+
 export default function App() {
   const auth = useAuth();
   const store = useStore();
@@ -261,6 +353,8 @@ export default function App() {
   // that starts empty and keeps nothing.
   const guest = auth.phase === 'signedOut' || auth.phase === 'error' || auth.phase === 'preview';
   const [showAuth, setShowAuth] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
   const [showLegacy, setShowLegacy] = useState(false);
   const [legacy, setLegacy] = useState(hasLegacyLocalData);
   useEffect(() => {
@@ -290,10 +384,12 @@ export default function App() {
     void logout(discard).then((done) => setIdleState(done ? 'none' : 'failed'));
   }, []);
   const onIdle = useCallback(() => idleSignOut(), [idleSignOut]);
+  // The cover belongs to whoever went idle; a new person starts without it.
+  useEffect(() => setIdleState('none'), [auth.user?.id]);
   useMemberIdleSignOut(IS_PUBLIC && signedIn && idleState === 'none', onIdle);
   useDailySnapshot();
 
-  if (auth.phase === 'loading') return <div className="empty">連線中…</div>;
+  if (auth.phase === 'loading') return <Spinner text="連線中…" />;
   if (signedIn && idleState !== 'none') {
     return (
       <IdleCover
@@ -338,9 +434,22 @@ export default function App() {
 
   return (
     <HashRouter>
+      <CloseDrawerOnNavigate onNavigate={closeNav} />
+      <Header onSignIn={signIn} onMenu={() => setNavOpen(true)} />
       <div className="layout">
-        <nav className="sidebar">
-          <div className="brand">Exfolio</div>
+        {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
+        <nav className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="主選單">
+          <div className="drawer-head">
+            <span>選單</span>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="關閉選單"
+              onClick={() => setNavOpen(false)}
+            >
+              <IconClose />
+            </button>
+          </div>
           {visible.map((g) => (
             <div key={g.group} className="nav-group">
               <div className="nav-title">{g.group}</div>
@@ -351,9 +460,11 @@ export default function App() {
               ))}
             </div>
           ))}
+          <div className="drawer-foot">
+            <ThemeSwitch />
+          </div>
         </nav>
         <div className="main">
-          <TopBar onSignIn={signIn} />
           {guest && IS_PUBLIC && (
             <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
               {store.scratch ? (
@@ -404,8 +515,10 @@ export default function App() {
               你登入前在試算模式輸入的資料還沒存進帳號，帳號裡已經有資料。{' '}
               <button
                 onClick={() =>
-                  window.confirm('用試算的資料取代帳號裡的全部資料？帳號原本的資料會被覆蓋。') &&
-                  adoptCarry()
+                  void confirmDialog('用試算的資料取代帳號裡的全部資料？帳號原本的資料會被覆蓋。', {
+                    tone: 'danger',
+                    confirmText: '取代',
+                  }).then((ok) => ok && adoptCarry())
                 }
               >
                 用試算資料取代帳號資料
@@ -422,7 +535,7 @@ export default function App() {
           )}
           <main className="content">
             {store.status === 'loading' ? (
-              <div className="empty">載入資料中…</div>
+              <Spinner text="載入資料中…" />
             ) : (
               <Routes>
                 {visible
