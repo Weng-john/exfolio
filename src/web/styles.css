@@ -912,3 +912,32 @@ a {
 .header-actions .badge {
   white-space: nowrap;
 }
+
+/* Header items share one centre line: no inline baselines or line boxes. */
+.header-brand,
+.header-status,
+.header-actions,
+.icon-btn > span {
+  display: flex;
+  align-items: center;
+}
+
+.app-header svg {
+  display: block;
+  flex: none;
+}
+
+.app-header .badge,
+.app-header button {
+  line-height: 1.2;
+}
+
+.app-header .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+}
+
+.brand {
+  line-height: 1;
+}
