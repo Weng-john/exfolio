@@ -15,6 +15,7 @@
 - 商品目錄（`src/core/catalog.ts`）擴充到主要市場：各國市值加權指數、對應 ETF、槓桿／反向 ETF、指數期貨、Binance 永續（含 SPYUSDT 等股票代幣永續，報價來源 `binance_futures`）。Accounts & Positions 的「＋ 新增倉位」（`QuickPosition.tsx`、`src/core/quickEntry.ts`）可直接建立倉位或自訂商品。
 - 第三輪資安覆核（PASS WITH FIXES，8 項）已處理：store 以 `generation` 丟棄過時的載入與儲存回應、登出立即清掉記憶體中的會員資料；登入以 `attempt` 丟棄過時回應；Google 登入改用一次性 challenge（`loginChallenge` → GIS `nonce`，GAS 先消耗 challenge 才呼叫 tokeninfo）；`ADMIN_EMAILS` 只接受 Gmail，且只在尚無啟用管理員時生效一次；session 預設 12 小時、每人最多 5 個；公開 `config` 快取 60 秒；登出先 `flush()`，失敗會詢問；會員閒置 30 分鐘自動登出；快速輸入與 GAS 報價拒絕非有限數值；Google-only 模式下管理員不能設定密碼；CSP 只允許那一個 `/exec` 網址。
 - 複核（PASS WITH FIXES）後再修：接受新身分時 `newIdentity()` 使舊的載入／儲存作廢、去重不再跨身分；離開登入頁或換 challenge 會作廢進行中的登入；舊請求的 `unauthenticated` 不會登出新的人；登出期間 `setFrozen` 拒絕編輯；請求 45 秒逾時；閒置時先遮住資料，存不進去時提供重試／捨棄；challenge 每 8 分鐘更新並可重試。
+- 介面改版（參考擁有者的 NutsReserve：GitHub `Weng-john/NutsBookingSystem-react`）：設計 token（teal 主色、amber 強調、語意色三層 `--x`/`--x-text`/`--x-soft`、字級與圓角陰影、深藍深色模式）、黏性頁首（Logo、同步狀態、報價更新、日／月主題鈕、會員頭像選單）、平板與手機改為側滑選單、`confirmDialog`／`notify`（`src/web/dialog.ts`、`DialogHost`）取代瀏覽器 confirm、整頁載入用 `Spinner`。舊的變數名（`--panel`、`--muted`、`--pos` 等）保留為別名。
 - 仍未處理（需擁有者決定）：公開版與同帳號其他 Pages 網站共用來源，同來源頁面可攔截 session 與資料；要隔離須改用獨立來源（自訂網域或獨立帳號／組織）。GAS 沒有入口限流，只適合受邀的小群體。
 - 待辦：擁有者部署 GAS、設定 `EXFOLIO_GAS_URL` 與 OAuth 已授權來源；workflow 的變更需要有 `workflow` 權限的 token 推送。
 
