@@ -84,6 +84,7 @@ export function parseBackup(text: string): ParseResult {
         errors.push(`${table}[${i}]：id 重複（${row.id}）`);
       } else {
         seen.add(row.id);
+        errors.push(...validateBackupRow(table, row, i));
       }
     });
     (data[table] as unknown[]) = rows;
@@ -100,6 +101,260 @@ export function parseBackup(text: string): ParseResult {
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+type BackupRow = Record<string, unknown>;
+
+const strings = (row: BackupRow, fields: string[], path: string, errors: string[]) => {
+  for (const field of fields)
+    if (typeof row[field] !== 'string' || !row[field])
+      errors.push(`${path}.${field}：必須是非空字串`);
+};
+const finite = (row: BackupRow, fields: string[], path: string, errors: string[]) => {
+  for (const field of fields)
+    if (typeof row[field] !== 'number' || !Number.isFinite(row[field]))
+      errors.push(`${path}.${field}：必須是有限數字`);
+};
+const optionalFinite = (row: BackupRow, fields: string[], path: string, errors: string[]) => {
+  for (const field of fields)
+    if (
+      row[field] !== undefined &&
+      (typeof row[field] !== 'number' || !Number.isFinite(row[field]))
+    )
+      errors.push(`${path}.${field}：必須是有限數字`);
+};
+const oneOf = (row: BackupRow, field: string, values: string[], path: string, errors: string[]) => {
+  if (typeof row[field] !== 'string' || !values.includes(row[field] as string))
+    errors.push(`${path}.${field}：值無效`);
+};
+const object = (row: BackupRow, field: string, path: string, errors: string[]) => {
+  if (!isObject(row[field])) errors.push(`${path}.${field}：必須是物件`);
+};
+const array = (row: BackupRow, field: string, path: string, errors: string[]) => {
+  if (!Array.isArray(row[field])) errors.push(`${path}.${field}：必須是陣列`);
+};
+
+/**
+ * Validate the persisted shape of every table before a restore reaches the
+ * store. This deliberately checks structural data only: cross-table links can
+ * legitimately be restored in a later import, while malformed primitives
+ * would make the calculation engine unsafe immediately.
+ */
+function validateBackupRow(table: TableName, row: BackupRow, index: number): string[] {
+  const errors: string[] = [];
+  const path = `${table}[${index}]`;
+  switch (table) {
+    case 'brokers':
+      strings(row, ['name'], path, errors);
+      if (row.kind !== undefined) oneOf(row, 'kind', ['broker', 'bank', 'exchange'], path, errors);
+      break;
+    case 'accounts':
+      strings(row, ['brokerId', 'name', 'baseCurrency'], path, errors);
+      oneOf(row, 'type', ['securities', 'futures', 'crypto', 'bank'], path, errors);
+      if (typeof row.active !== 'boolean') errors.push(`${path}.active：必須是布林值`);
+      break;
+    case 'indices':
+      strings(row, ['name', 'market', 'currency'], path, errors);
+      oneOf(
+        row,
+        'market',
+        [
+          'TW',
+          'US',
+          'JP',
+          'KR',
+          'HK',
+          'CN',
+          'IN',
+          'EU',
+          'UK',
+          'AMERICAS',
+          'APAC',
+          'EM',
+          'GLOBAL',
+          'CRYPTO',
+          'OTHER',
+        ],
+        path,
+        errors,
+      );
+      if (row.weighting !== undefined)
+        oneOf(row, 'weighting', ['market_cap', 'price', 'other'], path, errors);
+      break;
+    case 'instruments':
+      strings(row, ['symbol', 'name', 'exchange', 'currency'], path, errors);
+      oneOf(row, 'type', ['stock', 'etf', 'future', 'perpetual', 'crypto', 'option'], path, errors);
+      oneOf(
+        row,
+        'quoteSource',
+        ['manual', 'yahoo', 'binance', 'binance_futures', 'taifex'],
+        path,
+        errors,
+      );
+      finite(row, ['leverage', 'multiplier', 'lotSize'], path, errors);
+      if (typeof row.active !== 'boolean') errors.push(`${path}.active：必須是布林值`);
+      optionalFinite(
+        row,
+        ['expenseRatio', 'tickSize', 'initialMargin', 'maintenanceMargin'],
+        path,
+        errors,
+      );
+      break;
+    case 'transactions':
+      strings(row, ['date', 'accountId', 'bucket', 'currency'], path, errors);
+      oneOf(
+        row,
+        'type',
+        [
+          'buy',
+          'sell',
+          'deposit',
+          'withdraw',
+          'transfer',
+          'position_transfer',
+          'dividend',
+          'fee',
+          'interest',
+          'loan_draw',
+          'loan_repay',
+          'loan_accrual',
+          'loan_extension',
+          'funding_fee',
+          'adjust',
+        ],
+        path,
+        errors,
+      );
+      finite(row, ['amount'], path, errors);
+      optionalFinite(
+        row,
+        ['quantity', 'price', 'fee', 'tax', 'fxRate', 'toAmount', 'principal', 'interest'],
+        path,
+        errors,
+      );
+      break;
+    case 'loans':
+      strings(row, ['name', 'lender', 'currency', 'startDate'], path, errors);
+      oneOf(row, 'kind', ['credit', 'pledge', 'margin', 'other'], path, errors);
+      oneOf(
+        row,
+        'method',
+        ['annuity', 'equal_principal', 'interest_only', 'revolving'],
+        path,
+        errors,
+      );
+      finite(row, ['principal', 'annualRate'], path, errors);
+      if (typeof row.active !== 'boolean') errors.push(`${path}.active：必須是布林值`);
+      if (row.collateral !== undefined) array(row, 'collateral', path, errors);
+      break;
+    case 'prices':
+      strings(row, ['currency', 'asOf'], path, errors);
+      finite(row, ['price'], path, errors);
+      oneOf(
+        row,
+        'source',
+        ['manual', 'yahoo', 'binance', 'binance_futures', 'taifex'],
+        path,
+        errors,
+      );
+      oneOf(row, 'status', ['realtime', 'delayed', 'manual', 'stale'], path, errors);
+      break;
+    case 'fxRates':
+      strings(row, ['from', 'to', 'asOf'], path, errors);
+      finite(row, ['rate'], path, errors);
+      oneOf(
+        row,
+        'source',
+        ['manual', 'yahoo', 'binance', 'binance_futures', 'taifex'],
+        path,
+        errors,
+      );
+      break;
+    case 'targets':
+      strings(row, ['indexId'], path, errors);
+      finite(row, ['targetWeight', 'tolerance'], path, errors);
+      break;
+    case 'strategies':
+      strings(row, ['name'], path, errors);
+      oneOf(row, 'status', ['active', 'paused', 'closed'], path, errors);
+      break;
+    case 'snapshots':
+      strings(row, ['date'], path, errors);
+      finite(
+        row,
+        [
+          'nav',
+          'assets',
+          'liabilities',
+          'cash',
+          'grossExposure',
+          'netExposure',
+          'contributedCapital',
+        ],
+        path,
+        errors,
+      );
+      object(row, 'byIndex', path, errors);
+      break;
+    case 'settings':
+      strings(row, ['baseCurrency'], path, errors);
+      object(row, 'alerts', path, errors);
+      break;
+    case 'tradeGroups':
+      strings(row, ['strategyId', 'name'], path, errors);
+      oneOf(row, 'status', ['open', 'closed'], path, errors);
+      break;
+    case 'rotationCycles':
+      strings(
+        row,
+        [
+          'strategyId',
+          'name',
+          'fromInstrumentId',
+          'toInstrumentId',
+          'benchmarkInstrumentId',
+          'openedAt',
+        ],
+        path,
+        errors,
+      );
+      oneOf(row, 'status', ['open', 'closed'], path, errors);
+      break;
+    case 'priceHistory':
+      strings(row, ['instrumentId', 'date'], path, errors);
+      finite(row, ['close'], path, errors);
+      optionalFinite(row, ['adjClose'], path, errors);
+      break;
+    case 'rollovers':
+      strings(
+        row,
+        ['date', 'accountId', 'bucket', 'seriesId', 'fromInstrumentId', 'toInstrumentId'],
+        path,
+        errors,
+      );
+      finite(row, ['quantity', 'closePrice', 'openPrice'], path, errors);
+      optionalFinite(row, ['fee'], path, errors);
+      break;
+    case 'cashflowItems':
+      strings(row, ['name', 'currency', 'startDate'], path, errors);
+      oneOf(row, 'kind', ['income', 'expense'], path, errors);
+      oneOf(row, 'frequency', ['once', 'monthly', 'quarterly', 'yearly'], path, errors);
+      finite(row, ['amount'], path, errors);
+      if (typeof row.affectsPortfolio !== 'boolean')
+        errors.push(`${path}.affectsPortfolio：必須是布林值`);
+      break;
+    case 'scenarios':
+      strings(row, ['name'], path, errors);
+      oneOf(row, 'kind', ['stress', 'cashflow'], path, errors);
+      object(row, 'params', path, errors);
+      break;
+    case 'importProfiles':
+      strings(row, ['name'], path, errors);
+      object(row, 'mapping', path, errors);
+      object(row, 'options', path, errors);
+      break;
+  }
+  return errors;
 }
 
 export function rowCounts(data: AppData): Record<TableName, number> {

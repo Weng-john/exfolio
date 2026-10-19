@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { daysBetween } from './dates';
 import { buildLedger, type Ledger } from './ledger';
 import { externalFlows, type ExternalFlow } from './performance';
 import { getSettings, isDerivative, type AppData, type ID, type ISODate } from './types';
@@ -290,10 +291,6 @@ export interface DrawdownResult {
   drawdowns: Drawdown[];
   current?: Drawdown;
   index: IndexedHistoryPoint[];
-}
-
-function daysBetween(from: ISODate, to: ISODate) {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
 /** Largest non-overlapping peak-to-trough episodes, based only on complete rows. */

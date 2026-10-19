@@ -61,12 +61,124 @@ describe('backup round trip', () => {
       }),
     );
     expect(bad.ok).toBe(false);
-    if (!bad.ok) expect(bad.errors).toHaveLength(3);
+    if (!bad.ok) {
+      expect(bad.errors).toEqual(
+        expect.arrayContaining([
+          'brokers：必須是陣列',
+          'accounts[0]：缺少 id',
+          'loans[1]：id 重複（l）',
+        ]),
+      );
+    }
   });
 
   it('rejects other formats and newer versions', () => {
     expect(parseBackup(JSON.stringify({ format: 'other', tables: {} })).ok).toBe(false);
     expect(parseBackup(JSON.stringify({ version: 99, tables: { brokers: [] } })).ok).toBe(false);
+  });
+
+  it('rejects malformed fields from each persisted table before restore', () => {
+    const data = fresh();
+    data.brokers[0] = { ...data.brokers[0], name: 12 as unknown as string };
+    data.accounts[0] = { ...data.accounts[0], active: 'yes' as unknown as boolean };
+    data.indices[0] = { ...data.indices[0], market: 'moon' as never };
+    data.instruments[0] = { ...data.instruments[0], lotSize: Infinity };
+    data.transactions.push(tx({ type: 'deposit', date: '2026-01-01', amount: Number.NaN }));
+    data.loans.push({
+      id: 'bad-loan',
+      name: 'x',
+      kind: 'credit',
+      lender: 'y',
+      currency: 'TWD',
+      principal: 1,
+      annualRate: 0,
+      method: 'oops' as never,
+      startDate: '2026-01-01',
+      active: true,
+    });
+    data.prices.push({
+      id: 'p',
+      price: 1,
+      currency: 'TWD',
+      asOf: 'x',
+      source: 'manual',
+      status: 'wrong' as never,
+    });
+    data.fxRates.push({
+      id: 'x',
+      from: 'USD',
+      to: 'TWD',
+      rate: Number.NaN,
+      asOf: 'x',
+      source: 'manual',
+    });
+    data.targets.push({ id: 't', indexId: 'tw50', targetWeight: 1, tolerance: Number.NaN });
+    data.strategies.push({ id: 's', name: 'x', status: 'wrong' as never });
+    data.snapshots.push({
+      id: 'n',
+      date: '2026-01-01',
+      nav: 1,
+      assets: 1,
+      liabilities: 0,
+      cash: 1,
+      grossExposure: 0,
+      netExposure: 0,
+      contributedCapital: 1,
+      byIndex: [] as unknown as Record<string, number>,
+    });
+    data.settings[0] = {
+      ...data.settings[0],
+      alerts: [] as unknown as (typeof data.settings)[0]['alerts'],
+    };
+    data.tradeGroups.push({ id: 'g', strategyId: 's', name: 'x', status: 'wrong' as never });
+    data.rotationCycles.push({
+      id: 'r',
+      strategyId: 's',
+      name: 'x',
+      fromInstrumentId: 'a',
+      toInstrumentId: 'b',
+      benchmarkInstrumentId: 'c',
+      status: 'open',
+      openedAt: 1 as unknown as string,
+    });
+    data.priceHistory.push({ id: 'h', instrumentId: 'x', date: '2026-01-01', close: Number.NaN });
+    data.rollovers.push({
+      id: 'r2',
+      date: '2026-01-01',
+      accountId: 'a',
+      bucket: 'core',
+      seriesId: 's',
+      fromInstrumentId: 'a',
+      toInstrumentId: 'b',
+      quantity: 1,
+      closePrice: 1,
+      openPrice: Number.NaN,
+    });
+    data.cashflowItems.push({
+      id: 'c',
+      name: 'x',
+      kind: 'income',
+      amount: 1,
+      currency: 'TWD',
+      frequency: 'monthly',
+      startDate: '2026-01-01',
+      affectsPortfolio: 'yes' as unknown as boolean,
+    });
+    data.scenarios.push({
+      id: 'sc',
+      kind: 'stress',
+      name: 'x',
+      params: [] as unknown as Record<string, unknown>,
+    });
+    data.importProfiles.push({
+      id: 'ip',
+      name: 'x',
+      mapping: [] as unknown as Record<string, string>,
+      options: {},
+    });
+    const result = parseBackup(serializeBackup(data));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.length).toBeGreaterThanOrEqual(19);
   });
 
   it('names files so git ignores them', () => {
