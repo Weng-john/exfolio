@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import {
   estimateFees,
+  buildLedger,
   CORE_BUCKET,
   getSettings,
+  isISODate,
   newId,
   today,
   type AppData,
@@ -134,8 +136,10 @@ export function buildTransaction(
     vals[key] = r;
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return '請填寫日期';
+  if (!isISODate(f.date)) return '請填寫有效日期';
   if (!f.accountId) return '請選擇帳戶';
+  if (!data.accounts.some((account) => account.id === f.accountId && account.active))
+    return '找不到指定的帳戶';
   const inst = data.instruments.find((i) => i.id === f.instrumentId);
   if (L.trade && !inst) return '請選擇商品';
   if (L.trade && !vals.quantity) return '數量須大於 0';
@@ -143,16 +147,35 @@ export function buildTransaction(
   if (L.positionTransfer) {
     if (!inst || !['stock', 'etf', 'crypto'].includes(inst.type)) return '請選擇現貨商品';
     if (!vals.quantity) return '數量須大於 0';
-    if (!data.accounts.some((a) => a.id === f.toAccountId) || f.toAccountId === f.accountId)
+    if (
+      !data.accounts.some((a) => a.id === f.toAccountId && a.active) ||
+      f.toAccountId === f.accountId
+    )
       return '請選擇不同的轉入帳戶';
   }
   if (L.amount && vals.amount === undefined) return '請填寫金額';
   if (L.amount && !L.signedAmount && !vals.amount) return '金額須大於 0';
   if (L.transfer && !f.toAccountId) return '請選擇轉入帳戶';
+  if (
+    L.transfer &&
+    !data.accounts.some((account) => account.id === f.toAccountId && account.active)
+  )
+    return '找不到有效的轉入帳戶';
   if (L.loan && !f.loanId) return '請選擇貸款';
+  if (L.loan && !data.loans.some((loan) => loan.id === f.loanId && loan.active))
+    return '找不到指定的貸款';
   if (L.repay) {
     if (!f.source) return '請選擇還款資金來源（外部 / 投資組合）';
     if (!vals.principal && !vals.interest) return '請填寫本金或利息';
+    const loanState = buildLedger({
+      ...data,
+      transactions: data.transactions.filter((row) => row.id !== id),
+    }).loans.find((row) => row.loanId === f.loanId);
+    const principalRemaining = Math.max(
+      0,
+      (loanState?.drawn ?? 0) - (loanState?.principalRepaid ?? 0),
+    );
+    if ((vals.principal ?? 0) > principalRemaining + 1e-9) return '本金還款超過貸款剩餘本金';
   }
   if (vals.fxRate !== undefined && vals.fxRate <= 0) return '匯率須大於 0';
 

@@ -1,3 +1,4 @@
+import { daysBetween, isISODate } from './dates';
 import type { ISODate } from './types';
 
 export interface CashFlow {
@@ -11,11 +12,7 @@ const MAX_RATE = 1e100;
 const TOLERANCE = 1e-10;
 
 function dayNumber(date: ISODate): number | undefined {
-  const parts = date.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return undefined;
-  const [year, month, day] = parts;
-  const value = Date.UTC(year, month - 1, day);
-  return Number.isNaN(value) ? undefined : value / 86_400_000;
+  return isISODate(date) ? daysBetween('1970-01-01', date) : undefined;
 }
 
 /**

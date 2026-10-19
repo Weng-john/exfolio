@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { addDays, daysBetween as calendarDaysBetween } from './dates';
 import { buildLedger, type Position } from './ledger';
 import {
   CORE_BUCKET,
@@ -112,32 +113,11 @@ export interface PositionPerformance extends PerformanceSummary {
   derivativePnlPerAverageNotional?: number;
 }
 
-const DAY_MS = 86_400_000;
-
-function dayNumber(date: ISODate): number {
-  const [year, month, day] = date.split('-').map(Number);
-  return Date.UTC(year, month - 1, day) / DAY_MS;
-}
-
 function daysBetween(from: ISODate, to: ISODate): number {
-  return Math.max(0, Math.round(dayNumber(to) - dayNumber(from)));
+  return Math.max(0, calendarDaysBetween(from, to));
 }
 
-function previousDay(date: ISODate): ISODate {
-  // Inverse Gregorian conversion, kept numeric so engine calculations never
-  // read the wall clock or construct a Date.
-  let z = dayNumber(date) - 1 + 719468;
-  const era = ((z >= 0 ? z : z - 146096) / 146097) | 0;
-  const doe = z - era * 146097;
-  const yoe = ((doe - ((doe / 1460) | 0) + ((doe / 36524) | 0) - ((doe / 146096) | 0)) / 365) | 0;
-  let year = yoe + era * 400;
-  const doy = doe - (365 * yoe + ((yoe / 4) | 0) - ((yoe / 100) | 0));
-  const mp = ((5 * doy + 2) / 153) | 0;
-  const day = (doy - (153 * mp + 2) / 5) | 0;
-  const month = mp + (mp < 10 ? 3 : -9);
-  year += month <= 2 ? 1 : 0;
-  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${(day + 1).toString().padStart(2, '0')}`;
-}
+const previousDay = (date: ISODate): ISODate => addDays(date, -1);
 
 function isPositionScope(scope: PerformanceScope): scope is { positionKey: string } {
   return typeof scope === 'object';
@@ -486,7 +466,7 @@ export function timeWeightedReturn(
     }
     periods.push(period);
   }
-  const days = daysBetween(from, to);
+  const days = Math.max(0, daysBetween(from, to));
   const result = undefinedPeriods ? undefined : cumulative - 1;
   return {
     cumulative: result,
@@ -649,6 +629,68 @@ export function benchmarkReturn(
   return { instrumentId, buyAndHold, flowMatched: { twr: buyAndHold, mwr, endingValue }, missing };
 }
 
+interface BenchmarkComponent {
+  instrumentId: ID;
+  weight: number;
+}
+
+/** A flow-matched fixed-weight benchmark basket, using adjusted closes. */
+function compositeBenchmarkReturn(
+  data: AppData,
+  instrumentId: ID,
+  components: BenchmarkComponent[],
+  from: ISODate,
+  to: ISODate,
+  flows: ExternalFlow[],
+): BenchmarkResult | undefined {
+  const valid = components.filter((component) => component.weight > 0);
+  const totalWeight = valid.reduce((sum, component) => sum + component.weight, 0);
+  if (!(totalWeight > 0)) return undefined;
+  const missing: MissingClose[] = [];
+  const prices = valid.map((component) => {
+    const start =
+      historicalPrice(data, component.instrumentId, from, true) ??
+      firstCloseAfter(data, component.instrumentId, from, to);
+    const end = historicalPrice(data, component.instrumentId, to, true);
+    if (!(start && start > 0)) missing.push({ instrumentId: component.instrumentId, date: from });
+    if (!(end && end > 0)) missing.push({ instrumentId: component.instrumentId, date: to });
+    return { ...component, weight: component.weight / totalWeight, start, end };
+  });
+  if (missing.length) return { instrumentId, flowMatched: {}, missing };
+  const buyAndHold = prices.reduce(
+    (sum, component) => sum + component.weight * (component.end! / component.start! - 1),
+    0,
+  );
+  const units = new Map<ID, number>();
+  for (const flow of flows) {
+    for (const component of prices) {
+      const price = historicalPrice(data, component.instrumentId, flow.date, true);
+      if (!(price && price > 0)) {
+        missing.push({ instrumentId: component.instrumentId, date: flow.date });
+        continue;
+      }
+      units.set(
+        component.instrumentId,
+        (units.get(component.instrumentId) ?? 0) + (flow.amount * component.weight) / price,
+      );
+    }
+  }
+  const endingValue = prices.reduce(
+    (sum, component) => sum + (units.get(component.instrumentId) ?? 0) * component.end!,
+    0,
+  );
+  const mwr = xirr([
+    ...flows.map((flow) => ({ date: flow.date, amount: -flow.amount })),
+    { date: to, amount: endingValue },
+  ]);
+  return {
+    instrumentId,
+    buyAndHold,
+    flowMatched: { twr: buyAndHold, mwr, endingValue },
+    missing,
+  };
+}
+
 export function riskStatistics(
   data: AppData,
   scope: PerformanceScope,
@@ -734,6 +776,61 @@ function strategyBenchmark(data: AppData, scope: PerformanceScope): ID | undefin
   );
 }
 
+function plainInstrumentForIndex(data: AppData, indexId: ID, preferred?: ID): ID | undefined {
+  const preferredInstrument = preferred && data.instruments.find((row) => row.id === preferred);
+  if (preferredInstrument && preferredInstrument.leverage === 1) return preferredInstrument.id;
+  return data.instruments.find(
+    (instrument) =>
+      instrument.indexId === indexId && instrument.leverage === 1 && instrument.active,
+  )?.id;
+}
+
+function passiveBenchmarkComponents(data: AppData): BenchmarkComponent[] {
+  return data.targets
+    .filter((target) => target.targetWeight > 0)
+    .map((target) => ({
+      instrumentId: plainInstrumentForIndex(data, target.indexId, target.preferredInstrumentId),
+      weight: target.targetWeight,
+    }))
+    .filter((component): component is BenchmarkComponent => Boolean(component.instrumentId));
+}
+
+function benchmarkForScope(
+  data: AppData,
+  scope: PerformanceScope,
+  from: ISODate,
+  to: ISODate,
+  flows: ExternalFlow[],
+  opening: number,
+): BenchmarkResult | undefined {
+  const direct = strategyBenchmark(data, scope);
+  if (direct) return benchmarkReturn(data, direct, from, to, flows);
+  if (scope === 'core')
+    return compositeBenchmarkReturn(
+      data,
+      'composite:core',
+      passiveBenchmarkComponents(data),
+      from,
+      to,
+      flows,
+    );
+  if (scope !== 'total') return undefined;
+  const coreValue = Math.max(0, valueAt(data, from, 'core', to).value);
+  const components = passiveBenchmarkComponents(data).map((component) => ({
+    ...component,
+    weight: component.weight * coreValue,
+  }));
+  for (const strategy of data.strategies) {
+    const instrumentId = strategyBenchmark(data, strategy.id);
+    const value = Math.max(0, valueAt(data, from, strategy.id, to).value);
+    if (instrumentId && value > 0) components.push({ instrumentId, weight: value });
+  }
+  // A portfolio can be all core with no recorded opening value when the
+  // requested window predates its first cash flow; targets are still useful.
+  if (!components.length && opening > 0) return undefined;
+  return compositeBenchmarkReturn(data, 'composite:total', components, from, to, flows);
+}
+
 function summary(
   data: AppData,
   id: string,
@@ -745,11 +842,15 @@ function summary(
 ): PerformanceSummary {
   const twr = timeWeightedReturn(data, scope, from, to, today);
   const mwr = moneyWeightedReturn(data, scope, from, to, today);
-  const benchmarkId = strategyBenchmark(data, scope);
   const opening = valueAt(data, from, scope, today).value;
-  const benchmark = benchmarkId
-    ? benchmarkReturn(data, benchmarkId, from, to, [{ date: from, amount: opening }, ...mwr.flows])
-    : undefined;
+  const benchmark = benchmarkForScope(
+    data,
+    scope,
+    from,
+    to,
+    [{ date: from, amount: opening }, ...mwr.flows],
+    opening,
+  );
   return {
     id,
     label,
@@ -816,7 +917,7 @@ export function positionPerformance(
     cost,
     pnl,
     cumulativeReturn: !derivative && cost !== 0 ? pnl / Math.abs(cost) : undefined,
-    holdingDays: daysBetween(start, today),
+    holdingDays: Math.max(0, daysBetween(start, today)),
     derivativePnlPerAverageNotional:
       derivative && averageNotional > 0 ? pnl / averageNotional : undefined,
   };

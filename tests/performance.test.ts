@@ -3,6 +3,7 @@ import {
   benchmarkReturn,
   externalFlows,
   moneyWeightedReturn,
+  performanceLevels,
   riskStatistics,
   timeWeightedReturn,
   valueAsOf,
@@ -161,6 +162,45 @@ describe('benchmark and risk', () => {
     expect(risk.peakDate).toBe('2026-01-02');
     expect(risk.troughDate).toBe(TO);
     expect(risk.sampling).toBe('daily');
+  });
+
+  it('builds fixed-weight benchmarks for Core Passive and Total Portfolio', () => {
+    const data = fresh();
+    data.transactions.push(
+      tx({ type: 'deposit', date: FROM, amount: 100 }),
+      tx({ type: 'buy', date: FROM, instrumentId: 'tw_0050', quantity: 1, price: 100 }),
+    );
+    data.targets.push(
+      {
+        id: 'tw',
+        indexId: 'tw50',
+        targetWeight: 0.6,
+        tolerance: 0.02,
+        preferredInstrumentId: 'tw_0050',
+      },
+      {
+        id: 'us',
+        indexId: 'sp500',
+        targetWeight: 0.4,
+        tolerance: 0.02,
+        preferredInstrumentId: 'us_VOO',
+      },
+    );
+    data.priceHistory = [
+      point('tw_0050', FROM, 100),
+      point('tw_0050', TO, 110),
+      point('us_VOO', FROM, 100),
+      point('us_VOO', TO, 120),
+    ];
+    setPrice(data, 'tw_0050', 110);
+    setPrice(data, 'us_VOO', 120, 'USD');
+    const levels = performanceLevels(data, FROM, TO, TODAY);
+    const core = levels.find((level) => level.scope === 'core')!;
+    const total = levels.find((level) => level.scope === 'total')!;
+    expect(core.benchmark).toMatchObject({ instrumentId: 'composite:core' });
+    expect(core.benchmark!.flowMatched.twr).toBeCloseTo(0.14);
+    expect(total.benchmark).toMatchObject({ instrumentId: 'composite:total' });
+    expect(total.benchmark!.flowMatched.twr).toBeCloseTo(0.14);
   });
 });
 

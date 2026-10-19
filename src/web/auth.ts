@@ -72,8 +72,9 @@ const MESSAGES: Record<string, string> = {
 };
 
 /** Call the backend, turning an error code into a readable message. */
-export async function api(request: ApiRequest): Promise<Ok> {
+export async function api(request: ApiRequest, isCurrent?: () => boolean): Promise<Ok> {
   const backend = await ensureBackend();
+  if (isCurrent && !isCurrent()) throw new Error('這次登入已被取消，請重試');
   const session = getSession();
   const res = await backend.call(request);
   if (!res.ok) {
@@ -188,6 +189,10 @@ export async function initAuth(): Promise<void> {
     const config = configRes.config!;
     set({ config, backendLabel: backend.label });
     if (!config.authRequired) {
+      // A reconnect can switch from an authenticated backend to browser-only
+      // storage. Drop the old session and in-memory portfolio before exposing
+      // the accountless state.
+      signedOut();
       set({ phase: localPhase(backend.remote), accountless: true });
       return;
     }
@@ -198,9 +203,13 @@ export async function initAuth(): Promise<void> {
         set({ phase: 'ready', user: me.user });
         return;
       }
-      setSession(undefined);
+      // Reconnects can reach this path while the previous member's data is
+      // still in memory. Use the same cleanup path as an API 401 so no stale
+      // user or portfolio remains visible after an expired session.
+      signedOut();
+      return;
     }
-    set({ phase: 'signedOut' });
+    signedOut();
   } catch (err) {
     set({ phase: 'error', error: err instanceof Error ? err.message : String(err) });
   }
@@ -239,9 +248,8 @@ export async function derivePasswordKey(username: string, password: string): Pro
 }
 
 /** Run a sign-in call; its answer counts only if nothing changed meanwhile. */
-async function signIn(request: ApiRequest): Promise<PublicUser> {
-  const mine = ++attempt;
-  const res = await api(request);
+async function signIn(request: ApiRequest, mine = ++attempt): Promise<PublicUser> {
+  const res = await api(request, () => mine === attempt);
   if (mine !== attempt) throw new Error('這次登入已被取消，請重試');
   return accept(res);
 }
@@ -286,13 +294,17 @@ export async function register(
   password: string,
   displayName: string,
 ): Promise<PublicUser> {
+  const mine = ++attempt;
   const passwordKey = await derivePasswordKey(username, password);
-  return signIn({ action: 'register', username, displayName, passwordKey });
+  if (mine !== attempt) throw new Error('這次登入已被取消，請重試');
+  return signIn({ action: 'register', username, displayName, passwordKey }, mine);
 }
 
 export async function login(username: string, password: string): Promise<PublicUser> {
+  const mine = ++attempt;
   const passwordKey = await derivePasswordKey(username, password);
-  return signIn({ action: 'login', username, passwordKey });
+  if (mine !== attempt) throw new Error('這次登入已被取消，請重試');
+  return signIn({ action: 'login', username, passwordKey }, mine);
 }
 
 export async function loginWithGoogle(idToken: string, nonce?: string): Promise<PublicUser> {

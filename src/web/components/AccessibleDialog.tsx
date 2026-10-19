@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { trapTabFocus } from '../focusTrap';
 
 let openDialogs = 0;
 let previousOverflow = '';
@@ -12,6 +13,7 @@ export function AccessibleDialog(props: {
   alert?: boolean;
   descriptionId?: string;
   focusKey?: unknown;
+  initialFocusSelector?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -30,8 +32,14 @@ export function AccessibleDialog(props: {
     };
   }, []);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[data-dialog-initial]')?.focus();
-  }, [props.focusKey]);
+    const dialog = ref.current;
+    const initial =
+      dialog?.querySelector<HTMLElement>('[data-dialog-initial]') ??
+      (props.initialFocusSelector
+        ? dialog?.querySelector<HTMLElement>(props.initialFocusSelector)
+        : null);
+    initial?.focus();
+  }, [props.focusKey, props.initialFocusSelector]);
   return (
     <dialog
       ref={ref}
@@ -40,6 +48,35 @@ export function AccessibleDialog(props: {
       aria-describedby={props.descriptionId}
       aria-modal="true"
       role={props.alert ? 'alertdialog' : undefined}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        const dialog = event.currentTarget;
+        // A nested native dialog owns its own Tab loop.
+        if (
+          event.defaultPrevented ||
+          event.key !== 'Tab' ||
+          (event.target as Element).closest('dialog') !== dialog
+        )
+          return;
+        const items = Array.from(
+          dialog.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]',
+          ),
+        ).filter(
+          (item) =>
+            item.tabIndex >= 0 &&
+            !item.matches(':disabled') &&
+            item.closest('dialog') === dialog &&
+            !item.closest('[inert]') &&
+            item.getClientRects().length > 0,
+        );
+        if (!items.length) {
+          event.preventDefault();
+          dialog.focus();
+          return;
+        }
+        trapTabFocus(event, items, document.activeElement);
+      }}
       onCancel={(event) => {
         event.preventDefault();
         props.onClose();

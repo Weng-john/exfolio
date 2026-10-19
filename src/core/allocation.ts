@@ -1,11 +1,12 @@
 import { FxTable } from './fx';
-import { effectiveSecuritiesRate } from './fees';
+import { estimateFees, effectiveSecuritiesRate } from './fees';
 import { UNCLASSIFIED_INDEX, type Valuation, type ValuedPosition } from './valuation';
 import {
   CORE_BUCKET,
   getSettings,
   isDerivative,
   type AppData,
+  type Broker,
   type Currency,
   type ID,
   type Instrument,
@@ -250,23 +251,45 @@ function quoteOf(data: AppData, id: ID): number | undefined {
 // ---------------------------------------------------------- instrument cost
 
 interface Cost {
-  /** Cash tied up in the instrument currency: purchase cost + fee, or margin. */
+  /** Cash tied up in the instrument currency: purchase cost + charges, or margin + charges. */
   cash: number;
   fee: number;
+  tax: number;
   margin: boolean;
   /** Margin was needed but the instrument has no initialMargin. */
   marginMissing: boolean;
 }
 
-function costOf(i: Instrument, quantity: number, price: number, feeRate: number): Cost {
+function costOf(
+  i: Instrument,
+  quantity: number,
+  price: number,
+  side: 'buy' | 'sell',
+  broker: Broker | undefined,
+  fallbackFeeRate: number,
+): Cost {
   const q = Math.abs(quantity);
+  const estimate = estimateFees(broker, i, side, q, price);
+  // A request-level rate is intentionally a securities fallback. Derivative
+  // contracts use the institution's per-contract/rate/tax rule instead.
+  const fee = estimate.known
+    ? estimate.fee
+    : isDerivative(i.type)
+      ? 0
+      : q * price * i.multiplier * fallbackFeeRate;
+  const tax = estimate.known ? estimate.tax : 0;
   if (isDerivative(i.type)) {
     const m = i.initialMargin;
-    return { cash: m && m > 0 ? q * m : 0, fee: 0, margin: true, marginMissing: !(m && m > 0) };
+    return {
+      cash: (m && m > 0 ? q * m : 0) + fee + tax,
+      fee,
+      tax,
+      margin: true,
+      marginMissing: !(m && m > 0),
+    };
   }
   const value = q * price * i.multiplier;
-  const fee = value * feeRate;
-  return { cash: value + fee, fee, margin: false, marginMissing: false };
+  return { cash: value + fee + tax, fee, tax, margin: false, marginMissing: false };
 }
 
 // ---------------------------------------------------------- instrument compare
@@ -341,12 +364,12 @@ export function compareInstruments(
       if (rate === undefined) notes.push(`缺少 ${i.currency}/${base} 匯率，無法換算`);
       if (price === undefined || rate === undefined) return out;
       const unit = unitExposure(i, price, rate);
-      if (!(unit > 0)) {
-        notes.push('商品槓桿不為正，無法用於建立多方曝險');
+      if (exposureAmount !== 0 && !(exposureAmount * unit > 0)) {
+        notes.push('商品曝險方向與目標不同；不以此工具直接建立空頭部位');
         return out;
       }
       const quantity = roundToLot(exposureAmount / unit, i.lotSize);
-      const cost = costOf(i, quantity, price, feeRate);
+      const cost = costOf(i, quantity, price, 'buy', undefined, feeRate);
       out.quantity = quantity;
       out.cash = cost.cash;
       out.cashBase = cost.cash * rate;
@@ -395,6 +418,8 @@ export interface TradeSuggestion {
   cashRequired: number;
   cashRequiredBase: number;
   fee: number;
+  /** Estimated transaction tax, when the institution has a rule. */
+  tax: number;
   /** cashRequired is margin, not purchase cost. */
   isMargin: boolean;
   /** Signed change of index exposure, base currency. */
@@ -461,7 +486,11 @@ export function pickInstrument(
   override?: ID,
 ): Instrument | undefined {
   const byId = (id?: ID) => (id ? data.instruments.find((i) => i.id === id) : undefined);
-  const explicit = byId(override) ?? byId(preferred);
+  const usable = (instrument: Instrument | undefined) =>
+    instrument?.active && instrument.indexId === indexId;
+  const explicit =
+    (usable(byId(override)) ? byId(override) : undefined) ??
+    (usable(byId(preferred)) ? byId(preferred) : undefined);
   if (explicit) return explicit;
   const plain = data.instruments.filter(
     (i) => i.active && i.indexId === indexId && i.leverage === 1,
@@ -469,6 +498,30 @@ export function pickInstrument(
   const cash = plain.filter((i) => !isDerivative(i.type));
   const pool = cash.length ? cash : plain;
   return pool.find((i) => quoteOf(data, i.id) !== undefined) ?? pool[0];
+}
+
+/**
+ * Pick a long instrument whose signed exposure points toward a gap. Negative
+ * targets use inverse ETFs when the user did not explicitly choose a tool;
+ * direct short positions remain outside passive allocation advice.
+ */
+function pickInstrumentForGap(
+  data: AppData,
+  indexId: ID,
+  preferred: ID | undefined,
+  override: ID | undefined,
+  sign: -1 | 1,
+): Instrument | undefined {
+  const explicit = [override, preferred]
+    .filter((id): id is ID => Boolean(id))
+    .map((id) => data.instruments.find((i) => i.id === id))
+    .find((i) => i?.active && i.indexId === indexId);
+  if (explicit) return explicit;
+  if (sign > 0) return pickInstrument(data, indexId);
+  const inverse = data.instruments.filter(
+    (i) => i.active && i.indexId === indexId && i.leverage < 0 && !isDerivative(i.type),
+  );
+  return inverse.find((i) => quoteOf(data, i.id) !== undefined) ?? inverse[0];
 }
 
 /**
@@ -484,7 +537,8 @@ export function planAllocation(
   const base = valuation.baseCurrency;
   const fx = new FxTable(data.fxRates);
   // Explicit request rate, else the receiving institution's rate, else the default.
-  const receiving = data.accounts.find((a) => a.id === request.accountId);
+  const receiving = data.accounts.find((a) => a.id === request.accountId && a.active);
+  const broker = data.brokers.find((b) => b.id === receiving?.brokerId);
   const feeRate =
     request.feeRate ??
     effectiveSecuritiesRate(data.brokers.find((b) => b.id === receiving?.brokerId)) ??
@@ -515,7 +569,11 @@ export function planAllocation(
   });
 
   // 1. Funding and post-funding NAV.
-  const amount = Math.max(0, request.amount);
+  if (!Number.isFinite(request.amount) || request.amount < 0) {
+    warnings.push('新資金金額必須是大於或等於 0 的有限數字');
+    return empty();
+  }
+  const amount = request.amount;
   const amountRate = fx.rate(request.currency, base);
   if (amountRate === undefined) {
     warnings.push(`缺少 ${request.currency}/${base} 匯率，無法換算新資金`);
@@ -523,8 +581,15 @@ export function planAllocation(
   }
   const amountBase = amount * amountRate;
   if (request.source === 'loan') {
-    const loan = request.loanId ? data.loans.find((l) => l.id === request.loanId) : undefined;
-    if (!loan) warnings.push('資金來源為借款，但找不到指定的借款');
+    const loan = request.loanId
+      ? data.loans.find((l) => l.id === request.loanId && l.active)
+      : undefined;
+    if (!loan) {
+      warnings.push('找不到指定的有效借款');
+      const p = empty();
+      p.amountBase = amountBase;
+      return p;
+    }
   }
   // Only an outside deposit raises NAV. Loan proceeds add cash and debt in
   // equal parts; dividends and internal moves are already part of NAV.
@@ -547,8 +612,15 @@ export function planAllocation(
     pool += Math.max(0, free - inCash);
   }
 
-  const account = data.accounts.find((a) => a.id === request.accountId);
-  if (!account) warnings.push('找不到指定的帳戶');
+  const account = data.accounts.find((a) => a.id === request.accountId && a.active);
+  if (!account) {
+    warnings.push('找不到指定的有效帳戶');
+    const p = empty();
+    p.amountBase = amountBase;
+    p.postFundingNav = postFundingNav;
+    p.availableCash = pool;
+    return p;
+  }
 
   // 2. Gaps at post-funding NAV.
   const cmp = compareAllocation(data, valuation);
@@ -558,31 +630,36 @@ export function planAllocation(
 
   const sells: TradeSuggestion[] = [];
   const buys: Candidate[] = [];
+  const exposureKeyForTrade = new Map<TradeSuggestion, string>();
   let sellProceeds = 0;
-  let sellFees = 0;
+  let sellCharges = 0;
 
   for (const row of targetRows) {
-    const gap = gapOf(row);
+    let gap = gapOf(row);
     const gapWeight = gap / postFundingNav;
     if (Math.abs(gap) < EPS) continue;
     // Rebalance mode only acts on indices outside their band; new-money mode
     // buys every under-weight.
     if (request.allowSell && Math.abs(gapWeight) <= row.tolerance + EPS) continue;
-    if (gap < 0 && !request.allowSell) continue;
+    // A negative target can be implemented by buying a long inverse ETF. In
+    // new-money mode we still avoid selling an existing over-weight holding,
+    // but may use the new cash to add the inverse exposure.
+    if (gap < 0 && !request.allowSell && row.targetWeight >= 0) continue;
 
-    if (gap < 0) {
-      let remaining = -gap;
+    if (request.allowSell) {
+      let remaining = gap;
       const held = valuation.positions
         .filter(
           (p) =>
+            p.accountId === request.accountId &&
             p.indexId === row.indexId &&
             p.bucket === CORE_BUCKET &&
             p.quantity > 0 &&
-            p.exposure > 0,
+            (gap < 0 ? p.exposure > 0 : p.exposure < 0),
         )
-        .sort((a, b) => b.exposure - a.exposure);
+        .sort((a, b) => Math.abs(b.exposure) - Math.abs(a.exposure));
       for (const p of held) {
-        if (remaining <= EPS) break;
+        if (Math.abs(remaining) <= EPS) break;
         if (p.priceStatus === 'missing') {
           warnings.push(`${p.instrument.symbol} 沒有報價，略過賣出建議`);
           continue;
@@ -592,14 +669,23 @@ export function planAllocation(
           continue;
         }
         const unit = unitExposure(p.instrument, p.price, p.fxRate);
-        const qty = Math.min(p.quantity, roundToLot(remaining / unit, p.instrument.lotSize));
+        const qty = Math.min(
+          p.quantity,
+          roundToLot(Math.abs(remaining) / Math.abs(unit), p.instrument.lotSize),
+        );
         if (!(qty > 0)) continue;
-        const cost = costOf(p.instrument, qty, p.price, feeRate);
+        const cost = costOf(p.instrument, qty, p.price, 'sell', broker, feeRate);
         if (!cost.margin) {
-          sellProceeds += (qty * p.price * p.instrument.multiplier - cost.fee) * p.fxRate;
-          sellFees += cost.fee * p.fxRate;
+          sellProceeds +=
+            (qty * p.price * p.instrument.multiplier - cost.fee - cost.tax) * p.fxRate;
+        } else {
+          // The ledger does not retain margin allocations per lot, so a
+          // closing contract must not invent a margin release. Its execution
+          // charge still consumes cash available to the plan.
+          sellProceeds -= (cost.fee + cost.tax) * p.fxRate;
         }
-        sells.push({
+        sellCharges += (cost.fee + cost.tax) * p.fxRate;
+        const suggestion: TradeSuggestion = {
           indexId: row.indexId,
           instrumentId: p.instrumentId,
           symbol: p.instrument.symbol,
@@ -611,28 +697,42 @@ export function planAllocation(
           cashRequired: 0,
           cashRequiredBase: 0,
           fee: cost.fee,
+          tax: cost.tax,
           isMargin: cost.margin,
           exposureAdded: -qty * unit,
           targetWeight: row.targetWeight,
           postTradeWeight: 0,
-        });
-        remaining -= qty * unit;
-        coreExposure.set(row.indexId, (coreExposure.get(row.indexId) ?? 0) - qty * unit);
+        };
+        sells.push(suggestion);
+        exposureKeyForTrade.set(suggestion, p.key);
+        const exposureAdded = -qty * unit;
+        remaining -= exposureAdded;
+        coreExposure.set(row.indexId, (coreExposure.get(row.indexId) ?? 0) + exposureAdded);
       }
-      if (remaining > EPS && remaining / postFundingNav > row.tolerance + EPS) {
+      gap = remaining;
+      if (
+        Math.abs(remaining) > EPS &&
+        Math.abs(remaining) / postFundingNav > row.tolerance + EPS &&
+        !(row.targetWeight < 0 && remaining < 0)
+      ) {
         warnings.push(
           `${row.name} 目標低於持有部位且無足夠持倉可賣；被動核心的建議不建立空頭部位。短期避險可自行以期貨建立並歸入主動策略，其曝險會計入整體 Gross / Net 槓桿`,
         );
       }
-      continue;
+      if (Math.abs(gap) <= EPS) continue;
     }
 
-    // Under-weight: pick an instrument and size the buy.
-    const inst = pickInstrument(
+    // Move the remaining signed gap with a long instrument. For a negative
+    // target this means an inverse ETF; a direct short is never suggested.
+    if ((gap < 0 && row.targetWeight >= 0) || (gap > 0 && row.targetWeight < 0)) {
+      continue;
+    }
+    const inst = pickInstrumentForGap(
       data,
       row.indexId,
       row.preferredInstrumentId,
       request.overrides?.[row.indexId],
+      gap < 0 ? -1 : 1,
     );
     if (!inst) {
       warnings.push(`${row.name} 沒有可用的商品`);
@@ -649,8 +749,10 @@ export function planAllocation(
       continue;
     }
     const unit = unitExposure(inst, price, rate);
-    if (!(unit > 0)) {
-      warnings.push(`${inst.symbol} 槓桿不為正，無法用來補足 ${row.name} 的多方缺口`);
+    if (!(gap * unit > 0)) {
+      warnings.push(
+        `${inst.symbol} 的曝險方向不符合 ${row.name} 的缺口，請選擇${gap < 0 ? '反向' : '正向'}商品`,
+      );
       continue;
     }
     if (account && inst.brokerIds?.length && !inst.brokerIds.includes(account.brokerId)) {
@@ -670,7 +772,7 @@ export function planAllocation(
   // 3. Fund the buys; scale proportionally to the gaps when cash is short.
   const available = pool + sellProceeds;
   const costBase = (c: Candidate, q: number) =>
-    costOf(c.instrument, q, c.price, feeRate).cash * c.fx;
+    costOf(c.instrument, q, c.price, 'buy', broker, feeRate).cash * c.fx;
   const need = buys.reduce((s, c) => s + costBase(c, c.quantity), 0);
   const factor = need > available + EPS ? available / need : 1;
   if (factor < 1) warnings.push('可用資金不足以補足所有缺口，已依缺口比例分配');
@@ -678,7 +780,7 @@ export function planAllocation(
   const buySuggestions: TradeSuggestion[] = [];
   const marginWarned = new Set<ID>();
   let cashUsed = 0;
-  let buyFees = 0;
+  let buyCharges = 0;
   for (const c of buys) {
     const scalable = costBase(c, c.quantity) > 0;
     const quantity =
@@ -689,14 +791,14 @@ export function planAllocation(
       }
       continue;
     }
-    const cost = costOf(c.instrument, quantity, c.price, feeRate);
+    const cost = costOf(c.instrument, quantity, c.price, 'buy', broker, feeRate);
     if (cost.marginMissing && !marginWarned.has(c.instrument.id)) {
       marginWarned.add(c.instrument.id);
       warnings.push(`${c.instrument.symbol} 缺少原始保證金設定，資金占用以 0 估算`);
     }
     cashUsed += cost.cash * c.fx;
-    buyFees += cost.fee * c.fx;
-    buySuggestions.push({
+    buyCharges += (cost.fee + cost.tax) * c.fx;
+    const suggestion: TradeSuggestion = {
       indexId: c.indexId,
       instrumentId: c.instrument.id,
       symbol: c.instrument.symbol,
@@ -708,24 +810,27 @@ export function planAllocation(
       cashRequired: cost.cash,
       cashRequiredBase: cost.cash * c.fx,
       fee: cost.fee,
+      tax: cost.tax,
       isMargin: cost.margin,
       exposureAdded: quantity * c.unit,
       targetWeight: 0,
       postTradeWeight: 0,
-    });
+    };
+    buySuggestions.push(suggestion);
+    exposureKeyForTrade.set(suggestion, `${request.accountId}|${c.instrument.id}|${CORE_BUCKET}`);
   }
 
   const suggestions = [...sells, ...buySuggestions];
-  const totalFees = sellFees + buyFees;
+  const totalFees = sellCharges + buyCharges;
 
   // 4. Post-trade state.
   const exposureByKey = new Map<string, number>();
   for (const p of valuation.positions) {
-    exposureByKey.set(`${p.instrumentId}|${p.bucket}`, p.exposure);
+    exposureByKey.set(p.key, p.exposure);
   }
   const added = new Map<ID, number>();
   for (const s of suggestions) {
-    const key = `${s.instrumentId}|${CORE_BUCKET}`;
+    const key = exposureKeyForTrade.get(s)!;
     exposureByKey.set(key, (exposureByKey.get(key) ?? 0) + s.exposureAdded);
     added.set(s.indexId, (added.get(s.indexId) ?? 0) + s.exposureAdded);
   }
@@ -750,7 +855,8 @@ export function planAllocation(
       gap,
       gapWeight: gap / postFundingNav,
     });
-    if (gap > EPS) unfunded += gap;
+    const needsMore = row.targetWeight < 0 ? gap < -EPS : gap > EPS;
+    if (needsMore) unfunded += Math.abs(gap);
   }
   for (const s of suggestions) {
     s.targetWeight = targetRows.find((r) => r.indexId === s.indexId)?.targetWeight ?? 0;
@@ -761,7 +867,8 @@ export function planAllocation(
       const left = residualGaps.find((r) => r.indexId === b.indexId);
       if (
         left &&
-        left.gapWeight > ROUNDING_WARN_WEIGHT &&
+        (left.gapWeight > ROUNDING_WARN_WEIGHT || left.gapWeight < -ROUNDING_WARN_WEIGHT) &&
+        (left.targetWeight >= 0 ? left.gapWeight > 0 : left.gapWeight < 0) &&
         buySuggestions.some((s) => s.indexId === b.indexId)
       ) {
         warnings.push(

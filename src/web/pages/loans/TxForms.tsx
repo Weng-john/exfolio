@@ -118,7 +118,9 @@ export function RepayForm(props: {
   const [note, setNote] = useState('');
   const p = num(principal) || 0;
   const i = num(interest) || 0;
-  const ok = p + i > 0 && p >= 0 && i >= 0 && !!accountId && !!date;
+  const principalRemaining = Math.max(0, status.drawn - status.principalRepaid);
+  const principalTooHigh = p > principalRemaining + 1e-9;
+  const ok = p + i > 0 && p >= 0 && i >= 0 && !principalTooHigh && !!accountId && !!date;
 
   const save = () => {
     if (!ok) return;
@@ -187,6 +189,7 @@ export function RepayForm(props: {
             </select>
           </Field>
         </div>
+        {principalTooHigh && <div className="notice warn">本金還款超過貸款剩餘本金。</div>}
         <div className="notice">
           {source === 'external' ? (
             <>

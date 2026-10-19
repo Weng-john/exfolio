@@ -125,6 +125,7 @@ export function Modal(props: {
       title={props.title}
       onClose={props.onClose}
       className={props.wide ? 'wide' : ''}
+      initialFocusSelector=".modal-body input:not(:disabled):not([type='hidden']), .modal-body select:not(:disabled), .modal-body textarea:not(:disabled)"
     >
       <div className="modal-head">
         <h2>{props.title}</h2>

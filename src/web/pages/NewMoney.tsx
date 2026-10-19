@@ -13,6 +13,7 @@ import { fmtMoney, fmtNum, fmtPct } from '../format';
 import { Card, Field, PageHeader } from '../components/ui';
 import { Accordion, Banner, EmptyState, Toggle } from '../components/Primitives';
 import { PlanView } from './allocation/PlanView';
+import { parseFiniteAmount, parseNonNegativeAmount } from './newMoneyValidation';
 import './allocation/allocation.css';
 
 const SOURCES: Array<[FundingKind, string]> = [
@@ -53,11 +54,15 @@ export default function NewMoneyPage() {
     [base, data.instruments, data.fxRates],
   );
   const targeted = data.targets.map((t) => t.indexId);
+  const amountValue = parseNonNegativeAmount(amount);
+  const amountError = amount.trim() !== '' && amountValue === undefined;
+  const cmpAmountValue = parseFiniteAmount(cmpAmount);
+  const cmpAmountError = cmpAmount.trim() !== '' && cmpAmountValue === undefined;
 
   const plan = useMemo(
     () =>
       planAllocation(data, valuation, {
-        amount: parseFloat(amount) || 0,
+        amount: amountValue ?? 0,
         currency,
         source,
         loanId: source === 'loan' ? loanId || undefined : undefined,
@@ -67,13 +72,13 @@ export default function NewMoneyPage() {
         overrides: Object.fromEntries(Object.entries(overrides).filter(([, v]) => v)),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, valuation, amount, currency, source, loanId, accountId, useCash, overrides],
+    [data, valuation, amount, amountValue, currency, source, loanId, accountId, useCash, overrides],
   );
 
   const effCmpIndex = cmpIndex || targeted[0] || data.indices[0]?.id || '';
   const rows = useMemo(
-    () => (effCmpIndex ? compareInstruments(data, effCmpIndex, parseFloat(cmpAmount) || 0) : []),
-    [data, effCmpIndex, cmpAmount],
+    () => (effCmpIndex ? compareInstruments(data, effCmpIndex, cmpAmountValue ?? 0) : []),
+    [data, effCmpIndex, cmpAmountValue],
   );
   const gapRow = useMemo(
     () => compareAllocation(data, valuation).rows.find((r) => r.indexId === effCmpIndex),
@@ -158,6 +163,11 @@ export default function NewMoneyPage() {
             onChange={setUseCash}
           />
         </div>
+        {amountError && (
+          <div className="notice warn" role="alert">
+            金額必須是大於或等於 0 的有效數字。
+          </div>
+        )}
       </Card>
 
       <div className="section-kicker">
@@ -205,7 +215,7 @@ export default function NewMoneyPage() {
       <div className="section-kicker">
         <span>03</span> 檢視配置建議
       </div>
-      <PlanView plan={plan} names={names} />
+      {!amountError && <PlanView plan={plan} names={names} />}
       <Accordion title="資金來源為什麼會影響結果？">
         <p>
           外部投入會增加 NAV；借款同時增加現金與負債，NAV
@@ -231,6 +241,11 @@ export default function NewMoneyPage() {
             <input type="number" value={cmpAmount} onChange={(e) => setCmpAmount(e.target.value)} />
           </Field>
         </div>
+        {cmpAmountError && (
+          <div className="notice warn" role="alert">
+            目標曝險必須是有效數字。
+          </div>
+        )}
         <div className="table-wrap" role="region" aria-label="工具比較（可左右捲動）" tabIndex={0}>
           <table>
             <thead>

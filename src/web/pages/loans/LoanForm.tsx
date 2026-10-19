@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   INSTITUTION_CATALOG,
+  isISODate,
   newId,
   type Loan,
   type LoanKind,
@@ -59,7 +60,7 @@ export default function LoanForm(props: {
   if (!currency.trim()) errors.push('請輸入幣別');
   if (!(num(principal) >= 0)) errors.push('原始本金需為數字');
   if (!(num(rate) >= 0)) errors.push('年利率需為數字');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) errors.push('請輸入起貸日');
+  if (!isISODate(startDate)) errors.push('請輸入有效的起貸日');
   if (!revolving && !(num(term) >= 1)) errors.push('非循環貸款需填寫期數（月）');
   if (payDay.trim() && !(num(payDay) >= 1 && num(payDay) <= 31)) errors.push('繳款日需為 1–31');
   if (callRatio.trim() && !(num(callRatio) > 0)) errors.push('追繳門檻需大於 0');
