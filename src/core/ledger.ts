@@ -298,8 +298,22 @@ export function buildLedger(data: AppData, options: LedgerOptions = {}): Ledger 
         }
         const interest = tx.interest ?? 0;
         const principal = tx.principal ?? tx.amount - interest;
-        const paid = principal + interest + costs;
         const s = loanState(tx.loanId, tx.currency);
+        const principalOutstanding = Math.max(0, s.drawn - s.principalRepaid);
+        if (
+          !Number.isFinite(principal) ||
+          principal < 0 ||
+          !Number.isFinite(interest) ||
+          interest < 0
+        ) {
+          warnings.push(`交易 ${tx.id}（${tx.date}）的還款本金或利息不正確，已略過`);
+          break;
+        }
+        if (principal > principalOutstanding + EPS) {
+          warnings.push(`交易 ${tx.id}（${tx.date}）本金還款超過剩餘本金，已略過`);
+          break;
+        }
+        const paid = principal + interest + costs;
         s.principalRepaid += principal;
         const accruedPaid = Math.min(interest, s.accruedInterest);
         s.accruedInterest -= accruedPaid;

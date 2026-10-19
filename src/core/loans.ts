@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { daysInMonth } from './dates';
 import type { Ledger } from './ledger';
 import type { Valuation } from './valuation';
 import { getSettings, type AppData, type ID, type ISODate, type Loan } from './types';
@@ -30,12 +31,8 @@ function parseDate(date: ISODate): YMD {
   return { y, m, d };
 }
 
-function daysInMonth(y: number, m: number): number {
-  return new Date(Date.UTC(y, m, 0)).getUTCDate();
-}
-
 function fmtDate(y: number, m: number, d: number): ISODate {
-  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 /** `date` moved by `months`, landing on `day` clamped to the month end. */

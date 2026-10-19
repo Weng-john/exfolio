@@ -1,4 +1,6 @@
 import { FxTable } from './fx';
+import { addMonths } from './loans';
+import { daysBetween } from './dates';
 import { buildLedger, type Ledger } from './ledger';
 import { externalFlows, type ExternalFlow } from './performance';
 import { getSettings, isDerivative, type AppData, type ID, type ISODate } from './types';
@@ -292,10 +294,6 @@ export interface DrawdownResult {
   index: IndexedHistoryPoint[];
 }
 
-function daysBetween(from: ISODate, to: ISODate) {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
-}
-
 /** Largest non-overlapping peak-to-trough episodes, based only on complete rows. */
 export function drawdownTable(
   series: HistoryRow[],
@@ -344,9 +342,7 @@ export type RollingWindow = '1M' | '3M' | '6M' | '1Y';
 export type RollingReturns = Record<RollingWindow, Array<{ date: ISODate; return?: number }>>;
 
 function monthsBefore(date: ISODate, months: number): ISODate {
-  const value = new Date(`${date}T00:00:00Z`);
-  value.setUTCMonth(value.getUTCMonth() - months);
-  return value.toISOString().slice(0, 10);
+  return addMonths(date, -months);
 }
 
 /** Rolling flow-adjusted returns; a value is omitted until a full window exists. */

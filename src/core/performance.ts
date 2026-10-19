@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { daysBetween as calendarDaysBetween } from './dates';
 import { buildLedger, type Position } from './ledger';
 import {
   CORE_BUCKET,
@@ -112,15 +113,12 @@ export interface PositionPerformance extends PerformanceSummary {
   derivativePnlPerAverageNotional?: number;
 }
 
-const DAY_MS = 86_400_000;
-
 function dayNumber(date: ISODate): number {
-  const [year, month, day] = date.split('-').map(Number);
-  return Date.UTC(year, month - 1, day) / DAY_MS;
+  return calendarDaysBetween('1970-01-01', date);
 }
 
 function daysBetween(from: ISODate, to: ISODate): number {
-  return Math.max(0, Math.round(dayNumber(to) - dayNumber(from)));
+  return Math.max(0, calendarDaysBetween(from, to));
 }
 
 function previousDay(date: ISODate): ISODate {

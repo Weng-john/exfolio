@@ -1,4 +1,5 @@
 import { newId, today } from './ids';
+import { isISODate } from './dates';
 import {
   CORE_BUCKET,
   isDerivative,
@@ -65,6 +66,9 @@ export function quickPosition(data: AppData, input: QuickPositionInput): QuickPo
   if (!positiveFinite(input.averageCost)) errors.push('均價必須是大於 0 的有限數字');
   if (instrument && input.side === 'short' && !isDerivative(instrument.type)) {
     errors.push('只有期貨與永續合約可以直接建立空單；放空股票請用交易紀錄');
+  }
+  if (input.date !== undefined && !isISODate(input.date)) {
+    errors.push('日期必須是有效的 YYYY-MM-DD 日期');
   }
   let account = data.accounts.find((a) => a.id === input.accountId);
   let broker: Broker | undefined;

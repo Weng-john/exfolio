@@ -1,4 +1,5 @@
 import { newId } from './ids';
+import { isISODate } from './dates';
 import {
   CORE_BUCKET,
   type AppData,
@@ -261,7 +262,7 @@ export function parseTransactionsCsv(text: string, data: AppData): CsvImportResu
     };
 
     const date = get('date');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {
+    if (!isISODate(date)) {
       errs.push(`date 格式須為 YYYY-MM-DD：${date || '(空白)'}`);
     }
     const type = get('type').toLowerCase() as TxType;
