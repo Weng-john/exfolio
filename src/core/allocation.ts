@@ -1,11 +1,12 @@
 import { FxTable } from './fx';
-import { effectiveSecuritiesRate } from './fees';
+import { estimateFees, effectiveSecuritiesRate } from './fees';
 import { UNCLASSIFIED_INDEX, type Valuation, type ValuedPosition } from './valuation';
 import {
   CORE_BUCKET,
   getSettings,
   isDerivative,
   type AppData,
+  type Broker,
   type Currency,
   type ID,
   type Instrument,
@@ -250,23 +251,45 @@ function quoteOf(data: AppData, id: ID): number | undefined {
 // ---------------------------------------------------------- instrument cost
 
 interface Cost {
-  /** Cash tied up in the instrument currency: purchase cost + fee, or margin. */
+  /** Cash tied up in the instrument currency: purchase cost + charges, or margin + charges. */
   cash: number;
   fee: number;
+  tax: number;
   margin: boolean;
   /** Margin was needed but the instrument has no initialMargin. */
   marginMissing: boolean;
 }
 
-function costOf(i: Instrument, quantity: number, price: number, feeRate: number): Cost {
+function costOf(
+  i: Instrument,
+  quantity: number,
+  price: number,
+  side: 'buy' | 'sell',
+  broker: Broker | undefined,
+  fallbackFeeRate: number,
+): Cost {
   const q = Math.abs(quantity);
+  const estimate = estimateFees(broker, i, side, q, price);
+  // A request-level rate is intentionally a securities fallback. Derivative
+  // contracts use the institution's per-contract/rate/tax rule instead.
+  const fee = estimate.known
+    ? estimate.fee
+    : isDerivative(i.type)
+      ? 0
+      : q * price * i.multiplier * fallbackFeeRate;
+  const tax = estimate.known ? estimate.tax : 0;
   if (isDerivative(i.type)) {
     const m = i.initialMargin;
-    return { cash: m && m > 0 ? q * m : 0, fee: 0, margin: true, marginMissing: !(m && m > 0) };
+    return {
+      cash: (m && m > 0 ? q * m : 0) + fee + tax,
+      fee,
+      tax,
+      margin: true,
+      marginMissing: !(m && m > 0),
+    };
   }
   const value = q * price * i.multiplier;
-  const fee = value * feeRate;
-  return { cash: value + fee, fee, margin: false, marginMissing: false };
+  return { cash: value + fee + tax, fee, tax, margin: false, marginMissing: false };
 }
 
 // ---------------------------------------------------------- instrument compare
@@ -346,7 +369,7 @@ export function compareInstruments(
         return out;
       }
       const quantity = roundToLot(exposureAmount / unit, i.lotSize);
-      const cost = costOf(i, quantity, price, feeRate);
+      const cost = costOf(i, quantity, price, 'buy', undefined, feeRate);
       out.quantity = quantity;
       out.cash = cost.cash;
       out.cashBase = cost.cash * rate;
@@ -395,6 +418,8 @@ export interface TradeSuggestion {
   cashRequired: number;
   cashRequiredBase: number;
   fee: number;
+  /** Estimated transaction tax, when the institution has a rule. */
+  tax: number;
   /** cashRequired is margin, not purchase cost. */
   isMargin: boolean;
   /** Signed change of index exposure, base currency. */
@@ -513,6 +538,7 @@ export function planAllocation(
   const fx = new FxTable(data.fxRates);
   // Explicit request rate, else the receiving institution's rate, else the default.
   const receiving = data.accounts.find((a) => a.id === request.accountId && a.active);
+  const broker = data.brokers.find((b) => b.id === receiving?.brokerId);
   const feeRate =
     request.feeRate ??
     effectiveSecuritiesRate(data.brokers.find((b) => b.id === receiving?.brokerId)) ??
@@ -606,7 +632,7 @@ export function planAllocation(
   const buys: Candidate[] = [];
   const exposureKeyForTrade = new Map<TradeSuggestion, string>();
   let sellProceeds = 0;
-  let sellFees = 0;
+  let sellCharges = 0;
 
   for (const row of targetRows) {
     let gap = gapOf(row);
@@ -648,11 +674,17 @@ export function planAllocation(
           roundToLot(Math.abs(remaining) / Math.abs(unit), p.instrument.lotSize),
         );
         if (!(qty > 0)) continue;
-        const cost = costOf(p.instrument, qty, p.price, feeRate);
+        const cost = costOf(p.instrument, qty, p.price, 'sell', broker, feeRate);
         if (!cost.margin) {
-          sellProceeds += (qty * p.price * p.instrument.multiplier - cost.fee) * p.fxRate;
-          sellFees += cost.fee * p.fxRate;
+          sellProceeds +=
+            (qty * p.price * p.instrument.multiplier - cost.fee - cost.tax) * p.fxRate;
+        } else {
+          // The ledger does not retain margin allocations per lot, so a
+          // closing contract must not invent a margin release. Its execution
+          // charge still consumes cash available to the plan.
+          sellProceeds -= (cost.fee + cost.tax) * p.fxRate;
         }
+        sellCharges += (cost.fee + cost.tax) * p.fxRate;
         const suggestion: TradeSuggestion = {
           indexId: row.indexId,
           instrumentId: p.instrumentId,
@@ -665,6 +697,7 @@ export function planAllocation(
           cashRequired: 0,
           cashRequiredBase: 0,
           fee: cost.fee,
+          tax: cost.tax,
           isMargin: cost.margin,
           exposureAdded: -qty * unit,
           targetWeight: row.targetWeight,
@@ -739,7 +772,7 @@ export function planAllocation(
   // 3. Fund the buys; scale proportionally to the gaps when cash is short.
   const available = pool + sellProceeds;
   const costBase = (c: Candidate, q: number) =>
-    costOf(c.instrument, q, c.price, feeRate).cash * c.fx;
+    costOf(c.instrument, q, c.price, 'buy', broker, feeRate).cash * c.fx;
   const need = buys.reduce((s, c) => s + costBase(c, c.quantity), 0);
   const factor = need > available + EPS ? available / need : 1;
   if (factor < 1) warnings.push('可用資金不足以補足所有缺口，已依缺口比例分配');
@@ -747,7 +780,7 @@ export function planAllocation(
   const buySuggestions: TradeSuggestion[] = [];
   const marginWarned = new Set<ID>();
   let cashUsed = 0;
-  let buyFees = 0;
+  let buyCharges = 0;
   for (const c of buys) {
     const scalable = costBase(c, c.quantity) > 0;
     const quantity =
@@ -758,13 +791,13 @@ export function planAllocation(
       }
       continue;
     }
-    const cost = costOf(c.instrument, quantity, c.price, feeRate);
+    const cost = costOf(c.instrument, quantity, c.price, 'buy', broker, feeRate);
     if (cost.marginMissing && !marginWarned.has(c.instrument.id)) {
       marginWarned.add(c.instrument.id);
       warnings.push(`${c.instrument.symbol} 缺少原始保證金設定，資金占用以 0 估算`);
     }
     cashUsed += cost.cash * c.fx;
-    buyFees += cost.fee * c.fx;
+    buyCharges += (cost.fee + cost.tax) * c.fx;
     const suggestion: TradeSuggestion = {
       indexId: c.indexId,
       instrumentId: c.instrument.id,
@@ -777,6 +810,7 @@ export function planAllocation(
       cashRequired: cost.cash,
       cashRequiredBase: cost.cash * c.fx,
       fee: cost.fee,
+      tax: cost.tax,
       isMargin: cost.margin,
       exposureAdded: quantity * c.unit,
       targetWeight: 0,
@@ -787,7 +821,7 @@ export function planAllocation(
   }
 
   const suggestions = [...sells, ...buySuggestions];
-  const totalFees = sellFees + buyFees;
+  const totalFees = sellCharges + buyCharges;
 
   // 4. Post-trade state.
   const exposureByKey = new Map<string, number>();

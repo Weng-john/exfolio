@@ -806,6 +806,12 @@ export type SideClass =
 export function classifySide(raw: string | undefined): SideClass {
   const s = (raw ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
   if (!s) return { kind: 'unknown' };
+  if (/證券移轉|持股移轉|庫存移轉|positiontransfer|securitytransfer/.test(s))
+    return { kind: 'other', type: 'position_transfer' };
+  if (/應計利息|利息計提|loanaccrual|accrualinterest/.test(s))
+    return { kind: 'other', type: 'loan_accrual' };
+  if (/貸款展延|展期|loanextension|extension/.test(s))
+    return { kind: 'other', type: 'loan_extension' };
   if (/funding|資金費|资金费/.test(s)) return { kind: 'other', type: 'funding_fee' };
   if (/股息|配息|股利|現金股利|现金股利|dividend|^div/.test(s))
     return { kind: 'other', type: 'dividend' };
@@ -866,6 +872,10 @@ export interface StatementOptions extends DateOptions {
   instrumentChoices?: Record<string, string>;
   /** Symbol key -> new instrument the user confirmed (possibly edited from the proposal). */
   confirmedInstruments?: Record<string, Instrument>;
+  /** Required for statement rows labelled as a securities position transfer. */
+  positionTransferToAccountId?: string;
+  /** Required for statement rows that accrue or extend a specific loan. */
+  loanId?: string;
 }
 
 export const DEFAULT_STATEMENT_OPTIONS: Omit<StatementOptions, 'accountId' | 'bucket'> = {
@@ -1318,7 +1328,7 @@ export function buildStatementTransactions(
     const date = row.date!;
     const notes = [...row.notes];
 
-    if (type === 'buy' || type === 'sell') {
+    if (type === 'buy' || type === 'sell' || type === 'position_transfer') {
       if (!row.symbol && !row.name) {
         fail(row, '缺少商品代號');
         continue;
@@ -1394,6 +1404,56 @@ export function buildStatementTransactions(
       }
       if (!qty || qty <= 0) {
         fail(row, '缺少數量');
+        continue;
+      }
+      if (type === 'position_transfer') {
+        const toAccountId = options.positionTransferToAccountId;
+        if (!toAccountId || !data.accounts.some((candidate) => candidate.id === toAccountId)) {
+          fail(row, '證券移轉需指定既有的目的帳戶');
+          continue;
+        }
+        if (toAccountId === options.accountId) {
+          fail(row, '證券移轉的目的帳戶不可與來源帳戶相同');
+          continue;
+        }
+        if (isDerivative(inst.type) || inst.type === 'option') {
+          fail(row, '證券移轉僅支援現貨股票或 ETF，不支援衍生品');
+          continue;
+        }
+        const idParts = [options.accountId, toAccountId, date, inst.id, type, r8(qty), row.orderId];
+        const baseKey = idParts.join('|');
+        const occ = (occurrences.get(baseKey) ?? 0) + 1;
+        occurrences.set(baseKey, occ);
+        const id = statementTxId(idParts, occ);
+        const tx: Transaction = {
+          id,
+          date,
+          type,
+          accountId: options.accountId,
+          toAccountId,
+          bucket: options.bucket,
+          currency: inst.currency,
+          amount: 0,
+          instrumentId: inst.id,
+          quantity: qty,
+          note: ['對帳單匯入', row.orderId ? `編號 ${row.orderId}` : '', ...notes]
+            .filter(Boolean)
+            .join('；'),
+        };
+        if (existingIds.has(id)) {
+          result.duplicates++;
+          const msg = '已匯入過（相同內容的移轉已存在）';
+          result.skipped.push({ rowNumber: row.rowNumber, reason: 'duplicate', message: msg });
+          result.outcomes.push({
+            rowNumber: row.rowNumber,
+            status: 'duplicate',
+            message: msg,
+            transactionId: id,
+          });
+        } else {
+          result.transactions.push(tx);
+          result.outcomes.push({ rowNumber: row.rowNumber, status: 'ok', transactionId: id });
+        }
         continue;
       }
       if (price === undefined || !(price >= 0)) {
@@ -1495,8 +1555,17 @@ export function buildStatementTransactions(
       value = row.fee ?? (row.price && row.quantity ? row.price * row.quantity : undefined);
     }
     if (value === undefined && row.price && row.quantity) value = row.price * row.quantity;
+    if (type === 'loan_extension' && value === undefined) value = 0;
     if (value === undefined || !Number.isFinite(value)) {
       fail(row, '缺少金額');
+      continue;
+    }
+    if ((type === 'loan_accrual' || type === 'loan_extension') && !options.loanId) {
+      fail(row, `${type === 'loan_accrual' ? '應計利息' : '貸款展延'}需在匯入設定指定貸款`);
+      continue;
+    }
+    if (options.loanId && !data.loans.some((loan) => loan.id === options.loanId)) {
+      fail(row, `找不到指定貸款 ${options.loanId}`);
       continue;
     }
     let inst: Instrument | undefined;
@@ -1516,6 +1585,7 @@ export function buildStatementTransactions(
       currency,
       r8(amount),
       inst?.id,
+      options.loanId,
       row.orderId,
       row.note,
     ];
@@ -1535,6 +1605,7 @@ export function buildStatementTransactions(
         .filter(Boolean)
         .join('；'),
     };
+    if (type === 'loan_accrual' || type === 'loan_extension') tx.loanId = options.loanId;
     if (inst) tx.instrumentId = inst.id;
     if (type === 'dividend') {
       if (row.fee) tx.fee = row.fee;
