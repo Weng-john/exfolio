@@ -133,17 +133,31 @@ function UserMenu() {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && openRef.current) {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, []);
   const user = auth.user!;
   return (
     <div className="user-menu" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         className={`avatar-btn ${open ? 'active' : ''}`}
         onClick={() => setOpen((v) => !v)}

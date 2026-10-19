@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { login, loginChallenge, loginWithGoogle, register, useAuth } from '../../auth';
+import {
+  cancelSignIn,
+  login,
+  loginChallenge,
+  loginWithGoogle,
+  register,
+  useAuth,
+} from '../../auth';
 import { BackendAddress } from '../../components/BackendAddress';
 import { GoogleButton } from '../../components/GoogleButton';
 import { Field } from '../../components/ui';
@@ -25,6 +32,12 @@ export default function AuthPage(props: { onBack?: () => void }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [showBackend, setShowBackend] = useState(auth.phase === 'error');
+
+  // Password login and registration share the same cancellable attempt guard
+  // as Google sign-in. Leaving this page must invalidate a request that is
+  // still in flight, otherwise a late response can sign the visitor in after
+  // they returned to the preview.
+  useEffect(() => cancelSignIn, []);
 
   const run = async (task: () => Promise<{ status: string }>) => {
     setBusy(true);

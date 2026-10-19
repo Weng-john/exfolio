@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { trapTabFocus } from '../focusTrap';
 
 export function PageHeader(props: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
@@ -73,22 +74,66 @@ export function Modal(props: {
   wide?: boolean;
 }) {
   const { onClose } = props;
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusable = () =>
+      Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+    const first =
+      dialog.querySelector<HTMLElement>(
+        '.modal-body input, .modal-body select, .modal-body textarea',
+      ) ?? focusable()[0];
+    (first ?? dialog).focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+      trapTabFocus(e, items, document.activeElement);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, []);
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => e.target === e.currentTarget && onCloseRef.current()}
+    >
       <div
+        ref={dialogRef}
         className={`modal ${props.wide ? 'wide' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label={props.title}
+        aria-labelledby={titleId}
+        tabIndex={-1}
       >
         <div className="modal-head">
-          <h2>{props.title}</h2>
-          <button className="ghost" onClick={onClose} aria-label="關閉">
+          <h2 id={titleId}>{props.title}</h2>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => onCloseRef.current()}
+            aria-label="關閉"
+          >
             ✕
           </button>
         </div>
