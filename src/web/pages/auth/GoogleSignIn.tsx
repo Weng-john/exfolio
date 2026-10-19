@@ -66,6 +66,8 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
             </button>
           </div>
         </div>
+        <span className="eyebrow">會員登入</span>
+        <h1 className="auth-title">把你的配置接續下去</h1>
         <p>用 Google 帳號登入後，你的資料會存起來，下次登入可以接著用。</p>
         <ul className="muted">
           <li>新會員要先經網站管理員核准。</li>
@@ -101,9 +103,21 @@ export default function GoogleSignIn(props: { onBack: () => void }) {
         ) : (
           <div className="notice warn">管理員尚未設定 Google 登入。</div>
         )}
-        {busy && <p className="muted">登入中…</p>}
-        {error && <div className="notice warn">{error}</div>}
-        {notice && <div className="notice">{notice}</div>}
+        {busy && (
+          <p className="muted" role="status">
+            登入中…
+          </p>
+        )}
+        {error && (
+          <div className="notice warn" role="alert">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div className="notice" role="status">
+            {notice}
+          </div>
+        )}
       </div>
     </div>
   );

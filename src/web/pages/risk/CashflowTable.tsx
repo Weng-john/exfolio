@@ -58,7 +58,12 @@ export default function CashflowTable() {
       {!data.cashflowItems.length ? (
         <Empty>尚未建立收入或支出。新增薪資、生活費等，生存模擬才會計入。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="外部收支（現金流項目）（可左右捲動）"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

@@ -17,7 +17,7 @@ function ScheduleTable(props: { rows: ScheduleRow[]; currency: string; highlight
   const { rows, currency } = props;
   const sum = (f: (r: ScheduleRow) => number) => rows.reduce((s, r) => s + f(r), 0);
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -103,7 +103,12 @@ function PrepaymentCalc(props: { loan: Loan; status: LoanStatus }) {
           </span>
         </div>
         {effect ? (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="提前還款試算（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -147,7 +152,12 @@ function History(props: { data: AppData; loan: Loan }) {
       {!txs.length ? (
         <Empty>尚無紀錄。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="動用、還款與展延紀錄（可左右捲動）"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

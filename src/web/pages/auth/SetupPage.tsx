@@ -40,6 +40,8 @@ export default function SetupPage() {
           <Brand />
           <ThemeButton />
         </div>
+        <span className="eyebrow">本機資料設定</span>
+        <h1 className="auth-title">保護這個瀏覽器的資料</h1>
         <p>
           這個網站沒有帳號，也沒有伺服器：你的資料只存在這個瀏覽器裡，並且一律以你設定的密碼加密後才存放。
         </p>
@@ -76,7 +78,11 @@ export default function SetupPage() {
               required
             />
           </Field>
-          {error && <div className="notice warn">{error}</div>}
+          {error && (
+            <div className="notice warn" role="alert">
+              {error}
+            </div>
+          )}
           <button className="primary" type="submit" disabled={busy}>
             {busy ? '加密中…' : '設定密碼並開始使用'}
           </button>

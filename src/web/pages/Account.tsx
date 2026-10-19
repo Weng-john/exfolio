@@ -1,3 +1,4 @@
+import { Toast } from '../components/Primitives';
 import { useCallback, useState, type FormEvent } from 'react';
 import { changePassword, linkGoogle, logoutAsking, updateProfile, useAuth } from '../auth';
 import { GoogleButton } from '../components/GoogleButton';
@@ -55,7 +56,13 @@ export default function AccountPage() {
         subtitle={`${user.username} · ${user.role === 'admin' ? '管理員' : '會員'}`}
         actions={<button onClick={() => void logoutAsking()}>登出</button>}
       />
-      {msg && <div className={`notice ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
+      {msg && (
+        <Toast
+          onDismiss={() => setMsg(undefined)}
+          message={msg.text}
+          tone={msg.ok ? 'ok' : 'bad'}
+        />
+      )}
 
       <div className="grid">
         <Card title="個人資料">

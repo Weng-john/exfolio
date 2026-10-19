@@ -1,3 +1,4 @@
+import { Toast } from '../../components/Primitives';
 import { useState } from 'react';
 import { getSettings, type Settings } from '@core/index';
 import { upsertRow, useData } from '../../store';
@@ -96,7 +97,13 @@ export default function AlertsTab() {
         </Field>
       </div>
       <ErrorList errors={errors} />
-      {saved && <p className="pos">已儲存。</p>}
+      {saved && (
+        <Toast
+          onDismiss={() => setSaved(false)}
+          message="已套用提醒設定；儲存狀態請看頁首。"
+          tone="ok"
+        />
+      )}
     </Card>
   );
 }

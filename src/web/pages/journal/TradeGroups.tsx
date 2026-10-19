@@ -107,7 +107,12 @@ export default function TradeGroups(props: { base: string }) {
       {!rows.length ? (
         <Empty>還沒有交易群組</Empty>
       ) : (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="交易群組（多腿交易）（可左右捲動）"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

@@ -1,34 +1,33 @@
 .auth-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 64px 16px;
+  padding: clamp(24px, 7vh, 80px) 16px;
+  background: radial-gradient(ellipse at 10% 0%, var(--primary-soft), transparent 55%), var(--bg);
 }
 
 .auth-card {
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 24px;
+  padding: clamp(24px, 4vw, 40px);
 }
 
 .auth-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-}
-
-.auth-head {
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 
 .auth-google {
@@ -37,4 +36,23 @@
   align-items: center;
   gap: 8px;
   margin-top: 16px;
+}
+
+.auth-title {
+  margin-bottom: 20px;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.auth-card > p,
+.auth-card > ul {
+  line-height: 1.9;
+}
+
+.auth-card > ul li + li {
+  margin-top: 12px;
+}
+
+.auth-card .auth-form > button.primary {
+  min-height: 48px;
+  margin-top: 4px;
 }

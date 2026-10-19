@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PageHeader } from '../components/ui';
+import { SegmentedControl } from '../components/Primitives';
 import PositionsTab from './accounts/PositionsTab';
 import CashTab from './accounts/CashTab';
 import TransactionsTab from './accounts/TransactionsTab';
@@ -19,20 +20,9 @@ export default function AccountsPage() {
   return (
     <>
       <PageHeader title="Accounts & Positions" subtitle="跨券商帳戶、持倉、交易、現金與匯率" />
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={tab === t.id ? 'active' : ''}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <View />
+      <SegmentedControl label="帳務檢視" items={TABS} value={tab} onChange={setTab}>
+        <View />
+      </SegmentedControl>
     </>
   );
 }

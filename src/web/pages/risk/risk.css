@@ -118,3 +118,12 @@
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) auto;
   align-items: end;
 }
+
+@media (max-width: 640px) {
+  .risk-inline-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .risk-scenarios .field {
+    min-width: min(180px, 100%);
+  }
+}

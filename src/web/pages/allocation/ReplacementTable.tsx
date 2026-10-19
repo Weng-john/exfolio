@@ -29,7 +29,7 @@ export function ReplacementTable(props: { analysis: ReplacementAnalysis }) {
   if (!a.rows.length) return <Empty>此指數沒有可比較的商品，或曝險金額為 0。</Empty>;
   const hasFrom = a.rows.some((r) => r.isCurrent);
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table className="rp-table">
         <thead>
           <tr>

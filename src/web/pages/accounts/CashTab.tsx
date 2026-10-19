@@ -27,7 +27,7 @@ export default function CashTab() {
       {rows.length === 0 ? (
         <Empty>尚無現金餘額。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="現金（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

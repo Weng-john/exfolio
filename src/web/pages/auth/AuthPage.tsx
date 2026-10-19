@@ -1,3 +1,4 @@
+import { SegmentedControl } from '../../components/Primitives';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { login, loginChallenge, loginWithGoogle, register, useAuth } from '../../auth';
 import { BackendAddress } from '../../components/BackendAddress';
@@ -79,93 +80,101 @@ export default function AuthPage(props: { onBack?: () => void }) {
           </div>
         </div>
 
+        <span className="eyebrow">歡迎使用 Exfolio</span>
+        <h1 className="auth-title">回到你的投資工作台</h1>
         {auth.phase === 'error' ? (
           <div className="notice warn">無法連線後端：{auth.error}。請確認下方的後端網址。</div>
         ) : (
           <>
-            <div className="tabs">
-              <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
-                登入
-              </button>
-              <button
-                className={mode === 'register' ? 'active' : ''}
-                onClick={() => setMode('register')}
-              >
-                註冊
-              </button>
-            </div>
-
-            {mode === 'register' && (
-              <p className="muted">
-                {first
-                  ? '這是第一個帳號，會成為管理員並立即啟用。'
-                  : config?.registration === 'open'
-                    ? '註冊後即可使用。'
-                    : '註冊後需由管理員核准才能登入。'}
-              </p>
-            )}
-
-            <form onSubmit={submit} className="auth-form">
-              <Field
-                label="帳號"
-                hint={mode === 'register' ? '3–64 個字元：英數字與 . _ @ + -' : undefined}
-              >
-                <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  required
-                />
-              </Field>
+            <SegmentedControl
+              label="帳號操作"
+              items={[
+                { id: 'login', label: '登入' },
+                { id: 'register', label: '註冊' },
+              ]}
+              value={mode}
+              onChange={setMode}
+            >
               {mode === 'register' && (
-                <Field label="顯示名稱（選填）">
-                  <input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    autoComplete="nickname"
-                  />
-                </Field>
+                <p className="muted">
+                  {first
+                    ? '這是第一個帳號，會成為管理員並立即啟用。'
+                    : config?.registration === 'open'
+                      ? '註冊後即可使用。'
+                      : '註冊後需由管理員核准才能登入。'}
+                </p>
               )}
-              <Field
-                label="密碼"
-                hint={
-                  mode === 'register'
-                    ? '至少 10 個字元。系統不寄信，忘記密碼需請管理員重設。'
-                    : undefined
-                }
-              >
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  required
-                />
-              </Field>
-              {mode === 'register' && (
-                <Field label="再輸入一次密碼">
+
+              <form onSubmit={submit} className="auth-form">
+                <Field
+                  label="帳號"
+                  hint={mode === 'register' ? '3–64 個字元：英數字與 . _ @ + -' : undefined}
+                >
                   <input
-                    type="password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    autoComplete="new-password"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
                     required
                   />
                 </Field>
-              )}
-              {error && <div className="notice warn">{error}</div>}
-              {notice && <div className="notice">{notice}</div>}
-              <button className="primary" type="submit" disabled={busy}>
-                {busy ? '處理中…' : mode === 'login' ? '登入' : '註冊'}
-              </button>
-            </form>
+                {mode === 'register' && (
+                  <Field label="顯示名稱（選填）">
+                    <input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      autoComplete="nickname"
+                    />
+                  </Field>
+                )}
+                <Field
+                  label="密碼"
+                  hint={
+                    mode === 'register'
+                      ? '至少 10 個字元。系統不寄信，忘記密碼需請管理員重設。'
+                      : undefined
+                  }
+                >
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    required
+                  />
+                </Field>
+                {mode === 'register' && (
+                  <Field label="再輸入一次密碼">
+                    <input
+                      type="password"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </Field>
+                )}
+                {error && (
+                  <div className="notice warn" role="alert">
+                    {error}
+                  </div>
+                )}
+                {notice && (
+                  <div className="notice" role="status">
+                    {notice}
+                  </div>
+                )}
+                <button className="primary" type="submit" disabled={busy}>
+                  {busy ? '處理中…' : mode === 'login' ? '登入' : '註冊'}
+                </button>
+              </form>
 
-            {config?.googleClientId && (
-              <div className="auth-google">
-                <span className="muted">或</span>
-                <GoogleButton clientId={config.googleClientId} onToken={onGoogle} nonce={nonce} />
-              </div>
-            )}
+              {config?.googleClientId && (
+                <div className="auth-google">
+                  <span className="muted">或</span>
+                  <GoogleButton clientId={config.googleClientId} onToken={onGoogle} nonce={nonce} />
+                </div>
+              )}
+            </SegmentedControl>
           </>
         )}
 

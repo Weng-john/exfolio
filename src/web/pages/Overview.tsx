@@ -23,12 +23,10 @@ import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { loadDemo, replaceAll, useData, useStore } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { FundingNotice } from '../components/FundingEvidence';
+import { Accordion, EmptyState } from '../components/Primitives';
+import { Onboarding } from '../components/Onboarding';
+import { CHART_TOOLTIP, useChartMotion } from '../components/chartTheme';
 
-const TOOLTIP = {
-  background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-};
 const CATEGORY: Record<string, string> = {
   'futures-expiry': '期貨到期',
   'futures-margin': '期貨保證金',
@@ -40,6 +38,7 @@ const CATEGORY: Record<string, string> = {
 const TONE = { info: 'info', warn: 'warn', bad: 'bad' } as const;
 
 export default function OverviewPage() {
+  const animate = useChartMotion();
   const data = useData();
   const store = useStore();
   const { valuation: v, ledger } = usePortfolio();
@@ -62,25 +61,29 @@ export default function OverviewPage() {
       />
 
       {empty && (
-        <div className="notice">
-          還沒有任何資料。先到 <Link to="/accounts">Accounts & Positions</Link> 記錄入金與交易，
-          或到 <Link to="/settings">Settings</Link> 還原備份。想先看看功能，可以{' '}
-          <button onClick={() => (store.scratch ? loadDemo() : replaceAll(demoData()))}>
-            載入虛構的示範資料
-          </button>
-          （之後可在 Settings 還原備份或清除）。
-          {store.scratch && <> 目前是試算模式：輸入的資料只留在這個分頁，關閉就會消失。</>}
-          {!store.backendRemote && !store.demo && (
+        <EmptyState
+          title="從第一筆倉位，看見組合全貌"
+          action={
             <>
-              {' '}
-              你的資料會存在這個瀏覽器裡；輸入真實資料前，請先看{' '}
-              <Link to="/settings">Settings</Link> →「後端與資料」的說明，那裡可以用密碼加密。
+              <Link className="button primary" to="/accounts">
+                新增帳戶與倉位 <span aria-hidden="true">↗</span>
+              </Link>
+              <button onClick={() => (store.scratch ? loadDemo() : replaceAll(demoData()))}>
+                探索虛構示範
+              </button>
             </>
-          )}
-        </div>
+          }
+        >
+          先記錄帳戶與持倉，再設定配置目標。已有資料可到設定還原備份。
+          {store.scratch && ' 試算內容只在這個分頁，關閉或重新整理就會消失。'}
+          {!store.backendRemote &&
+            !store.demo &&
+            !store.scratch &&
+            ' 資料存在這個瀏覽器，輸入前請先到設定了解資料保護。'}
+        </EmptyState>
       )}
 
-      <div className="stats">
+      <div className="stats overview-stats">
         <Stat
           label="NAV 淨資產"
           value={fmtMoney(v.nav, base)}
@@ -114,24 +117,27 @@ export default function OverviewPage() {
         />
         <Stat label="現金" value={fmtMoney(v.cashValue, base)} hint="各帳戶正餘額合計" />
       </div>
+      {(store.scratch || store.demo) && <Onboarding />}
       <FundingNotice transactions={data.transactions} />
 
       <Card title="風險警示">
         {alerts.length === 0 ? (
           <Empty>目前沒有警示。門檻可在 Settings 設定，僅供提醒，不限制任何操作。</Empty>
         ) : (
-          <table>
-            <tbody>
-              {alerts.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    <Badge tone={TONE[a.level]}>{a.title}</Badge>
-                  </td>
-                  <td style={{ whiteSpace: 'normal' }}>{a.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap" role="region" aria-label="風險警示" tabIndex={0}>
+            <table>
+              <tbody>
+                {alerts.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <Badge tone={TONE[a.level]}>{a.title}</Badge>
+                    </td>
+                    <td style={{ whiteSpace: 'normal' }}>{a.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -139,22 +145,24 @@ export default function OverviewPage() {
         {notifications.length === 0 ? (
           <Empty>目前沒有通知。提醒門檻僅供資訊參考，不限制任何操作。</Empty>
         ) : (
-          <table>
-            <tbody>
-              {notifications.map((n) => (
-                <tr key={n.id}>
-                  <td>
-                    <Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge>
-                  </td>
-                  <td>
-                    <strong>{n.title}</strong>
-                  </td>
-                  <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
-                  <td>{n.dueDate ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap" role="region" aria-label="所有通知" tabIndex={0}>
+            <table>
+              <tbody>
+                {notifications.map((n) => (
+                  <tr key={n.id}>
+                    <td>
+                      <Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge>
+                    </td>
+                    <td>
+                      <strong>{n.title}</strong>
+                    </td>
+                    <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
+                    <td>{n.dueDate ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -163,7 +171,12 @@ export default function OverviewPage() {
           {v.byIndex.length === 0 ? (
             <Empty>沒有持倉</Empty>
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="各指數曝險（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -185,11 +198,13 @@ export default function OverviewPage() {
                       <td className="num">{fmtPct(ix.weight)}</td>
                       <td>
                         <div
+                          role="img"
+                          aria-label={`Gross 曝險 ${fmtMoney(ix.gross, base)}，長度以最大指數曝險為基準`}
                           title={fmtMoney(ix.gross, base)}
                           style={{
                             height: 8,
                             borderRadius: 4,
-                            background: 'var(--accent)',
+                            background: 'var(--chart-1)',
                             width: `${(ix.gross / maxGross) * 100}%`,
                           }}
                         />
@@ -210,17 +225,28 @@ export default function OverviewPage() {
               </table>
             </div>
           )}
-          <p className="muted">
-            不同指數可能高度重疊（例如 S&P 500 與 Nasdaq 100），曝險加總不等於獨立風險來源。 槓桿
-            ETF 以每日目標倍數估算曝險，長期報酬不能直接用倍數推算。
-          </p>
+          <Accordion title="如何解讀曝險與槓桿？">
+            <p>
+              不同指數可能高度重疊（例如 S&P 500 與 Nasdaq 100），曝險加總不等於獨立風險來源。槓桿
+              ETF 以每日目標倍數估算曝險，長期報酬不能直接用倍數推算。
+            </p>
+            <p>
+              Gross 將每筆曝險取絕對值後加總；Net 保留多空方向。兩者除以目前 NAV
+              得到槓桿；保證金不等於曝險或負債。
+            </p>
+          </Accordion>
         </Card>
 
         <Card title="被動核心與主動策略">
           {v.byBucket.length === 0 ? (
             <Empty>沒有持倉</Empty>
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="被動核心與主動策略（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -247,28 +273,35 @@ export default function OverviewPage() {
               </table>
             </div>
           )}
-          <table>
-            <tbody>
-              <tr>
-                <td>已實現損益</td>
-                <td className={`num ${signClass(ledger.totals.realizedPnl)}`}>
-                  {fmtMoney(ledger.totals.realizedPnl, base)}
-                </td>
-              </tr>
-              <tr>
-                <td>股息</td>
-                <td className="num">{fmtMoney(ledger.totals.dividends, base)}</td>
-              </tr>
-              <tr>
-                <td>交易費用與稅</td>
-                <td className="num">{fmtMoney(-ledger.totals.fees, base)}</td>
-              </tr>
-              <tr>
-                <td>融資成本</td>
-                <td className="num">{fmtMoney(-ledger.totals.fundingCost, base)}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="組合損益摘要（可左右捲動）"
+            tabIndex={0}
+          >
+            <table>
+              <tbody>
+                <tr>
+                  <td>已實現損益</td>
+                  <td className={`num ${signClass(ledger.totals.realizedPnl)}`}>
+                    {fmtMoney(ledger.totals.realizedPnl, base)}
+                  </td>
+                </tr>
+                <tr>
+                  <td>股息</td>
+                  <td className="num">{fmtMoney(ledger.totals.dividends, base)}</td>
+                </tr>
+                <tr>
+                  <td>交易費用與稅</td>
+                  <td className="num">{fmtMoney(-ledger.totals.fees, base)}</td>
+                </tr>
+                <tr>
+                  <td>融資成本</td>
+                  <td className="num">{fmtMoney(-ledger.totals.fundingCost, base)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
 
@@ -279,7 +312,7 @@ export default function OverviewPage() {
           <div className="grid">
             <div style={{ height: 260 }}>
               <ResponsiveContainer>
-                <LineChart data={history}>
+                <LineChart accessibilityLayer data={history}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                   <YAxis
@@ -288,13 +321,24 @@ export default function OverviewPage() {
                     width={80}
                     tickFormatter={(n) => fmtMoney(n, base, 0)}
                   />
-                  <Tooltip formatter={(n: number) => fmtMoney(n, base)} contentStyle={TOOLTIP} />
+                  <Tooltip
+                    formatter={(n: number) => fmtMoney(n, base)}
+                    contentStyle={CHART_TOOLTIP}
+                  />
                   <Legend />
-                  <Line dataKey="nav" name="NAV" stroke="var(--accent)" dot={false} />
                   <Line
+                    isAnimationActive={animate}
+                    dataKey="nav"
+                    name="NAV"
+                    stroke="var(--chart-1)"
+                    dot={false}
+                  />
+                  <Line
+                    isAnimationActive={animate}
                     dataKey="contributedCapital"
                     name="累積投入"
-                    stroke="var(--muted)"
+                    stroke="var(--chart-2)"
+                    strokeDasharray="5 4"
                     dot={false}
                   />
                 </LineChart>
@@ -302,7 +346,7 @@ export default function OverviewPage() {
             </div>
             <div style={{ height: 260 }}>
               <ResponsiveContainer>
-                <LineChart data={history}>
+                <LineChart accessibilityLayer data={history}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                   <YAxis
@@ -311,11 +355,29 @@ export default function OverviewPage() {
                     width={50}
                     tickFormatter={(n) => `${n}×`}
                   />
-                  <Tooltip formatter={(n: number) => fmtX(n)} contentStyle={TOOLTIP} />
+                  <Tooltip formatter={(n: number) => fmtX(n)} contentStyle={CHART_TOOLTIP} />
                   <Legend />
-                  <Line dataKey="grossLeverage" name="Gross 槓桿" stroke="var(--neg)" dot={false} />
-                  <Line dataKey="netLeverage" name="Net 槓桿" stroke="var(--pos)" dot={false} />
-                  <Line dataKey="debtToNav" name="負債 / NAV" stroke="var(--warn)" dot={false} />
+                  <Line
+                    isAnimationActive={animate}
+                    dataKey="grossLeverage"
+                    name="Gross 槓桿"
+                    stroke="var(--neg)"
+                    dot={false}
+                  />
+                  <Line
+                    isAnimationActive={animate}
+                    dataKey="netLeverage"
+                    name="Net 槓桿"
+                    stroke="var(--pos)"
+                    dot={false}
+                  />
+                  <Line
+                    isAnimationActive={animate}
+                    dataKey="debtToNav"
+                    name="負債 / NAV"
+                    stroke="var(--warn)"
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>

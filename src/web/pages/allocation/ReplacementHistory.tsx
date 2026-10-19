@@ -1,3 +1,5 @@
+import { CHART_TOOLTIP, useChartMotion } from '../../components/chartTheme';
+import { Toast } from '../../components/Primitives';
 import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
@@ -14,12 +16,6 @@ import { Badge, Empty, Field } from '../../components/ui';
 import { fmtNum, fmtPct } from '../../format';
 import { syncPriceHistory } from '../../history';
 
-const TOOLTIP = {
-  background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-};
-
 function yearAgo(day: string) {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCFullYear(d.getUTCFullYear() - 1);
@@ -32,6 +28,7 @@ export function ReplacementHistory(props: {
   instruments: Instrument[];
   defaultBase?: ID;
 }) {
+  const animate = useChartMotion();
   const { data, instruments } = props;
   const [baseId, setBaseId] = useState(props.defaultBase ?? '');
   const [candId, setCandId] = useState('');
@@ -105,11 +102,11 @@ export function ReplacementHistory(props: {
           {busy ? '下載中…' : '下載歷史價格'}
         </button>
       </div>
-      {message && <p className="muted">{message}</p>}
+      {message && <Toast onDismiss={() => setMessage('')} message={message} />}
 
       {cmp && cmp.daysUsed >= 2 && cmp.base && cmp.candidate ? (
         <>
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
             <table className="rp-table">
               <thead>
                 <tr>
@@ -152,7 +149,7 @@ export function ReplacementHistory(props: {
           </p>
           <div className="rp-chart">
             <ResponsiveContainer>
-              <LineChart data={chart}>
+              <LineChart accessibilityLayer data={chart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                 <YAxis
@@ -160,22 +157,28 @@ export function ReplacementHistory(props: {
                   fontSize={12}
                   tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
                 />
-                <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} contentStyle={TOOLTIP} />
+                <Tooltip
+                  formatter={(v: number) => `${v.toFixed(2)}%`}
+                  contentStyle={CHART_TOOLTIP}
+                />
                 <Legend />
                 <Line
+                  isAnimationActive={animate}
                   dataKey="base"
                   name={b ? label(b) : '基準'}
                   stroke="var(--muted)"
                   dot={false}
                 />
                 <Line
+                  isAnimationActive={animate}
                   dataKey="candidate"
                   name={c ? label(c) : '比較'}
-                  stroke="var(--accent)"
+                  stroke="var(--chart-1)"
                   dot={false}
                 />
                 {cmp.naive && (
                   <Line
+                    isAnimationActive={animate}
                     dataKey="naive"
                     name={`單純 ${fmtNum(cmp.naive.ratio, 2)}× 基準`}
                     stroke="var(--warn)"

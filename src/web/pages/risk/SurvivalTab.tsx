@@ -1,3 +1,4 @@
+import { CHART_TOOLTIP, useChartMotion } from '../../components/chartTheme';
 import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
@@ -90,12 +91,6 @@ const EVENT_TONE: Record<SurvivalEventType, 'warn' | 'bad'> = {
   nav_nonpositive: 'bad',
 };
 
-const TOOLTIP = {
-  background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-};
-
 /** Merge saved params over the defaults, ignoring anything of the wrong shape. */
 function readState(params: Record<string, unknown>): State {
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -175,6 +170,7 @@ function toParams(s: State, day: string): SurvivalParams {
 }
 
 export default function SurvivalTab() {
+  const animate = useChartMotion();
   const data = useData();
   const portfolio = usePortfolio();
   const base = portfolio.valuation.baseCurrency;
@@ -559,7 +555,7 @@ export default function SurvivalTab() {
           <Card title="NAV、現金與最低維持率">
             <div className="risk-chart">
               <ResponsiveContainer>
-                <LineChart data={chart}>
+                <LineChart accessibilityLayer data={chart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} minTickGap={32} />
                   <YAxis
@@ -580,20 +576,22 @@ export default function SurvivalTab() {
                     />
                   )}
                   <Tooltip
-                    contentStyle={TOOLTIP}
+                    contentStyle={CHART_TOOLTIP}
                     formatter={(v: number, name: string) =>
                       name === '最低維持率' ? fmtPct(v, 1) : fmtMoney(v, base)
                     }
                   />
                   <Legend />
                   <Line
+                    isAnimationActive={animate}
                     yAxisId="money"
                     dataKey="nav"
                     name="NAV"
-                    stroke="var(--accent)"
+                    stroke="var(--chart-1)"
                     dot={false}
                   />
                   <Line
+                    isAnimationActive={animate}
                     yAxisId="money"
                     dataKey="cash"
                     name="總現金"
@@ -602,10 +600,12 @@ export default function SurvivalTab() {
                   />
                   {hasRatio && (
                     <Line
+                      isAnimationActive={animate}
                       yAxisId="ratio"
                       dataKey="ratio"
                       name="最低維持率"
-                      stroke="var(--pos)"
+                      stroke="var(--chart-2)"
+                      strokeDasharray="5 4"
                       dot={false}
                       connectNulls
                     />
@@ -619,7 +619,12 @@ export default function SurvivalTab() {
             {!result.events.length ? (
               <Empty>期間內沒有缺口、追繳或強制減碼事件。</Empty>
             ) : (
-              <div className="table-wrap">
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label="資料表（可左右捲動）"
+                tabIndex={0}
+              >
                 <table>
                   <thead>
                     <tr>

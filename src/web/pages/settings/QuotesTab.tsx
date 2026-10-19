@@ -151,7 +151,7 @@ export default function QuotesTab() {
         {data.instruments.length === 0 ? (
           <Empty>尚無商品</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -198,7 +198,7 @@ export default function QuotesTab() {
         {data.fxRates.length === 0 ? (
           <Empty>尚無匯率；請新增或按「立即更新報價」</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="匯率（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>

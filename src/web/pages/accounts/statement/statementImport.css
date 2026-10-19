@@ -16,8 +16,8 @@
 }
 
 .si-steps li.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--chart-3);
   color: var(--accent-text);
 }
 
@@ -26,7 +26,7 @@
 }
 
 .si-drop {
-  border: 2px dashed var(--border);
+  border: 2px dashed var(--border-strong);
   border-radius: var(--radius);
   padding: 22px;
   text-align: center;
@@ -36,7 +36,7 @@
 
 .si-drop.over,
 .si-drop:hover {
-  border-color: var(--accent);
+  border-color: var(--chart-3);
   color: var(--text);
 }
 
@@ -74,7 +74,7 @@
 .si-map {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
 }
 
 .si-low select {
@@ -97,8 +97,8 @@
 }
 
 .si-counts button.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--chart-3);
+  color: var(--accent-text);
 }
 
 .si-table {
@@ -154,15 +154,9 @@
   margin-top: 4px;
 }
 
-.si-progress {
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-}
-
 .si-ocr {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 12px;
   align-items: start;
 }

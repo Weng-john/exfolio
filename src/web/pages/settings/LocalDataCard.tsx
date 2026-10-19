@@ -1,3 +1,4 @@
+import { Toast } from '../../components/Primitives';
 import { useState } from 'react';
 import { lockLocalData } from '../../auth';
 import { Badge, Card, Field } from '../../components/ui';
@@ -86,7 +87,13 @@ export default function LocalDataCard() {
       <p className="muted">
         加密保護的是存下來的資料，不是隔離：已經在這個網址來源上執行的惡意程式仍可刪除或替換你的資料，或在你解鎖後偷看畫面。要完全隔離，網站需要放在獨立的網域。匯出的備份檔是未加密的，請自行妥善保管。
       </p>
-      {msg && <p className={msg.ok ? 'pos' : 'neg'}>{msg.text}</p>}
+      {msg && (
+        <Toast
+          onDismiss={() => setMsg(undefined)}
+          message={msg.text}
+          tone={msg.ok ? 'ok' : 'bad'}
+        />
+      )}
 
       <div className="form-grid">
         <Field

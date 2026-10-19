@@ -1,3 +1,4 @@
+import { Accordion } from '../components/Primitives';
 import { useMemo, useState } from 'react';
 import {
   compareAllocation,
@@ -16,12 +17,13 @@ import { WeightBar } from './allocation/WeightBar';
 import './allocation/allocation.css';
 
 /** Percent input that keeps what is typed and commits on blur. */
-function PctInput(props: { value: number; onCommit: (v: number) => void }) {
+function PctInput(props: { value: number; label: string; onCommit: (v: number) => void }) {
   const [draft, setDraft] = useState<string>();
   const shown = draft ?? String(Number((props.value * 100).toFixed(4)));
   return (
     <input
       className="pct-input"
+      aria-label={props.label}
       type="number"
       step="0.5"
       value={shown}
@@ -48,13 +50,22 @@ function TargetRow(props: {
     <tr>
       <td>{props.indexName}</td>
       <td className="num">
-        <PctInput value={t.targetWeight} onCommit={(v) => save({ targetWeight: v })} />
+        <PctInput
+          label={`${props.indexName} 目標權重百分比`}
+          value={t.targetWeight}
+          onCommit={(v) => save({ targetWeight: v })}
+        />
       </td>
       <td className="num">
-        <PctInput value={t.tolerance} onCommit={(v) => save({ tolerance: Math.abs(v) })} />
+        <PctInput
+          label={`${props.indexName} 容忍區間百分比`}
+          value={t.tolerance}
+          onCommit={(v) => save({ tolerance: Math.abs(v) })}
+        />
       </td>
       <td>
         <select
+          aria-label={`${props.indexName} 偏好商品`}
           value={t.preferredInstrumentId ?? ''}
           onChange={(e) => save({ preferredInstrumentId: e.target.value || undefined })}
         >
@@ -67,7 +78,11 @@ function TargetRow(props: {
         </select>
       </td>
       <td>
-        <input value={t.note ?? ''} onChange={(e) => save({ note: e.target.value || undefined })} />
+        <input
+          aria-label={`${props.indexName} 備註`}
+          value={t.note ?? ''}
+          onChange={(e) => save({ note: e.target.value || undefined })}
+        />
       </td>
       <td>
         <button className="danger" onClick={() => removeRow('targets', t.id)}>
@@ -186,7 +201,12 @@ export default function CoreAllocationPage() {
         {data.targets.length === 0 ? (
           <Empty>尚未設定目標，請先選擇指數並新增</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="目標設定（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -240,7 +260,12 @@ export default function CoreAllocationPage() {
         {cmp.rows.length === 0 ? (
           <Empty>沒有目標也沒有持倉</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="目標 vs 實際（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -271,6 +296,12 @@ export default function CoreAllocationPage() {
       </p>
       <PlanView plan={plan} names={names} />
 
+      <Accordion title="曝險權重與保證金怎麼看？">
+        <p>
+          目標與實際權重保留正負號，圖中線代表零。權重以目前 NAV 為分母，可超過
+          100%；期貨保證金是現金占用，不能拿來替代名目曝險。
+        </p>
+      </Accordion>
       <ReplacementPanel />
     </>
   );

@@ -62,7 +62,12 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
         {plan.suggestions.length === 0 ? (
           <Empty>沒有需要執行的交易</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="交易建議清單（僅供參考，網站不會下單）（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -111,7 +116,12 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
 
       {plan.residualGaps.length > 0 && (
         <Card title="交易後剩餘缺口">
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="交易後剩餘缺口（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

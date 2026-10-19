@@ -18,9 +18,12 @@ import {
   IconSettings,
   IconUser,
   IconUsers,
+  NavIcon,
 } from './components/icons';
 import { ThemeButton, ThemeSwitch } from './components/ThemeButton';
 import { Badge, Spinner } from './components/ui';
+import { AccessibleDialog } from './components/AccessibleDialog';
+import { Banner, EmptyState, Popover } from './components/Primitives';
 import { confirmDialog } from './dialog';
 import { IS_PUBLIC, MEMBERS_ENABLED } from './edition';
 import { fmtTime } from './format';
@@ -73,41 +76,41 @@ const NAV: Array<{
 }> = [
   {
     group: '總覽',
-    items: [{ path: '/', label: 'Overview', element: <OverviewPage /> }],
+    items: [{ path: '/', label: '投資總覽', element: <OverviewPage /> }],
   },
   {
     group: '被動核心',
     items: [
-      { path: '/allocation', label: 'Core Allocation', element: <CoreAllocationPage /> },
-      { path: '/new-money', label: 'New Money Allocator', element: <NewMoneyPage /> },
+      { path: '/allocation', label: '核心配置', element: <CoreAllocationPage /> },
+      { path: '/new-money', label: '新資金配置', element: <NewMoneyPage /> },
     ],
   },
   {
     group: '帳務',
     items: [
-      { path: '/accounts', label: 'Accounts & Positions', element: <AccountsPage /> },
-      { path: '/loans', label: 'Loans & Collateral', element: <LoansPage /> },
-      { path: '/futures', label: 'Futures & Rollover', element: <FuturesPage /> },
+      { path: '/accounts', label: '帳戶與持倉', element: <AccountsPage /> },
+      { path: '/loans', label: '借款與質押', element: <LoansPage /> },
+      { path: '/futures', label: '期貨與轉倉', element: <FuturesPage /> },
     ],
   },
   {
     group: '主動策略',
     items: [
-      { path: '/strategies', label: 'Strategy Hub', element: <StrategiesPage />, fullOnly: true },
-      { path: '/journal', label: 'Trade Journal', element: <JournalPage />, fullOnly: true },
+      { path: '/strategies', label: '主動策略', element: <StrategiesPage />, fullOnly: true },
+      { path: '/journal', label: '交易日誌', element: <JournalPage />, fullOnly: true },
     ],
   },
   {
     group: '分析',
     items: [
-      { path: '/performance', label: 'Performance', element: <PerformancePage />, fullOnly: true },
-      { path: '/risk', label: 'Risk Lab', element: <RiskLabPage /> },
+      { path: '/performance', label: '績效分析', element: <PerformancePage />, fullOnly: true },
+      { path: '/risk', label: '風險實驗室', element: <RiskLabPage /> },
     ],
   },
   {
     group: '系統',
     items: [
-      { path: '/settings', label: 'Settings', element: <SettingsPage /> },
+      { path: '/settings', label: '設定與資料', element: <SettingsPage /> },
       { path: '/account', label: '我的帳號', element: <AccountPage />, membersOnly: true },
       {
         path: '/admin',
@@ -131,62 +134,34 @@ const STATUS: Record<SyncStatus, { tone: 'ok' | 'warn' | 'bad' | 'info'; text: s
 /** Avatar button with the member's menu: account, members, sign-out. */
 function UserMenu() {
   const auth = useAuth();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
   const user = auth.user!;
   return (
-    <div className="user-menu" ref={ref}>
-      <button
-        type="button"
-        className={`avatar-btn ${open ? 'active' : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="帳號選單"
-      >
-        <IconUser size={22} />
-      </button>
-      {open && (
-        <div className="dropdown-menu" role="menu" onClick={() => setOpen(false)}>
-          <div className="menu-profile">
-            <span className="menu-name">{user.displayName}</span>
-            <span className="menu-sub">{user.username}</span>
-          </div>
-          <div className="menu-divider" />
-          <Link to="/account" className="menu-item" role="menuitem">
-            <IconUser /> 我的帳號
-          </Link>
-          {user.role === 'admin' && (
-            <Link to="/admin" className="menu-item" role="menuitem">
-              <IconUsers /> 會員管理
-            </Link>
-          )}
-          <Link to="/settings" className="menu-item" role="menuitem">
-            <IconSettings /> 設定
-          </Link>
-          <div className="menu-divider" />
-          <button
-            type="button"
-            className="menu-item danger"
-            role="menuitem"
-            onClick={() => void logoutAsking()}
-          >
-            <IconLogout /> 登出
-          </button>
-        </div>
+    <Popover label="帳號選單" trigger={<IconUser size={22} />}>
+      <div className="menu-profile">
+        <span className="menu-name">{user.displayName}</span>
+        <span className="menu-sub">{user.username}</span>
+      </div>
+      <div className="menu-divider" />
+      <Link to="/account" className="menu-item">
+        <IconUser /> 我的帳號
+      </Link>
+      {user.role === 'admin' && (
+        <Link to="/admin" className="menu-item">
+          <IconUsers /> 會員管理
+        </Link>
       )}
-    </div>
+      <Link to="/settings" className="menu-item">
+        <IconSettings /> 設定
+      </Link>
+      <div className="menu-divider" />
+      <button type="button" className="menu-item danger" onClick={() => void logoutAsking()}>
+        <IconLogout /> 登出
+      </button>
+    </Popover>
   );
 }
 
-function Header(props: { onSignIn: () => void; onMenu: () => void }) {
+function Header(props: { onSignIn: () => void; onMenu: () => void; navOpen: boolean }) {
   const store = useStore();
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
@@ -198,11 +173,13 @@ function Header(props: { onSignIn: () => void; onMenu: () => void }) {
         type="button"
         className="icon-btn nav-toggle"
         aria-label="開啟選單"
+        aria-expanded={props.navOpen}
+        aria-controls={props.navOpen ? 'mobile-navigation' : undefined}
         onClick={props.onMenu}
       >
         <IconMenu />
       </button>
-      <Link to="/" className="header-brand">
+      <Link to="/" className="header-brand" aria-label="Exfolio 投資總覽">
         <Brand />
       </Link>
       <div className="header-status">
@@ -340,7 +317,15 @@ function IdleCover(props: {
 function CloseDrawerOnNavigate(props: { onNavigate: () => void }) {
   const location = useLocation();
   const { onNavigate } = props;
-  useEffect(() => onNavigate(), [location.pathname, onNavigate]);
+  const previous = useRef(location.pathname);
+  useEffect(() => {
+    onNavigate();
+    const changed = previous.current !== location.pathname;
+    previous.current = location.pathname;
+    if (!changed) return;
+    const frame = requestAnimationFrame(() => document.getElementById('main-content')?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, onNavigate]);
   return null;
 }
 
@@ -355,6 +340,14 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = useCallback(() => setNavOpen(false), []);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1025px)');
+    const closeOnDesktop = () => {
+      if (query.matches) closeNav();
+    };
+    query.addEventListener('change', closeOnDesktop);
+    return () => query.removeEventListener('change', closeOnDesktop);
+  }, [closeNav]);
   const [showLegacy, setShowLegacy] = useState(false);
   const [legacy, setLegacy] = useState(hasLegacyLocalData);
   useEffect(() => {
@@ -432,41 +425,71 @@ export default function App() {
   })).filter((g) => g.items.length > 0);
   const signIn = () => setShowAuth(true);
 
+  const navigation = (
+    <>
+      <div className="sidebar-intro">
+        <span className="eyebrow">你的投資工作台</span>
+        <p>看清配置，從容決策。</p>
+      </div>
+      {visible.map((g) => (
+        <div key={g.group} className="nav-group">
+          <div className="nav-title">{g.group}</div>
+          {g.items.map((item) => (
+            <NavLink key={item.path} to={item.path} end={item.path === '/'}>
+              <NavIcon path={item.path} />
+              <span>{item.label}</span>
+              <span className="nav-arrow" aria-hidden="true">
+                ↗
+              </span>
+            </NavLink>
+          ))}
+        </div>
+      ))}
+      <div className="sidebar-note">
+        <span className="sidebar-note-mark" aria-hidden="true">
+          ◎
+        </span>
+        <strong>讓風險看得見</strong>
+        <p>以淨資產為基準，掌握每一筆曝險。</p>
+      </div>
+    </>
+  );
+
   return (
     <HashRouter>
       <CloseDrawerOnNavigate onNavigate={closeNav} />
-      <Header onSignIn={signIn} onMenu={() => setNavOpen(true)} />
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById('main-content')?.focus();
+        }}
+      >
+        跳至主要內容
+      </a>
+      <Header onSignIn={signIn} onMenu={() => setNavOpen(true)} navOpen={navOpen} />
       <div className="layout">
-        {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
-        <nav className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="主選單">
-          <div className="drawer-head">
-            <span>選單</span>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="關閉選單"
-              onClick={() => setNavOpen(false)}
-            >
-              <IconClose />
-            </button>
-          </div>
-          {visible.map((g) => (
-            <div key={g.group} className="nav-group">
-              <div className="nav-title">{g.group}</div>
-              {g.items.map((item) => (
-                <NavLink key={item.path} to={item.path} end={item.path === '/'}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-          <div className="drawer-foot">
-            <ThemeSwitch />
-          </div>
+        <nav className="sidebar" aria-label="主選單">
+          {navigation}
         </nav>
+        {navOpen && (
+          <AccessibleDialog title="主選單" onClose={closeNav} className="drawer-dialog">
+            <div className="drawer-heading">
+              <Brand />
+              <button type="button" className="icon-btn" aria-label="關閉選單" onClick={closeNav}>
+                <IconClose />
+              </button>
+            </div>
+            <nav id="mobile-navigation" aria-label="行動版主選單">
+              {navigation}
+            </nav>
+            <ThemeSwitch />
+          </AccessibleDialog>
+        )}
         <div className="main">
           {guest && IS_PUBLIC && (
-            <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
+            <div className="notice" role="note" style={{ margin: 0, borderRadius: 0 }}>
               {store.scratch ? (
                 <>
                   <strong>試算模式</strong>
@@ -499,7 +522,7 @@ export default function App() {
             </div>
           )}
           {guest && !IS_PUBLIC && (
-            <div className="notice" style={{ margin: 0, borderRadius: 0 }}>
+            <div className="notice" role="note" style={{ margin: 0, borderRadius: 0 }}>
               預覽模式：以下是<strong>虛構的示範資料</strong>，可以自由操作，但不會儲存。{' '}
               <button className="primary" onClick={signIn}>
                 登入 / 註冊
@@ -511,7 +534,7 @@ export default function App() {
             </div>
           )}
           {store.pendingCarry && (
-            <div className="notice warn" style={{ margin: 0, borderRadius: 0 }}>
+            <div className="notice warn" role="note" style={{ margin: 0, borderRadius: 0 }}>
               你登入前在試算模式輸入的資料還沒存進帳號，帳號裡已經有資料。{' '}
               <button
                 onClick={() =>
@@ -527,13 +550,19 @@ export default function App() {
             </div>
           )}
           {auth.viewing && (
-            <div className="notice warn" style={{ margin: 0, borderRadius: 0 }}>
+            <div className="notice warn" role="note" style={{ margin: 0, borderRadius: 0 }}>
               正在唯讀檢視 <strong>{auth.viewing.displayName}</strong>（{auth.viewing.username}
               ）的資料，任何修改都不會儲存。{' '}
               <button onClick={() => void stopViewing()}>回到我的資料</button>
             </div>
           )}
-          <main className="content">
+          {(store.status === 'error' || store.status === 'conflict') && (
+            <Banner tone="bad" title={STATUS[store.status].text}>
+              變更尚未成功同步。請保留此分頁，並在離開前確認儲存狀態；可到設定匯出備份。
+              {store.error}
+            </Banner>
+          )}
+          <main id="main-content" className="content" tabIndex={-1}>
             {store.status === 'loading' ? (
               <Spinner text="載入資料中…" />
             ) : (
@@ -543,6 +572,21 @@ export default function App() {
                   .map((item) => (
                     <Route key={item.path} path={item.path} element={item.element} />
                   ))}
+                <Route
+                  path="*"
+                  element={
+                    <EmptyState
+                      title="找不到這個頁面"
+                      action={
+                        <Link className="button primary" to="/">
+                          回到投資總覽
+                        </Link>
+                      }
+                    >
+                      從主選單選擇要查看的內容。
+                    </EmptyState>
+                  }
+                />
               </Routes>
             )}
           </main>

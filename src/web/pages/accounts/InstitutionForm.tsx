@@ -170,7 +170,7 @@ export default function InstitutionForm(props: {
             用來估算交易成本；實際金額以你在每筆交易填寫的為準。清單帶入的是牌告或常見預設值，
             請改成你自己的費率與折讓。沒填的商品類別不會估算。
           </p>
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>

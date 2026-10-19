@@ -118,7 +118,12 @@ export default function ExchangeTab() {
         {!status?.list.length ? (
           <Empty>尚未建立連線。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="唯讀連線（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -379,7 +384,7 @@ function CheckTable(props: {
   }>;
 }) {
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>

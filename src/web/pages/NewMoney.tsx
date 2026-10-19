@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import {
   compareAllocation,
@@ -9,7 +10,8 @@ import {
 import { useData } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { fmtMoney, fmtNum, fmtPct } from '../format';
-import { Card, Empty, Field, PageHeader } from '../components/ui';
+import { Card, Field, PageHeader } from '../components/ui';
+import { Accordion, Banner, EmptyState, Toggle } from '../components/Primitives';
 import { PlanView } from './allocation/PlanView';
 import './allocation/allocation.css';
 
@@ -81,12 +83,25 @@ export default function NewMoneyPage() {
   return (
     <>
       <PageHeader title="New Money Allocator" subtitle="輸入新資金來源與金額，產生交易建議清單" />
-      <div className="notice">
-        此頁只產生<strong>建議清單</strong>
-        ：網站不會下單，也不會建立任何交易紀錄。實際成交後請至交易紀錄自行登錄。
-        流程依序為：先算資金到位後的 NAV，再以該 NAV 評估各指數目標缺口；僅買進（不賣出）。
+      <Banner title="先試算，再決定">
+        此頁只產生建議清單，不會下單，也不會建立交易。計算會先納入資金來源對 NAV
+        的影響，再評估目標缺口；只買進、不賣出。
+      </Banner>
+      {!accounts.length && (
+        <EmptyState
+          title="先選擇資金的落點"
+          action={
+            <Link className="button primary" to="/accounts">
+              建立帳戶 ↗
+            </Link>
+          }
+        >
+          建立帳戶後，就能指定收款帳戶與可使用的現金。
+        </EmptyState>
+      )}
+      <div className="section-kicker">
+        <span>01</span> 設定投入條件
       </div>
-
       <Card title="資金">
         <div className="form-grid">
           <Field label="金額">
@@ -136,22 +151,30 @@ export default function NewMoneyPage() {
               </select>
             </Field>
           )}
-          <Field label="現有現金" hint="同時動用收款帳戶內的閒置現金">
-            <label>
-              <input
-                type="checkbox"
-                checked={useCash}
-                onChange={(e) => setUseCash(e.target.checked)}
-              />{' '}
-              一併使用
-            </label>
-          </Field>
+          <Toggle
+            label="一併使用現有現金"
+            hint="動用收款帳戶內的閒置現金"
+            checked={useCash}
+            onChange={setUseCash}
+          />
         </div>
       </Card>
 
+      <div className="section-kicker">
+        <span>02</span> 選擇配置工具
+      </div>
       <Card title="各指數使用的商品">
         {targeted.length === 0 ? (
-          <Empty>尚未設定目標，請先到 Core Allocation 設定</Empty>
+          <EmptyState
+            title="給下一筆投入一個方向"
+            action={
+              <Link className="button" to="/allocation">
+                設定配置目標 ↗
+              </Link>
+            }
+          >
+            設定各指數的目標權重後，這裡會列出可用商品。
+          </EmptyState>
         ) : (
           <div className="form-grid">
             {targeted.map((idx) => {
@@ -179,7 +202,16 @@ export default function NewMoneyPage() {
         )}
       </Card>
 
+      <div className="section-kicker">
+        <span>03</span> 檢視配置建議
+      </div>
       <PlanView plan={plan} names={names} />
+      <Accordion title="資金來源為什麼會影響結果？">
+        <p>
+          外部投入會增加 NAV；借款同時增加現金與負債，NAV
+          不變。股息、賣出所得與內部移轉若已在帳內，不會再次計入外部投入。實際成交後，請到交易頁登錄。
+        </p>
+      </Accordion>
 
       <Card title="工具比較">
         <div className="form-grid">
@@ -199,7 +231,7 @@ export default function NewMoneyPage() {
             <input type="number" value={cmpAmount} onChange={(e) => setCmpAmount(e.target.value)} />
           </Field>
         </div>
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="工具比較（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

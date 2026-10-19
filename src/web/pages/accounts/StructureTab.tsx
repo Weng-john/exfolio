@@ -71,7 +71,12 @@ export default function StructureTab() {
         {data.brokers.length === 0 ? (
           <Empty>尚無機構。按「新增機構」從常用清單挑選，或自行輸入任何券商、銀行、交易所。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="券商 / 銀行 / 交易所（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -131,7 +136,7 @@ export default function StructureTab() {
         {data.accounts.length === 0 ? (
           <Empty>尚無帳戶。{!data.brokers.length && '請先新增機構。'}</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="帳戶（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>

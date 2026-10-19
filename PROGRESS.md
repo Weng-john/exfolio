@@ -2,7 +2,17 @@
 
 給接手這個專案的開發者或 agent。需求與決策的完整內容在 `private/portfolio_management_spec.md`（私人文件，不進版本庫；找不到時向專案擁有者索取）。每次完成或變更工作，都要更新這份文件。
 
-最後更新：2026-10-17
+最後更新：2026-10-20
+
+## 公開版 UI／UX 改版（2026-10-20）
+
+- 保留 teal／amber 與深藍主題，以 NAV 主卡、繁體中文導覽、線條圖示、頁面路徑、留白與字級重整全站視覺層級；新資金頁加入三階段流程，訪客總覽提供可略過、重開且只在記憶體保留狀態的入門指南。
+- 新增可重用的原生 modal dialog、Popover、SegmentedControl、Tooltip、Banner、Accordion、Toggle、Toast、EmptyState、ProgressBar；確認視窗預設聚焦取消，支援 Escape、背景 inert、捲動鎖定與焦點還原。頁面切換可跳至主內容，頁面 tabs 支援方向鍵與 Home／End。
+- 資料表加入可聚焦、具名稱的橫向捲動區；手機固定第一欄，修正固定欄寬 grid 溢出。借款、策略與期貨提供明確的鍵盤選取按鈕；匯入編輯區可用 Shift+Tab 離開。
+- 共用圖表 tooltip 與深淺色 token，修正淺色黃線、深色 danger hover 與匯入控制項對比；圖表開啟 accessibilityLayer，JS 動畫與 CSS 都遵循減少動態效果設定。配置條仍保留正負號與零中線，不改成不適用的完成百分比。
+- 完成三輪原始碼自評；70 組 token 對比與 7 項元件靜態標記檢查通過，560 項既有測試、型別與格式檢查通過。完整版本及公開版前端可離線建置；建置產物放 task output staging，沒有寫進 repository。
+- 待驗收：沒有 Playwright，手機尺寸、實際字型、鍵盤／讀屏及深淺色視覺仍需擁有者檢查；不能據此宣稱已達獎項水準。原始 `build:public` 在 `tsx` IPC 遇到 sandbox `listen EPERM`，且最後下載報價需要網路；`check:privacy` 遇到 `spawnSync git EPERM`。依 TASK 的提交前規則，尚未提交。
+- 變更限於 UI lane，另依任務更新本進度；未新增依賴、未改動計算、資料流、會員防護或 CSP。
 
 ## 公開版改版：試算 + 會員（2026-10-17）
 

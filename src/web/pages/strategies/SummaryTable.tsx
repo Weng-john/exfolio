@@ -5,7 +5,7 @@ import { fmtMoney, fmtPct, fmtX, signClass } from '../../format';
 export default function SummaryTable(props: { rows: BucketSummary[]; base: string }) {
   const { rows, base } = props;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>

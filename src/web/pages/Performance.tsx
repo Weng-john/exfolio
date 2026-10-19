@@ -1,3 +1,5 @@
+import { CHART_TOOLTIP, useChartMotion } from '../components/chartTheme';
+import { Toast } from '../components/Primitives';
 import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
@@ -20,11 +22,6 @@ import './performance/performance.css';
 import { FundingNotice } from '../components/FundingEvidence';
 
 type WindowChoice = 'ytd' | '1m' | '3m' | '6m' | '1y' | 'inception' | 'custom';
-const TOOLTIP = {
-  background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-};
 
 function shiftMonths(day: string, months: number) {
   const date = new Date(`${day}T00:00:00Z`);
@@ -37,6 +34,7 @@ function shortAnnualised(short: boolean) {
 }
 
 export default function PerformancePage() {
+  const animate = useChartMotion();
   const data = useData();
   const { ledger, valuation } = usePortfolio();
   const day = today();
@@ -174,7 +172,7 @@ export default function PerformancePage() {
             {from} ～ {to} · 所有金額以 {valuation.baseCurrency} 計
           </span>
         </div>
-        {syncMessage && <p className="performance-sync-message">{syncMessage}</p>}
+        {syncMessage && <Toast onDismiss={() => setSyncMessage(undefined)} message={syncMessage} />}
         <p className="muted">
           下載會涵蓋目前持有商品與策略基準；手動報價商品需自行輸入或匯入歷史價格。
         </p>
@@ -197,7 +195,12 @@ export default function PerformancePage() {
         </Card>
       )}
       <Card title="四層級比較">
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="四層級比較（可左右捲動）"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>
@@ -251,26 +254,33 @@ export default function PerformancePage() {
       </Card>
       <div className="grid">
         <Card title="P&L 拆解">
-          <table>
-            <tbody>
-              {[
-                ['已實現', totalPnl.realized],
-                ['未實現', totalPnl.unrealized],
-                ['股息', totalPnl.dividends],
-                ['費用與稅', -totalPnl.feesAndTaxes],
-                ['融資成本', -totalPnl.fundingCost],
-                ['Gross（融資前）', totalPnl.gross],
-                ['Net（融資後）', totalPnl.net],
-              ].map(([label, value]) => (
-                <tr key={label as string}>
-                  <td>{label}</td>
-                  <td className={`num ${signClass(value as number)}`}>
-                    {fmtMoney(value as number, valuation.baseCurrency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="損益拆解（可左右捲動）"
+            tabIndex={0}
+          >
+            <table>
+              <tbody>
+                {[
+                  ['已實現', totalPnl.realized],
+                  ['未實現', totalPnl.unrealized],
+                  ['股息', totalPnl.dividends],
+                  ['費用與稅', -totalPnl.feesAndTaxes],
+                  ['融資成本', -totalPnl.fundingCost],
+                  ['Gross（融資前）', totalPnl.gross],
+                  ['Net（融資後）', totalPnl.net],
+                ].map(([label, value]) => (
+                  <tr key={label as string}>
+                    <td>{label}</td>
+                    <td className={`num ${signClass(value as number)}`}>
+                      {fmtMoney(value as number, valuation.baseCurrency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p className="muted">{totalPnl.notes[0]}</p>
         </Card>
         <Card title="累積 TWR 與 Benchmark">
@@ -279,7 +289,7 @@ export default function PerformancePage() {
           ) : (
             <div className="performance-chart">
               <ResponsiveContainer>
-                <LineChart data={chartData}>
+                <LineChart accessibilityLayer data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
                   <YAxis
@@ -289,16 +299,24 @@ export default function PerformancePage() {
                   />
                   <Tooltip
                     formatter={(value: number) => `${value.toFixed(1)}%`}
-                    contentStyle={TOOLTIP}
+                    contentStyle={CHART_TOOLTIP}
                   />
                   <Legend />
                   <Line
+                    isAnimationActive={animate}
                     dataKey="twr"
                     name={chartLevel?.label ?? 'TWR'}
-                    stroke="var(--accent)"
+                    stroke="var(--chart-1)"
                     dot={false}
                   />
-                  <Line dataKey="benchmark" name="Benchmark" stroke="var(--muted)" dot={false} />
+                  <Line
+                    isAnimationActive={animate}
+                    dataKey="benchmark"
+                    name="Benchmark"
+                    stroke="var(--chart-2)"
+                    strokeDasharray="5 4"
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -309,7 +327,12 @@ export default function PerformancePage() {
         {!positions.length ? (
           <Empty>沒有持倉。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="各部位績效（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

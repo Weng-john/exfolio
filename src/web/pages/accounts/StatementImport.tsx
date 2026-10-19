@@ -251,7 +251,11 @@ export default function StatementImport(props: { onClose: () => void }) {
     >
       <ol className="si-steps">
         {STEPS.map((label, i) => (
-          <li key={label} className={i === step ? 'active' : i < step ? 'done' : ''}>
+          <li
+            key={label}
+            aria-current={i === step ? 'step' : undefined}
+            className={i === step ? 'active' : i < step ? 'done' : ''}
+          >
             {i + 1}. {label}
           </li>
         ))}

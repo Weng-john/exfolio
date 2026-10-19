@@ -11,7 +11,7 @@ export function DrawdownTable(props: { report: DrawdownResult }) {
   const rows = props.report.drawdowns;
   if (!rows.length) return <p className="muted">沒有足夠的完整估值日計算回撤。</p>;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -44,7 +44,7 @@ export function CalendarTable(props: { rows: CalendarReturnYear[] }) {
   const months = Array.from({ length: 12 }, (_, index) => (index + 1).toString().padStart(2, '0'));
   if (!props.rows.length) return <p className="muted">沒有足夠的完整估值日計算月報酬。</p>;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -85,7 +85,7 @@ export function AttributionTable(props: { value: LeverageAttribution }) {
   ];
   let running = props.value.start ?? 0;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -129,7 +129,7 @@ function ContributionTable(props: {
   return (
     <div>
       <h3>{props.title}</h3>
-      <div className="table-wrap">
+      <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
         <table>
           <thead>
             <tr>
@@ -187,7 +187,7 @@ export function CorrelationTable(props: { report: IndexOverlap; names: Record<st
     return <p className="muted">尚無已持有指數的代表性未槓桿商品與足夠價格資料。</p>;
   return (
     <>
-      <div className="table-wrap">
+      <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
         <table>
           <thead>
             <tr>

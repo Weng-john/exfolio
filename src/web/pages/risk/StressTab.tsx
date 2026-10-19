@@ -175,7 +175,12 @@ export default function StressTab() {
           </div>
 
           <Card title="衝擊前後">
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="衝擊前後（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -210,7 +215,12 @@ export default function StressTab() {
           </Card>
 
           <Card title="各指數曝險">
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="各指數曝險（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -241,7 +251,12 @@ export default function StressTab() {
           </Card>
 
           <Card title="各部位">
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="各部位（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -280,7 +295,12 @@ export default function StressTab() {
             {!r.loans.length ? (
               <Empty>沒有使用中的質押借款。</Empty>
             ) : (
-              <div className="table-wrap">
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label="質押借款維持率（可左右捲動）"
+                tabIndex={0}
+              >
                 <table>
                   <thead>
                     <tr>
@@ -335,7 +355,12 @@ export default function StressTab() {
             {!r.margins.length ? (
               <Empty>沒有期貨或永續合約部位。</Empty>
             ) : (
-              <div className="table-wrap">
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label="期貨／永續合約保證金（可左右捲動）"
+                tabIndex={0}
+              >
                 <table>
                   <thead>
                     <tr>

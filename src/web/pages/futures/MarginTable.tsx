@@ -25,7 +25,12 @@ export function MarginTable({ margins }: { margins: MarginByAccount[] }) {
       {!margins.length ? (
         <Empty>沒有持有衍生品的帳戶。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="各帳戶保證金（可左右捲動）"
+          tabIndex={0}
+        >
           <table className="futures-table">
             <thead>
               <tr>

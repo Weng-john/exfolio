@@ -1,3 +1,4 @@
+import { Toast } from '../../components/Primitives';
 import { useRef, useState } from 'react';
 import {
   addMissingSeed,
@@ -133,7 +134,12 @@ function BackupCard() {
             檔案：{pending.name}（匯出時間 {fmtTime(pending.exportedAt)}）。還原會
             <strong>整份取代</strong>目前所有資料，無法復原；建議先匯出目前資料。
           </p>
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="備份與還原（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -175,7 +181,7 @@ function SeedCard() {
         尚不存在者；已存在的資料（含你的修改）不會被覆蓋。券商、銀行與交易所請到 Accounts &
         Positions 新增。
       </p>
-      {msg && <p className="pos">{msg}</p>}
+      {msg && <Toast onDismiss={() => setMsg('')} message={msg} tone="info" />}
     </Card>
   );
 }

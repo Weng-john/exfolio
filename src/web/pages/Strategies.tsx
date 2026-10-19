@@ -67,7 +67,12 @@ export default function StrategiesPage() {
               還沒有策略。策略完全由你定義，不需要設定觸發條件；建立後用「撥入資金」從核心配置資金給它。
             </Empty>
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="策略列表（可左右捲動）"
+              tabIndex={0}
+            >
               <table className="str-list">
                 <thead>
                   <tr>
@@ -92,7 +97,14 @@ export default function StrategiesPage() {
                         onClick={() => setSelectedId(s.id)}
                       >
                         <td>
-                          {s.name}
+                          <button
+                            type="button"
+                            className="row-select"
+                            aria-pressed={s.id === selected?.id}
+                            onClick={() => setSelectedId(s.id)}
+                          >
+                            {s.name}
+                          </button>
                           {s.category && <span className="muted"> · {s.category}</span>}
                         </td>
                         <td>

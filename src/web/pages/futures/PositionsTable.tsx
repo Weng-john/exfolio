@@ -39,7 +39,7 @@ export function PositionsTable({
       {!positions.length ? (
         <Empty>目前沒有未平倉期貨或永續合約。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="期貨部位（可左右捲動）" tabIndex={0}>
           <table className="futures-table">
             <thead>
               <tr>
@@ -66,7 +66,17 @@ export function PositionsTable({
                     onClick={() => onSelect(p)}
                   >
                     <td>
-                      {p.symbol}
+                      <button
+                        type="button"
+                        className="row-select"
+                        aria-pressed={selectedKey === p.key}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(p);
+                        }}
+                      >
+                        {p.symbol}
+                      </button>
                       <span className="muted futures-sub">
                         {accountName(p.accountId)} · {bucketName(p.bucket)}
                       </span>

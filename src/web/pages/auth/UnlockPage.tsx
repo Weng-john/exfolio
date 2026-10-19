@@ -41,6 +41,8 @@ export default function UnlockPage() {
         <div className="auth-head">
           <Brand />
         </div>
+        <span className="eyebrow">瀏覽器資料已加密</span>
+        <h1 className="auth-title">解鎖你的投資工作台</h1>
         <p className="muted">
           這個瀏覽器中的資料已加密。輸入密碼後才會解開，密碼只留在這個分頁的記憶體裡。
         </p>
@@ -55,7 +57,11 @@ export default function UnlockPage() {
               required
             />
           </Field>
-          {error && <div className="notice warn">{error}</div>}
+          {error && (
+            <div className="notice warn" role="alert">
+              {error}
+            </div>
+          )}
           <button className="primary" type="submit" disabled={busy}>
             {busy ? '解鎖中…' : '解鎖'}
           </button>

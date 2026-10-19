@@ -88,7 +88,7 @@ export default function IndicesTab() {
       {data.indices.length === 0 ? (
         <Empty>尚無指數</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

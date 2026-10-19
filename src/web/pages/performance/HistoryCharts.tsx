@@ -1,3 +1,4 @@
+import { CHART_TOOLTIP, useChartMotion } from '../../components/chartTheme';
 import {
   Area,
   AreaChart,
@@ -13,22 +14,24 @@ import {
 import type { HistoryRow, IndexedHistoryPoint } from '@core/index';
 import { fmtMoney, fmtPct, fmtX } from '../../format';
 
-const TOOLTIP = {
-  background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-};
-const COLOURS = ['var(--accent)', 'var(--pos)', 'var(--warn)', 'var(--neg)', 'var(--muted)'];
+const COLOURS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--neg)',
+  'var(--muted)',
+];
 
 function percent(value: number) {
   return fmtPct(value / 100);
 }
 
 export function NavChart(props: { rows: HistoryRow[]; currency: string }) {
+  const animate = useChartMotion();
   return (
     <div className="history-chart">
       <ResponsiveContainer>
-        <LineChart data={props.rows}>
+        <LineChart accessibilityLayer data={props.rows}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
           <YAxis
@@ -38,11 +41,23 @@ export function NavChart(props: { rows: HistoryRow[]; currency: string }) {
           />
           <Tooltip
             formatter={(value: number) => fmtMoney(value, props.currency)}
-            contentStyle={TOOLTIP}
+            contentStyle={CHART_TOOLTIP}
           />
           <Legend />
-          <Line dataKey="nav" name="NAV" stroke="var(--accent)" dot={false} />
-          <Line dataKey="contributedCapital" name="累積投入" stroke="var(--muted)" dot={false} />
+          <Line
+            isAnimationActive={animate}
+            dataKey="nav"
+            name="NAV"
+            stroke="var(--chart-1)"
+            dot={false}
+          />
+          <Line
+            isAnimationActive={animate}
+            dataKey="contributedCapital"
+            name="累積投入"
+            stroke="var(--muted)"
+            dot={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -50,6 +65,7 @@ export function NavChart(props: { rows: HistoryRow[]; currency: string }) {
 }
 
 export function LeverageChart(props: { rows: HistoryRow[] }) {
+  const animate = useChartMotion();
   const data = props.rows.map((row) => ({
     ...row,
     gross: row.grossLeverage === undefined ? undefined : row.grossLeverage * 100,
@@ -59,15 +75,34 @@ export function LeverageChart(props: { rows: HistoryRow[] }) {
   return (
     <div className="history-chart">
       <ResponsiveContainer>
-        <LineChart data={data}>
+        <LineChart accessibilityLayer data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
           <YAxis stroke="var(--muted)" fontSize={12} tickFormatter={percent} />
-          <Tooltip formatter={(value: number) => fmtX(value / 100)} contentStyle={TOOLTIP} />
+          <Tooltip formatter={(value: number) => fmtX(value / 100)} contentStyle={CHART_TOOLTIP} />
           <Legend />
-          <Line dataKey="gross" name="Gross 槓桿" stroke="var(--accent)" dot={false} />
-          <Line dataKey="net" name="Net 槓桿" stroke="var(--pos)" dot={false} />
-          <Line dataKey="debt" name="Debt / NAV" stroke="var(--warn)" dot={false} />
+          <Line
+            isAnimationActive={animate}
+            dataKey="gross"
+            name="Gross 槓桿"
+            stroke="var(--chart-1)"
+            dot={false}
+          />
+          <Line
+            isAnimationActive={animate}
+            dataKey="net"
+            name="Net 槓桿"
+            stroke="var(--chart-2)"
+            strokeDasharray="5 4"
+            dot={false}
+          />
+          <Line
+            isAnimationActive={animate}
+            dataKey="debt"
+            name="Debt / NAV"
+            stroke="var(--warn)"
+            dot={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -75,20 +110,22 @@ export function LeverageChart(props: { rows: HistoryRow[] }) {
 }
 
 export function ExposureChart(props: { rows: HistoryRow[]; indexNames: Record<string, string> }) {
+  const animate = useChartMotion();
   const ids = [...new Set(props.rows.flatMap((row) => Object.keys(row.netExposureByIndex)))];
   const data = props.rows.map((row) => ({ ...row.netExposureByIndex, date: row.date }));
   if (!ids.length) return <p className="muted">此期間沒有可分類的指數曝險。</p>;
   return (
     <div className="history-chart">
       <ResponsiveContainer>
-        <AreaChart data={data}>
+        <AreaChart accessibilityLayer data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
           <YAxis stroke="var(--muted)" fontSize={12} />
-          <Tooltip contentStyle={TOOLTIP} />
+          <Tooltip contentStyle={CHART_TOOLTIP} />
           <Legend />
           {ids.map((id, index) => (
             <Area
+              isAnimationActive={animate}
               key={id}
               dataKey={id}
               name={props.indexNames[id] ?? id}
@@ -105,6 +142,7 @@ export function ExposureChart(props: { rows: HistoryRow[]; indexNames: Record<st
 }
 
 export function UnderwaterChart(props: { index: IndexedHistoryPoint[] }) {
+  const animate = useChartMotion();
   let high = 1;
   const data = props.index.map((point) => {
     high = Math.max(high, point.index);
@@ -113,12 +151,16 @@ export function UnderwaterChart(props: { index: IndexedHistoryPoint[] }) {
   return (
     <div className="history-chart">
       <ResponsiveContainer>
-        <AreaChart data={data}>
+        <AreaChart accessibilityLayer data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
           <YAxis stroke="var(--muted)" fontSize={12} tickFormatter={percent} />
-          <Tooltip formatter={(value: number) => fmtPct(value / 100)} contentStyle={TOOLTIP} />
+          <Tooltip
+            formatter={(value: number) => fmtPct(value / 100)}
+            contentStyle={CHART_TOOLTIP}
+          />
           <Area
+            isAnimationActive={animate}
             dataKey="underwater"
             name="回撤"
             stroke="var(--neg)"

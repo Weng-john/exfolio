@@ -3,7 +3,8 @@ import { positionTotals, type ValuedPosition } from '@core/index';
 import { useData } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
 import { QuickPosition } from '../../components/QuickPosition';
-import { Badge, Card, Empty } from '../../components/ui';
+import { Badge, Card } from '../../components/ui';
+import { EmptyState, Toggle } from '../../components/Primitives';
 import { fmtMoney, fmtNum, fmtPct, fmtTime, signClass } from '../../format';
 import { PRICE_STATUS_LABELS, PRICE_STATUS_TONES } from './labels';
 
@@ -67,14 +68,7 @@ export default function PositionsTab() {
           <button className="primary" onClick={() => setAdding(true)}>
             ＋ 新增倉位
           </button>
-          <label>
-            <input
-              type="checkbox"
-              checked={grouped}
-              onChange={(e) => setGrouped(e.target.checked)}
-            />{' '}
-            依帳戶分組
-          </label>
+          <Toggle label="依帳戶分組" checked={grouped} onChange={setGrouped} />
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -98,9 +92,18 @@ export default function PositionsTab() {
         </div>
       )}
       {rows.length === 0 ? (
-        <Empty>尚無持倉。到「交易」分頁新增買進紀錄。</Empty>
+        <EmptyState
+          title="建立第一筆倉位"
+          action={
+            <button className="primary" onClick={() => setAdding(true)}>
+              ＋ 新增倉位
+            </button>
+          }
+        >
+          選擇商品並輸入數量與均價，開始查看實際曝險。
+        </EmptyState>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="持倉（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

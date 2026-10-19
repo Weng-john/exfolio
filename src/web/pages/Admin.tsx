@@ -1,3 +1,4 @@
+import { Toast } from '../components/Primitives';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AuditEntry, PublicUser, RegistrationMode, UserStatus } from '@core/api';
@@ -108,10 +109,16 @@ export default function AdminPage() {
         title="會員管理"
         subtitle={`${users.length} 個帳號${pending ? `，${pending} 個待核准` : ''}`}
       />
-      {msg && <div className={`notice ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
+      {msg && (
+        <Toast
+          onDismiss={() => setMsg(undefined)}
+          message={msg.text}
+          tone={msg.ok ? 'ok' : 'bad'}
+        />
+      )}
 
       <Card title="會員">
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="會員（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

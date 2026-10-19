@@ -232,7 +232,7 @@ export default function InstrumentsTab() {
       {rows.length === 0 ? (
         <Empty>沒有符合的商品</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

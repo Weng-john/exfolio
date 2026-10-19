@@ -49,7 +49,12 @@ export function ContractMonths({ series, instruments, day }: Props) {
               <h2>{group.seriesId}</h2>
               <button onClick={() => addNextContract(group)}>新增下個月份</button>
             </div>
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="合約月份管理（可左右捲動）"
+              tabIndex={0}
+            >
               <table className="futures-table">
                 <thead>
                   <tr>

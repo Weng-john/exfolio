@@ -73,6 +73,32 @@ export const IconSettings = () => (
   </svg>
 );
 
+const NAV_PATHS: Record<string, string> = {
+  '/': 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  '/allocation': 'M12 3v9h9M21 15a9 9 0 1 1-12-12M15 3a9 9 0 0 1 6 6h-6z',
+  '/new-money': 'M12 4v16M5 11l7-7 7 7M4 20h16',
+  '/accounts': 'M3 7h18v14H3zM6 7V3h12v4M3 12h18M9 16h6',
+  '/loans': 'M3 10h18L12 3zM5 10v10M10 10v10M14 10v10M19 10v10M3 21h18',
+  '/futures': 'M3 7h16l-4-4M21 17H5l4 4M19 7l-4 4M5 17l4-4',
+  '/strategies': 'M12 3v6M5 21v-6h14v6M5 9h14v6M12 15v6',
+  '/journal': 'M5 3h14v18H5zM9 7h6M9 11h6M9 15h4',
+  '/performance': 'M3 3v18h18M6 16l5-6 4 3 6-8',
+  '/risk': 'M12 3l9 4v5c0 5-9 9-9 9s-9-4-9-9V7zM12 8v5M12 16h.01',
+};
+
+export const NavIcon = (props: { path: string }) =>
+  props.path === '/settings' ? (
+    <IconSettings />
+  ) : props.path === '/admin' ? (
+    <IconUsers />
+  ) : props.path === '/account' ? (
+    <IconUser />
+  ) : (
+    <svg {...base}>
+      <path d={NAV_PATHS[props.path] ?? NAV_PATHS['/']} />
+    </svg>
+  );
+
 /** The Exfolio mark: three rising bars over a baseline. */
 export const Logo = () => (
   <svg width={28} height={28} viewBox="0 0 28 28" aria-hidden>

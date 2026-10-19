@@ -1,3 +1,4 @@
+import { Toast } from '../../components/Primitives';
 import { useRef, useState } from 'react';
 import {
   filterTransactions,
@@ -113,7 +114,7 @@ export default function TransactionsTab() {
       }
     >
       <FundingNotice transactions={rows} />
-      {message && <div className="notice">{message}</div>}
+      {message && <Toast onDismiss={() => setMessage('')} message={message} />}
       <div className="acct-filters">
         <select
           aria-label="帳戶"
@@ -171,7 +172,7 @@ export default function TransactionsTab() {
       {rows.length === 0 ? (
         <Empty>沒有符合條件的交易。</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
           <table>
             <thead>
               <tr>

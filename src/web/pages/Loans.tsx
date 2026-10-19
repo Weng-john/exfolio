@@ -124,7 +124,12 @@ export default function LoansPage() {
         {!rows.length ? (
           <Empty>尚未建立借款。按「新增借款」開始。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="借款列表（可左右捲動）"
+            tabIndex={0}
+          >
             <table className="loans-list">
               <thead>
                 <tr>
@@ -146,7 +151,15 @@ export default function LoansPage() {
                     onClick={() => setSelectedId(loan.id)}
                   >
                     <td>
-                      {loan.name} {!loan.active && <Badge tone="warn">停用</Badge>}
+                      <button
+                        type="button"
+                        className="row-select"
+                        aria-pressed={selected?.loan.id === loan.id}
+                        onClick={() => setSelectedId(loan.id)}
+                      >
+                        {loan.name}
+                      </button>{' '}
+                      {!loan.active && <Badge tone="warn">停用</Badge>}
                     </td>
                     <td>{KIND_LABEL[loan.kind]}</td>
                     <td>{METHOD_LABEL[loan.method]}</td>
@@ -195,7 +208,7 @@ export default function LoansPage() {
         {!forecastLoans.length ? (
           <Empty>沒有待繳的借款。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>

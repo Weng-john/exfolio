@@ -129,7 +129,12 @@ export default function RotationSection(props: { strategy: Strategy; base: strin
       {!cycles.length ? (
         <Empty>這個策略還沒有輪動週期</Empty>
       ) : (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-label="輪動週期（rotation cycle）（可左右捲動）"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

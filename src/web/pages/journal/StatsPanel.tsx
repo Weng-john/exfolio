@@ -15,7 +15,7 @@ export default function StatsPanel(props: {
       .filter((r) => r.stats.count > 0),
   ];
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
       <table>
         <thead>
           <tr>

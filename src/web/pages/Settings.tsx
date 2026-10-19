@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PageHeader } from '../components/ui';
+import { SegmentedControl } from '../components/Primitives';
 import { IS_PUBLIC } from '../edition';
 import InstrumentsTab from './settings/InstrumentsTab';
 import IndicesTab from './settings/IndicesTab';
@@ -30,20 +31,9 @@ export default function SettingsPage() {
         title="Settings & Integrations"
         subtitle="商品登錄、報價來源、提醒門檻、交易所唯讀同步、後端連線與資料備份"
       />
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={tab === t.id ? 'active' : ''}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <Body />
+      <SegmentedControl label="設定分類" items={TABS} value={tab} onChange={setTab}>
+        <Body />
+      </SegmentedControl>
     </>
   );
 }

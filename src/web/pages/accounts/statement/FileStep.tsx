@@ -1,3 +1,4 @@
+import { ProgressBar } from '../../../components/Primitives';
 import { useRef, useState } from 'react';
 import {
   ENCODING_LABELS,
@@ -87,7 +88,12 @@ export default function FileStep(p: FileStepProps) {
         role="button"
         tabIndex={0}
         onClick={() => ref.current?.click()}
-        onKeyDown={(e) => e.key === 'Enter' && ref.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            ref.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setOver(true);
@@ -115,12 +121,16 @@ export default function FileStep(p: FileStepProps) {
           }}
         />
       </div>
-      {p.error && <div className="notice warn si-block">{p.error}</div>}
+      {p.error && (
+        <div className="notice warn si-block" role="alert">
+          {p.error}
+        </div>
+      )}
 
       {p.ocr && (
         <div className="notice si-block">
-          辨識截圖中：{p.ocr.status}（{Math.round(p.ocr.progress * 100)}%）
-          <progress className="si-progress" value={p.ocr.progress} max={1} />
+          辨識截圖中：{p.ocr.status}
+          <ProgressBar label="文字辨識進度" value={p.ocr.progress} />
         </div>
       )}
 
@@ -135,12 +145,13 @@ export default function FileStep(p: FileStepProps) {
           <div className="si-ocr">
             <img src={p.image.url} alt="上傳的對帳單截圖" />
             <textarea
+              aria-label="辨識文字（Tab 分欄，Shift+Tab 可離開編輯區）"
               value={p.image.text}
               spellCheck={false}
               onChange={(e) => p.onImageText(e.target.value)}
               onKeyDown={(e) => {
                 // Tab separates columns here, so it must insert one, not move focus.
-                if (e.key !== 'Tab') return;
+                if (e.key !== 'Tab' || e.shiftKey) return;
                 e.preventDefault();
                 const el = e.currentTarget;
                 const { selectionStart, selectionEnd, value } = el;
@@ -220,7 +231,12 @@ export default function FileStep(p: FileStepProps) {
               原始內容預覽（共 {p.table.records.length} 列，資料 {p.table.rows.length} 列
               {p.table.summaryRows ? `，已排除 ${p.table.summaryRows} 列合計` : ''}）
             </h3>
-            <div className="si-raw">
+            <div
+              className="si-raw"
+              role="region"
+              aria-label="匯入資料表（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <tbody>
                   {preview?.map((rec, i) => (

@@ -50,6 +50,8 @@ export default function LegacyDataPage(props: { onDone: () => void }) {
             </button>
           </div>
         </div>
+        <span className="eyebrow">開啟舊版資料</span>
+        <h1 className="auth-title">接續先前的配置</h1>
         <p>
           這個瀏覽器裡有舊版網站存下的資料。網站現在不再把資料存在瀏覽器：打開後會帶進試算模式，
           你可以用 Google 登入把它存進會員帳號，或到 Settings 匯出備份檔。
@@ -67,7 +69,11 @@ export default function LegacyDataPage(props: { onDone: () => void }) {
               />
             </Field>
           )}
-          {error && <div className="notice warn">{error}</div>}
+          {error && (
+            <div className="notice warn" role="alert">
+              {error}
+            </div>
+          )}
           <button className="primary" type="submit" disabled={busy}>
             {busy ? '開啟中…' : '開啟並帶入試算'}
           </button>

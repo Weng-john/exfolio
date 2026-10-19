@@ -123,7 +123,7 @@ export default function StrategyDetail(props: {
         {!positions.length ? (
           <Empty>這個策略目前沒有持倉</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-label="持倉（可左右捲動）" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -166,7 +166,12 @@ export default function StrategyDetail(props: {
         {!flows.length ? (
           <Empty>尚無資金異動。用「撥入資金」從核心配置一筆資金給這個策略。</Empty>
         ) : (
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="策略資金帳本（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

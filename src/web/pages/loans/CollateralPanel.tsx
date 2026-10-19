@@ -199,7 +199,12 @@ export default function CollateralPanel(props: {
                 {w}
               </div>
             ))}
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label="擔保品與維持率（可左右捲動）"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

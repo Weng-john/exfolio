@@ -71,6 +71,7 @@ export default function JournalPage() {
           </p>
           <div className="jr-filters">
             <select
+              aria-label="策略篩選"
               value={filter.strategyId ?? ''}
               onChange={(e) => patch({ strategyId: e.target.value || undefined })}
             >
@@ -83,6 +84,7 @@ export default function JournalPage() {
               ))}
             </select>
             <select
+              aria-label="商品篩選"
               value={filter.instrumentId ?? ''}
               onChange={(e) => patch({ instrumentId: e.target.value || undefined })}
             >
@@ -106,6 +108,7 @@ export default function JournalPage() {
               aria-label="迄日"
             />
             <select
+              aria-label="標籤篩選"
               value={filter.tag ?? ''}
               onChange={(e) => patch({ tag: e.target.value || undefined })}
             >
@@ -117,6 +120,7 @@ export default function JournalPage() {
               ))}
             </select>
             <select
+              aria-label="群組篩選"
               value={filter.tradeGroupId ?? ''}
               onChange={(e) => patch({ tradeGroupId: e.target.value || undefined })}
             >
@@ -155,7 +159,12 @@ export default function JournalPage() {
           {!trips.length ? (
             <Empty>還沒有已平倉的交易</Empty>
           ) : (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label="資料表（可左右捲動）"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
