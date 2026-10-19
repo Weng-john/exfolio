@@ -25,7 +25,7 @@ import {
   type StatementMapping,
   type StatementOptions,
 } from '@core/index';
-import { Modal } from '../../components/ui';
+import { Field, Modal } from '../../components/ui';
 import { isImageFile, recognizeImage, type OcrProgress } from '../../ocr';
 import { setTable, upsertRow, useData, useStore } from '../../store';
 import FileStep from './statement/FileStep';
@@ -79,6 +79,8 @@ export default function StatementImport(props: { onClose: () => void }) {
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<BalancingMode>('none');
+  const [positionTransferToAccountId, setPositionTransferToAccountId] = useState('');
+  const [loanId, setLoanId] = useState('');
   const [summary, setSummary] = useState('');
 
   // The preview URL of a screenshot is released when it is replaced or the wizard closes.
@@ -163,12 +165,14 @@ export default function StatementImport(props: { onClose: () => void }) {
       ...options,
       accountId,
       bucket,
+      positionTransferToAccountId: positionTransferToAccountId || undefined,
+      loanId: loanId || undefined,
       instrumentChoices: choices,
       confirmedInstruments: Object.fromEntries(
         Object.entries(drafts).filter(([key]) => confirmed[key]),
       ),
     }),
-    [options, accountId, bucket, choices, drafts, confirmed],
+    [options, accountId, bucket, positionTransferToAccountId, loanId, choices, drafts, confirmed],
   );
 
   const rows = useMemo(
@@ -336,29 +340,59 @@ export default function StatementImport(props: { onClose: () => void }) {
       )}
 
       {step === 2 && build && (
-        <ReviewStep
-          data={data}
-          rows={rows}
-          build={build}
-          drafts={drafts}
-          confirmed={confirmed}
-          choices={choices}
-          onDraft={(key, draft) => setDrafts((d) => ({ ...d, [key]: draft }))}
-          onConfirm={(key, on) => {
-            // Confirming without editing keeps the proposed draft.
-            const proposal = build.newInstruments.find((n) => n.key === key);
-            if (on && proposal) setDrafts((d) => ({ [key]: proposal.instrument, ...d }));
-            setConfirmed((c) => ({ ...c, [key]: on }));
-          }}
-          onChoice={(key, instrumentId) =>
-            setChoices((c) => {
-              const next = { ...c };
-              if (instrumentId) next[key] = instrumentId;
-              else delete next[key];
-              return next;
-            })
-          }
-        />
+        <>
+          {rows.some((row) => row.type === 'position_transfer') && (
+            <Field label="證券移轉目的帳戶" hint="同策略桶的現貨移轉；不會建立現金或損益。">
+              <select
+                value={positionTransferToAccountId}
+                onChange={(e) => setPositionTransferToAccountId(e.target.value)}
+              >
+                <option value="">請選擇目的帳戶…</option>
+                {data.accounts
+                  .filter((a) => a.id !== accountId)
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          )}
+          {rows.some((row) => row.type === 'loan_accrual' || row.type === 'loan_extension') && (
+            <Field label="應計／展延所屬貸款">
+              <select value={loanId} onChange={(e) => setLoanId(e.target.value)}>
+                <option value="">請選擇貸款…</option>
+                {data.loans.map((loan) => (
+                  <option key={loan.id} value={loan.id}>
+                    {loan.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <ReviewStep
+            data={data}
+            rows={rows}
+            build={build}
+            drafts={drafts}
+            confirmed={confirmed}
+            choices={choices}
+            onDraft={(key, draft) => setDrafts((d) => ({ ...d, [key]: draft }))}
+            onConfirm={(key, on) => {
+              const proposal = build.newInstruments.find((n) => n.key === key);
+              if (on && proposal) setDrafts((d) => ({ [key]: proposal.instrument, ...d }));
+              setConfirmed((c) => ({ ...c, [key]: on }));
+            }}
+            onChoice={(key, instrumentId) =>
+              setChoices((c) => {
+                const next = { ...c };
+                if (instrumentId) next[key] = instrumentId;
+                else delete next[key];
+                return next;
+              })
+            }
+          />
+        </>
       )}
 
       {step === 3 && impact && (

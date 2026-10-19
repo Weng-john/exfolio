@@ -346,6 +346,78 @@ describe('classifySide', () => {
     expect(classifySide('配股').kind).toBe('unknown');
     expect(classifySide('bonus').kind).toBe('unknown');
   });
+
+  it.each([
+    ['證券移轉', 'position_transfer'],
+    ['應計利息', 'loan_accrual'],
+    ['貸款展延', 'loan_extension'],
+  ])('%s recognises the accounting event %s', (raw, type) => {
+    expect(classifySide(raw)).toEqual({ kind: 'other', type });
+  });
+});
+
+describe('non-trade accounting events', () => {
+  const mapping: StatementMapping = {
+    date: 'Date',
+    symbol: 'Symbol',
+    side: 'Type',
+    quantity: 'Quantity',
+    amount: 'Amount',
+    currency: 'Currency',
+    orderId: 'Order',
+  };
+
+  it('imports a confirmed securities transfer without inventing price or cash', () => {
+    const data = fresh();
+    const text =
+      'Date,Symbol,Type,Quantity,Amount,Currency,Order\n2026-01-05,0050,證券移轉,100,0,TWD,move-1\n';
+    const { result } = run(
+      text,
+      data,
+      base('kgi_tw', { positionTransferToAccountId: 'sinopac_tw' }),
+      mapping,
+    );
+    expect(result.transactions).toMatchObject([
+      {
+        type: 'position_transfer',
+        accountId: 'kgi_tw',
+        toAccountId: 'sinopac_tw',
+        instrumentId: 'tw_0050',
+        quantity: 100,
+        amount: 0,
+      },
+    ]);
+  });
+
+  it('requires a destination account for a securities transfer', () => {
+    const text = 'Date,Symbol,Type,Quantity,Amount,Currency\n2026-01-05,0050,證券移轉,100,0,TWD\n';
+    const { result } = run(text, fresh(), base('kgi_tw'), mapping);
+    expect(result.transactions).toHaveLength(0);
+    expect(result.errors[0].message).toContain('目的帳戶');
+  });
+
+  it('imports loan accrual and extension only for the selected existing loan', () => {
+    const data = fresh();
+    data.loans.push({
+      id: 'loan1',
+      name: '示範貸款',
+      kind: 'credit',
+      lender: '示範銀行',
+      currency: 'TWD',
+      principal: 1000,
+      annualRate: 0.02,
+      method: 'annuity',
+      startDate: '2026-01-01',
+      active: true,
+    });
+    const text =
+      'Date,Symbol,Type,Quantity,Amount,Currency,Order\n2026-01-05,,應計利息,,10,TWD,a\n2026-01-06,,貸款展延,,,TWD,b\n';
+    const { result } = run(text, data, base('kgi_tw', { loanId: 'loan1' }), mapping);
+    expect(result.transactions).toMatchObject([
+      { type: 'loan_accrual', loanId: 'loan1', amount: 10 },
+      { type: 'loan_extension', loanId: 'loan1', amount: 0 },
+    ]);
+  });
 });
 
 describe('Taiwan securities statement', () => {

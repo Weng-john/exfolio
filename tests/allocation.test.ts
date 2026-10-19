@@ -187,6 +187,20 @@ describe('planAllocation: instruments, lots and cash need', () => {
     expect(p.warnings.some((w) => w.includes('整數口數'))).toBe(true);
   });
 
+  it('includes a future broker fee and tax in margin cash and total charges', () => {
+    const data = base();
+    data.brokers.find((b) => b.id === 'kgi')!.fees = { future: { perUnit: 50, taxRate: 0.00002 } };
+    const mtx = data.instruments.find((i) => i.id === 'fut_MTX')!;
+    mtx.initialMargin = 100_000;
+    setPrice(data, 'fut_MTX', 20_000);
+    setTarget(data, 'taiex', 2.5, { preferredInstrumentId: 'fut_MTX' });
+    const p = planAllocation(data, val(data), req({ source: 'internal', amount: 500_000 }));
+    const s = p.suggestions[0];
+    // 2 contracts: margin 200,000 + commission 100 + tax (2 x 20,000 x 50 x .00002) 40.
+    expect(s).toMatchObject({ cashRequired: 200_140, fee: 100, tax: 40, isMargin: true });
+    expect(p.totalFees).toBe(140);
+  });
+
   it('warns when the margin is unknown', () => {
     const data = base();
     setPrice(data, 'fut_MTX', 20_000);
