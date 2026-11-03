@@ -30,6 +30,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.63.0",
     "@tesseract.js-data/chi_tra": "^1.0.0",
     "@tesseract.js-data/eng": "^1.0.0",

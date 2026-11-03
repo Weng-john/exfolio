@@ -134,12 +134,25 @@ describe('options under stress', () => {
     );
     const row = r.positions.find((x) => x.instrumentId === 'opt_c100')!;
     const expected = bsPrice({ ...base, spot: 84, vol: 0.2 })!;
-    expect(row.priceAfter).toBeCloseTo(expected, 6);
+    expect(row.priceAfter).toBeCloseTo(expected, 4);
     // A call loses far more than 20% of its premium when the underlying falls 20%,
     // but never more than the premium.
     expect(row.priceMove).toBeLessThan(-0.2);
     expect(row.priceMove).toBeGreaterThan(-1);
     expect(row.pnl).toBeCloseTo((expected - premium) * 1000, 2);
+  });
+});
+
+describe('options under a zero shock', () => {
+  it('keep their market price exactly', () => {
+    const data = book(1, 7);
+    const portfolio = computePortfolio(data, opts);
+    const held = portfolio.valuation.positions.find((x) => x.instrumentId === 'opt_c100')!;
+    expect(held.option).toMatchObject({ ok: true, volSource: 'implied' });
+    const r = runStressTest(data, portfolio, { indexMoves: {}, currencyMoves: {} }, { now: NOW });
+    const row = r.positions.find((x) => x.instrumentId === 'opt_c100')!;
+    expect(row.priceMove).toBe(0);
+    expect(row.pnl).toBe(0);
   });
 });
 

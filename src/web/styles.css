@@ -1402,6 +1402,27 @@ button.row-select[aria-pressed='true'] {
   font-size: 24px;
 }
 
+.empty.empty-clear {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--success-soft);
+  color: var(--text);
+  text-align: left;
+  line-height: 1.6;
+}
+.empty.empty-clear .empty-symbol {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  color: var(--success-text);
+  background: var(--surface);
+}
+
 .empty-state {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);

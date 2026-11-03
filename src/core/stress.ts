@@ -177,14 +177,19 @@ export function applyShocks(
         shockedPrice.get(underlying.id) ??
         model.underlyingPrice *
           (1 + instrumentMove(indexMoveOf(shocks, underlying.indexId), underlying.leverage));
-      price =
+      // The model's change is added to the market price, so a zero shock
+      // leaves the quote exactly as it was.
+      const value = (s: number) =>
         bsPrice({
-          right: inst.optionRight,
-          spot: Math.max(spot, ZERO_PRICE),
-          strike: inst.strike,
+          right: inst.optionRight!,
+          spot: Math.max(s, ZERO_PRICE),
+          strike: inst.strike!,
           years: model.years,
           vol: model.vol,
-        }) ?? base;
+        });
+      const after = value(spot);
+      const before = value(model.underlyingPrice);
+      if (after !== undefined && before !== undefined) price = base + after - before;
       if (underlying && !shockedPrice.has(underlying.id)) {
         // The underlying is not held or quoted: carry its shocked price so the
         // re-valuation reads the same spot the option was priced at.
