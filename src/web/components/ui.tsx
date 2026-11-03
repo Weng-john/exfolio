@@ -91,11 +91,15 @@ export function Badge(props: { tone?: 'ok' | 'warn' | 'bad' | 'info'; children: 
   return <span className={`badge ${props.tone ?? 'info'}`}>{props.children}</span>;
 }
 
-export function Empty(props: { children: ReactNode }) {
+/**
+ * Nothing to list. `clear` is for a list that is good news when empty (no
+ * alerts): one compact line with a check instead of a large placeholder.
+ */
+export function Empty(props: { children: ReactNode; clear?: boolean }) {
   return (
-    <div className="empty">
+    <div className={props.clear ? 'empty empty-clear' : 'empty'}>
       <span className="empty-symbol" aria-hidden="true">
-        ↗
+        {props.clear ? '✓' : '↗'}
       </span>
       <div>{props.children}</div>
     </div>

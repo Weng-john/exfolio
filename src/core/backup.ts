@@ -195,10 +195,13 @@ function validateBackupRow(table: TableName, row: BackupRow, index: number): str
       if (typeof row.active !== 'boolean') errors.push(`${path}.active：必須是布林值`);
       optionalFinite(
         row,
-        ['expenseRatio', 'tickSize', 'initialMargin', 'maintenanceMargin'],
+        ['expenseRatio', 'tickSize', 'initialMargin', 'maintenanceMargin', 'strike', 'impliedVol'],
         path,
         errors,
       );
+      if (row.optionRight !== undefined) oneOf(row, 'optionRight', ['call', 'put'], path, errors);
+      if (row.underlyingId !== undefined && typeof row.underlyingId !== 'string')
+        errors.push(`${path}.underlyingId：必須是文字`);
       break;
     case 'transactions':
       strings(row, ['date', 'accountId', 'bucket', 'currency'], path, errors);
@@ -417,6 +420,18 @@ export function validateInstrument(
     ] as const) {
       if (v !== undefined && (!Number.isFinite(v) || v < 0)) errors.push(`${label}不可為負`);
     }
+  }
+  if (i.type === 'option') {
+    // Only completeness here: what is missing keeps the delta, and so the
+    // exposure, from being computed.
+    if (!i.optionRight) errors.push('選擇權需選擇買權或賣權');
+    if (!(Number.isFinite(i.strike) && i.strike! > 0)) errors.push('履約價必須大於 0');
+    if (!i.expiry) errors.push('選擇權需填寫到期日');
+    if (!i.underlyingId) errors.push('選擇權需指定標的商品');
+    else if (i.underlyingId === i.id) errors.push('標的商品不可是選擇權本身');
+    else if (!existing.some((x) => x.id === i.underlyingId)) errors.push('找不到指定的標的商品');
+    if (i.impliedVol !== undefined && !(Number.isFinite(i.impliedVol) && i.impliedVol > 0))
+      errors.push('波動率必須大於 0');
   }
   if (i.validFrom && i.validTo && i.validFrom > i.validTo) errors.push('生效日不可晚於失效日');
   return errors;

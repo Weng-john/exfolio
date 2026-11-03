@@ -24,6 +24,17 @@ describe('demo data', () => {
     expect(strategySummaries(data, portfolio).levels.length).toBeGreaterThanOrEqual(4);
   });
 
+  it('holds a protective put whose Greeks can be computed', () => {
+    const v = portfolio.valuation;
+    const put = v.positions.find((p) => p.instrument.type === 'option')!;
+    expect(put.option).toMatchObject({ ok: true, volSource: 'implied', expired: false });
+    expect(put.exposure).toBeLessThan(0);
+    // A hedge, not a reversal: the index stays net long.
+    const taiex = v.byIndex.find((i) => i.indexId === 'taiex')!;
+    expect(taiex.net).toBeGreaterThan(0);
+    expect(-put.exposure).toBeLessThan(taiex.long / 2);
+  });
+
   it('uses only fictional institutions', () => {
     expect(data.brokers.every((b) => b.name.startsWith('示範'))).toBe(true);
     expect(data.loans.every((l) => l.lender.startsWith('示範'))).toBe(true);

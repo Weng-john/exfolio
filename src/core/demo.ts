@@ -1,3 +1,5 @@
+import { addDays } from './dates';
+import { bsPrice, yearsToExpiry } from './options';
 import { seedData } from './seed';
 import type { AppData, Transaction } from './types';
 
@@ -57,6 +59,40 @@ export function demoData(now: Date = new Date()): AppData {
   data.instruments = data.instruments.map((i) =>
     i.id === 'fut_TMF' ? { ...i, initialMargin: 16_000, maintenanceMargin: 12_250 } : i,
   );
+  // A protective put on the TAIEX futures held: far below the market, it
+  // limits a crash while leaving most of the long exposure in place.
+  // Expiry is two months after `now`, so the demo never shows an expired option.
+  const today = now.toISOString().slice(0, 10);
+  const optionExpiry = addDays(today, 60);
+  data.instruments.push({
+    id: 'demo_txo_put',
+    symbol: `TXO ${optionExpiry.slice(0, 7).replace('-', '')} P20500`,
+    name: '示範臺指賣權 20500',
+    type: 'option',
+    exchange: 'TAIFEX',
+    currency: 'TWD',
+    leverage: 1,
+    multiplier: 50,
+    lotSize: 1,
+    quoteSource: 'manual',
+    optionRight: 'put',
+    strike: 20_500,
+    expiry: optionExpiry,
+    underlyingId: 'fut_TMF',
+    impliedVol: 0.2,
+    settlement: 'cash',
+    active: true,
+  });
+  const putPrice =
+    Math.round(
+      bsPrice({
+        right: 'put',
+        spot: 22_600,
+        strike: 20_500,
+        years: yearsToExpiry(today, optionExpiry),
+        vol: 0.21,
+      })! * 2,
+    ) / 2;
   data.strategies = [
     {
       id: 'demo_rotation',
@@ -213,10 +249,18 @@ export function demoData(now: Date = new Date()): AppData {
       reason: '示範：切換到 QLD',
     }),
     tx({ type: 'dividend', date: '2026-07-20', instrumentId: 'tw_0050', amount: 8_000 }),
+    tx({
+      type: 'buy',
+      date: '2026-09-15',
+      accountId: 'demo_fut',
+      instrumentId: 'demo_txo_put',
+      quantity: 1,
+      price: 92,
+      fee: 25,
+    }),
   ];
   // One instalment of the credit loan for every due date already past, so
   // the demo never shows an overdue payment whenever it is opened.
-  const today = now.toISOString().slice(0, 10);
   for (let n = 1; n <= 60; n++) {
     const month = n % 12; // loan starts in January: instalment n falls due n months later
     const date = `${2026 + Math.floor(n / 12)}-${String(month + 1).padStart(2, '0')}-05`;
@@ -242,6 +286,7 @@ export function demoData(now: Date = new Date()): AppData {
     ['us_SSO', 78, 'USD'],
     ['us_QLD', 101, 'USD'],
     ['fut_TMF', 22_600, 'TWD'],
+    ['demo_txo_put', putPrice, 'TWD'],
   ];
   data.prices = prices.map(([id, price, currency]) => ({
     id,

@@ -1,4 +1,5 @@
 import { collateralStatus } from './loans';
+import { bsPrice, type HeldOptionAnalytics } from './options';
 import { computePortfolio, UNCLASSIFIED_INDEX, type Portfolio, type Valuation } from './valuation';
 import {
   isDerivative,
@@ -6,6 +7,7 @@ import {
   type Currency,
   type FxRate,
   type ID,
+  type Instrument,
   type PriceQuote,
 } from './types';
 import { FxTable } from './fx';
@@ -126,25 +128,76 @@ export function applyShocks(
   const held = new Map<ID, number>(); // price the valuation actually used
   for (const p of valuation.positions) held.set(p.instrumentId, p.price);
 
+  // Options are repriced from their shocked underlying below, with the
+  // volatility and time the valuation used; one without that stays put.
+  const optionModel = new Map<ID, Extract<HeldOptionAnalytics, { ok: true }>>();
+  for (const p of valuation.positions) if (p.option?.ok) optionModel.set(p.instrumentId, p.option);
+
   const prices: PriceQuote[] = [];
+  const shockedPrice = new Map<ID, number>();
   const ids = new Set<ID>([...quotes.keys(), ...held.keys()]);
+  const quoteFor = (id: ID, inst: Instrument, price: number): PriceQuote => {
+    const quote = quotes.get(id);
+    return {
+      id,
+      price,
+      currency: quote?.currency ?? inst.currency,
+      asOf: quote?.asOf ?? now?.toISOString() ?? '',
+      source: quote?.source ?? 'manual',
+      status: quote?.status ?? 'manual',
+    };
+  };
+  const options: ID[] = [];
   for (const id of [...ids].sort()) {
     const inst = instruments.get(id);
     if (!inst) continue;
     const quote = quotes.get(id);
     const base = quote && quote.price > 0 ? quote.price : held.get(id);
     if (base === undefined) continue;
+    if (inst.type === 'option') {
+      options.push(id);
+      continue;
+    }
     const move = instrumentMove(indexMoveOf(shocks, inst.indexId), inst.leverage);
-    prices.push({
-      id,
-      // Valuation treats a price of 0 as "no quote" and falls back to cost, so a
-      // wiped-out instrument is held at a negligible positive price instead.
-      price: Math.max(base * (1 + move), ZERO_PRICE),
-      currency: quote?.currency ?? inst.currency,
-      asOf: quote?.asOf ?? now?.toISOString() ?? '',
-      source: quote?.source ?? 'manual',
-      status: quote?.status ?? 'manual',
-    });
+    // Valuation treats a price of 0 as "no quote" and falls back to cost, so a
+    // wiped-out instrument is held at a negligible positive price instead.
+    const price = Math.max(base * (1 + move), ZERO_PRICE);
+    shockedPrice.set(id, price);
+    prices.push(quoteFor(id, inst, price));
+  }
+  for (const id of options) {
+    const inst = instruments.get(id)!;
+    const quote = quotes.get(id);
+    const base = (quote && quote.price > 0 ? quote.price : held.get(id))!;
+    const model = optionModel.get(id);
+    const underlying = inst.underlyingId ? instruments.get(inst.underlyingId) : undefined;
+    let price = base;
+    if (model && underlying && inst.optionRight && inst.strike) {
+      const spot =
+        shockedPrice.get(underlying.id) ??
+        model.underlyingPrice *
+          (1 + instrumentMove(indexMoveOf(shocks, underlying.indexId), underlying.leverage));
+      // The model's change is added to the market price, so a zero shock
+      // leaves the quote exactly as it was.
+      const value = (s: number) =>
+        bsPrice({
+          right: inst.optionRight!,
+          spot: Math.max(s, ZERO_PRICE),
+          strike: inst.strike!,
+          years: model.years,
+          vol: model.vol,
+        });
+      const after = value(spot);
+      const before = value(model.underlyingPrice);
+      if (after !== undefined && before !== undefined) price = base + after - before;
+      if (underlying && !shockedPrice.has(underlying.id)) {
+        // The underlying is not held or quoted: carry its shocked price so the
+        // re-valuation reads the same spot the option was priced at.
+        shockedPrice.set(underlying.id, spot);
+        prices.push(quoteFor(underlying.id, underlying, spot));
+      }
+    }
+    prices.push(quoteFor(id, inst, Math.max(price, ZERO_PRICE)));
   }
   return { ...data, prices, fxRates: scaleFxRates(data.fxRates, shocks.currencyMoves) };
 }
@@ -323,10 +376,16 @@ export function runStressTest(
     const a = afterByKey.get(b.key);
     if (!a) continue;
     const derivative = isDerivative(b.instrument.type);
-    const indexMove = indexMoveOf(shocks, b.instrument.indexId);
+    const isOption = b.instrument.type === 'option';
+    const indexMove = indexMoveOf(shocks, b.indexId);
     const raw = indexMove * b.instrument.leverage;
-    const priceMove = instrumentMove(indexMove, b.instrument.leverage);
-    const floored = raw < -1;
+    // An option's price is re-modelled, not scaled: report the move it made.
+    const priceMove = isOption
+      ? b.price > 0
+        ? a.price / b.price - 1
+        : 0
+      : instrumentMove(indexMove, b.instrument.leverage);
+    const floored = !isOption && raw < -1;
     positions.push({
       key: b.key,
       accountId: b.accountId,
@@ -338,7 +397,7 @@ export function runStressTest(
       priceMove,
       floored,
       priceBefore: b.price,
-      priceAfter: b.price * (1 + priceMove),
+      priceAfter: isOption ? a.price : b.price * (1 + priceMove),
       valueBefore: b.marketValue,
       valueAfter: a.marketValue,
       exposureBefore: b.exposure,

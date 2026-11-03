@@ -1,5 +1,6 @@
 import { addDays, daysBetween } from './dates';
 import { FxTable } from './fx';
+import { bsGreeks, bsPrice } from './options';
 import { addMonths, amortizationSchedule, loanStatus } from './loans';
 import { scaleFxRates } from './stress';
 import { UNCLASSIFIED_INDEX, type Portfolio } from './valuation';
@@ -312,6 +313,37 @@ export function runSurvival(
     }
   }
   const indexOfInstrument = (id: ID) => instruments.get(id)?.indexId ?? UNCLASSIFIED_INDEX;
+
+  // Options follow their underlying through the model rather than moving by
+  // index return x leverage: each day the underlying level moves with its
+  // index, time to expiry shrinks, and the option is repriced at the
+  // volatility the valuation used. Exposure is delta x underlying.
+  interface OptionPath {
+    right: 'call' | 'put';
+    strike: number;
+    years: number;
+    vol: number;
+    spot: number;
+    indexId: ID;
+    lev: number;
+    delta: number;
+  }
+  const optionPath = new Map<ID, OptionPath>();
+  for (const v of valuation.positions) {
+    const inst = v.instrument;
+    if (inst.type !== 'option' || !v.option?.ok || optionPath.has(inst.id)) continue;
+    const underlying = inst.underlyingId ? instruments.get(inst.underlyingId) : undefined;
+    optionPath.set(inst.id, {
+      right: inst.optionRight!,
+      strike: inst.strike!,
+      years: v.option.years,
+      vol: v.option.vol,
+      spot: v.option.underlyingPrice,
+      indexId: v.indexId,
+      lev: underlying?.leverage ?? 1,
+      delta: v.option.greeks.delta,
+    });
+  }
 
   // ---- state: cash
   interface Cash {
@@ -761,8 +793,15 @@ export function runSurvival(
       const px = price.get(p.instrumentId) ?? 0;
       const notional = p.qty * px * p.mult * rateTo(p.currency);
       if (!p.derivative) securities += notional;
-      gross += Math.abs(notional * p.lev);
-      net += notional * p.lev;
+      const opt = optionPath.get(p.instrumentId);
+      const exposure =
+        p.type === 'option'
+          ? opt
+            ? opt.delta * p.qty * opt.spot * p.mult * opt.lev * rateTo(p.currency)
+            : 0
+          : notional * p.lev;
+      gross += Math.abs(exposure);
+      net += exposure;
     }
     for (const g of groups.values()) u0Base += g.u0 * rateTo(g.currency);
     let cashBase = 0;
@@ -834,6 +873,16 @@ export function runSurvival(
       for (const [instrumentId, px] of price) {
         const inst = instruments.get(instrumentId);
         if (!inst) continue;
+        const opt = optionPath.get(instrumentId);
+        if (opt) {
+          opt.spot *= 1 + Math.max(-1, retOf(opt.indexId) * opt.lev);
+          const years = Math.max(0, opt.years - d / 365);
+          const model = { right: opt.right, spot: Math.max(opt.spot, 1e-12), strike: opt.strike };
+          price.set(instrumentId, bsPrice({ ...model, years, vol: opt.vol }) ?? px);
+          opt.delta = bsGreeks({ ...model, years, vol: opt.vol })?.delta ?? 0;
+          continue;
+        }
+        if (inst.type === 'option') continue; // no model: held at its last price
         const move = Math.max(-1, retOf(indexOfInstrument(instrumentId)) * inst.leverage);
         price.set(instrumentId, px * (1 + move));
       }

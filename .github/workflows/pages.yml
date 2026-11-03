@@ -49,8 +49,27 @@ jobs:
         with:
           path: dist
 
+  # Browser tests and the accessibility audit gate a deployment from a push.
+  # The half-hourly quote refresh changes no code, so it skips them.
+  browser:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   deploy:
-    needs: build
+    needs: [build, browser]
+    # Runs when the browser tests passed, or were skipped on a schedule.
+    if: >-
+      always() && needs.build.result == 'success' &&
+      (needs.browser.result == 'success' || needs.browser.result == 'skipped')
     runs-on: ubuntu-latest
     # Only this job, which runs no repository code, may publish.
     permissions:

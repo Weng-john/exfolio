@@ -31,3 +31,6 @@ export * from './statementImport';
 export * from './ocrTable';
 export * from './indexMerge';
 export * from './quickEntry';
+export * from './options';
+export * from './quoteFreshness';
+export * from './optionsBook';

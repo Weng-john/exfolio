@@ -115,6 +115,7 @@ function markedValue(
   const netExposureByIndex: Record<ID, number> = {};
   const missing = new Set<ID>();
   const notes: string[] = [];
+  let optionsHeld = false;
 
   for (const position of ledger.positions) {
     if (Math.abs(position.quantity) < EPS) continue;
@@ -138,7 +139,10 @@ function markedValue(
     const cost = position.quantity * position.avgCost * instrument.multiplier * rate;
     if (isDerivative(instrument.type)) derivativeEquity += notional - cost;
     else securities += notional;
-    const exposure = notional * instrument.leverage;
+    // An option's exposure is its delta times the underlying, and there is no
+    // history of delta: it is left out of past exposure (its value still counts).
+    const exposure = instrument.type === 'option' ? 0 : notional * instrument.leverage;
+    if (instrument.type === 'option' && position.quantity !== 0) optionsHeld = true;
     grossExposure += Math.abs(exposure);
     netExposure += exposure;
     const indexId = instrument.indexId ?? 'unclassified';
@@ -163,6 +167,7 @@ function markedValue(
     }
     loans += loan.balance * rate;
   }
+  if (optionsHeld) notes.push('選擇權沒有歷史 Delta，歷史曝險未計入選擇權（其價值仍計入估值）。');
   const totalAssets = securities + Math.max(0, cash) + derivativeEquity;
   const liabilities = loans + overdrawn;
   return {
