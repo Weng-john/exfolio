@@ -652,7 +652,12 @@ export function replacementAnalysis(
     : undefined;
   const candidates = data.instruments.filter(
     // An inverse fund cannot stand in for long exposure, so it is no candidate.
-    (i) => i.indexId === req.indexId && i.leverage > 0 && (i.active || i.id === from?.id),
+    // An option's exposure moves with delta, so it is no like-for-like stand-in either.
+    (i) =>
+      i.indexId === req.indexId &&
+      i.leverage > 0 &&
+      i.type !== 'option' &&
+      (i.active || i.id === from?.id),
   );
   const fromCtx = from ? ctxFor(data, fx, base, from, req.accountId) : undefined;
   const heldQty = from

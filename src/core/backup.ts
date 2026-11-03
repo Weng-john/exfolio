@@ -195,10 +195,13 @@ function validateBackupRow(table: TableName, row: BackupRow, index: number): str
       if (typeof row.active !== 'boolean') errors.push(`${path}.active：必須是布林值`);
       optionalFinite(
         row,
-        ['expenseRatio', 'tickSize', 'initialMargin', 'maintenanceMargin'],
+        ['expenseRatio', 'tickSize', 'initialMargin', 'maintenanceMargin', 'strike', 'impliedVol'],
         path,
         errors,
       );
+      if (row.optionRight !== undefined) oneOf(row, 'optionRight', ['call', 'put'], path, errors);
+      if (row.underlyingId !== undefined && typeof row.underlyingId !== 'string')
+        errors.push(`${path}.underlyingId：必須是文字`);
       break;
     case 'transactions':
       strings(row, ['date', 'accountId', 'bucket', 'currency'], path, errors);

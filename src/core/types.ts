@@ -157,6 +157,15 @@ export interface Instrument {
   initialMargin?: number;
   maintenanceMargin?: number;
   settlement?: 'cash' | 'physical';
+  // Option contract spec (type 'option'). `expiry`, `multiplier` and
+  // `settlement` above apply as well. Exposure is delta-adjusted from the
+  // underlying instrument, so all three of right, strike and underlying are needed.
+  optionRight?: 'call' | 'put';
+  strike?: number;
+  /** Instrument whose price is the option's underlying (a stock, ETF, index future…). */
+  underlyingId?: ID;
+  /** Annual volatility used when the option's own quote gives none (0.2 = 20%). */
+  impliedVol?: number;
   /** Brokers where this instrument can be traded. Empty = unrestricted. */
   brokerIds?: ID[];
   validFrom?: ISODate;
