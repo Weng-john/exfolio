@@ -10,11 +10,12 @@
     "serve": "tsx server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "check:privacy": "node scripts/check-privacy.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" vite.config.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"e2e/**/*.ts\" vite.config.ts playwright.config.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"e2e/**/*.ts\" vite.config.ts playwright.config.ts",
     "quotes:snapshot": "tsx scripts/fetch-quotes.mts",
     "build:public": "tsc --noEmit && node scripts/vendor-ocr.mjs && VITE_EXFOLIO_EDITION=public vite build && tsx scripts/fetch-quotes.mts dist/quotes.json",
     "vendor:ocr": "node scripts/vendor-ocr.mjs",
@@ -29,6 +30,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tesseract.js-data/chi_tra": "^1.0.0",
     "@tesseract.js-data/eng": "^1.0.0",
     "@types/node": "^22.7.4",
