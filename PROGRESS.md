@@ -2,7 +2,18 @@
 
 給接手這個專案的開發者或 agent。需求與決策的完整內容在 `private/portfolio_management_spec.md`（私人文件，不進版本庫；找不到時向專案擁有者索取）。每次完成或變更工作，都要更新這份文件。
 
-最後更新：2026-10-20
+最後更新：2026-11-03
+
+## 選擇權、瀏覽器測試、報價新鮮度（2026-11-03）
+
+- **帳務口徑變更（選擇權）**：權利金照證券入帳（買進為資產、賣出為負債），但曝險改為 Delta × 數量 × 標的價格 × 合約乘數（標的為槓桿 ETF 時再乘其槓桿），歸入標的的指數；原本是以權利金 × 數量計，低估曝險。波動率優先由選擇權報價反推，其次用商品的 `impliedVol`；缺買賣權、履約價、到期日、標的價格或波動率時曝險以 0 計並警示，不猜測。利率與股利取 0。
+- 引擎：`src/core/options.ts`（Black-Scholes-Merton 價格與 Greeks、隱含波動率、多腿到期與今日損益、單一到期日策略的精確兩平點與最大損益、獲利機率、11 種範本）、`src/core/optionsBook.ts`（部位 Greeks、把持倉帶入試算）。`Instrument` 新增 `optionRight`、`strike`、`underlyingId`、`impliedVol`（`types.ts` 共用檔案的變更），備份還原與商品表單都會檢查。
+- 連動：壓力測試以標的衝擊後的價格重新定價選擇權（市場價加上模型變化，零衝擊時價格不變）；生存模擬逐日重新定價並以 Delta 計曝險；歷史分析因沒有歷史 Delta 不計選擇權曝險（價值仍計）並附註；配置建議、商品替代與基準挑選不會選到選擇權。
+- 新頁面「選擇權實驗室」（`/options`，公開版也有）：策略試算（範本輪播、部位腿表格與列選單、新增／編輯對話框、損益圖與評估日滑桿、組合 Greeks）、持倉 Greeks（含帶入試算）、模型與名詞。示範資料加入一口價外臺指賣權，避險不到臺指多頭曝險的一半。
+- 報價快照：`src/core/quoteFreshness.ts` 逐筆依來源判斷新鮮度（交易所 100 小時、Binance 1 小時），過舊的標為 `stale` 仍發布；只有失敗（無價格、無時間、時間在未來）計入 80% 門檻，避免單一市場長假卡住全部更新。
+- 瀏覽器測試：`npm run test:e2e`（Playwright，桌面與手機兩種視窗，外部網路全部攔截）。涵蓋各頁空白與示範狀態、新資金、借款表單與焦點返回、還款、對帳單五步驟、備份拒絕與往返、選擇權頁，以及 axe 的 WCAG 2.1 A/AA 檢查（全部頁面 × 深淺色，加上對話框與精靈等互動狀態）。axe 找到並已修正：期貨合約月份的輸入欄沒有標籤。
+- 其他：金額、數字、百分比格式不再顯示 `-0`；總覽沒有警示或通知時顯示一行精簡的確認列（`Empty` 新增 `clear`，`components/ui.tsx` 共用檔案的變更）。
+- 待辦：CI（`.github/workflows/pages.yml`）尚未執行 `test:e2e`，要加需在 runner 安裝 Chromium（`npx playwright install --with-deps chromium`），且推送 workflow 需要有 `workflow` 權限的 token；選擇權沒有自動行情來源（報價手動或對帳單匯入）；美式選擇權的提前履約價值未計；履約、到期結算需手動記錄。
 
 ## QA／功能與 UI 整合（2026-10-20）
 
@@ -77,7 +88,7 @@
 | P1-C | 兩種風險模擬、期貨轉倉、通知 | 完成 |
 | 公開版 | 靜態網站（配置、風險、再投入、期貨）：不登入可試算，會員以 Google 登入存到共用 GAS；GitHub Pages 發布流程 | 完成；Pages 已上線，GAS 待擁有者部署 |
 | P2 | 商品替代比較、歷史進階分析、券商唯讀同步 | 商品替代與歷史進階分析已完成；Binance 唯讀同步已實作（真實帳戶未驗證）。其他券商沒有可用的唯讀 API，改以對帳單匯入（CSV 或截圖） |
-| Future | 選擇權多腿與 Greeks、半自動與自動轉倉 | 未開始 |
+| Future | 選擇權多腿與 Greeks、半自動與自動轉倉 | 選擇權多腿、Greeks 與 Delta 曝險完成（歐式模型；無自動行情）；轉倉自動化未開始 |
 
 ## 怎麼開始
 
@@ -86,6 +97,7 @@ export PATH=$HOME/miniconda3/envs/agent/bin:$PATH   # 這台機器的 Node 不�
 npm install
 npm run dev              # http://127.0.0.1:5173
 npm test && npm run typecheck && npm run build && npm run check:privacy && npm run format:check
+npm run test:e2e         # 瀏覽器測試與 axe 無障礙檢查（需 Chromium）
 ```
 
 五個指令全過才算完成；提交前先跑 `npm run format`。先讀 `SPEC.md`（驗收條件與共用檔案規則）、`README.md`（架構）、`docs/PRIVACY.md`。
@@ -106,6 +118,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
   - `statementImport.ts` 對帳單解析、欄位對應、商品比對、防重複、影響預覽；`ocrTable.ts` 由辨識出的文字方塊重建表格。
   - `exchangeSync.ts` 交易所餘額核對與成交轉交易；`replacement.ts` 商品替代比較；`historyAnalytics.ts` 歷史分析。
   - `positionTransfer.ts` 跨帳戶移轉時搬移 FIFO 批次。
+  - `options.ts` 選擇權定價、Greeks、多腿分析；`optionsBook.ts` 持倉 Greeks；`quoteFreshness.ts` 報價快照的逐筆新鮮度。
   - `indexMerge.ts` 把一個標的指數併入另一個（Settings → 標的指數 →「併入其他指數」）。
   - `api.ts` 前後端協定；`seed.ts` 公開商品、指數與常用機構清單。
 - `src/web/`：React。頁面只透過 `store.ts`（`useData`、`upsertRow`、`removeRow`、`setTable`）讀寫資料，用 `usePortfolio()` 取得帳本與估值。
@@ -117,6 +130,7 @@ npm test && npm run typecheck && npm run build && npm run check:privacy && npm r
 
 - **曝險口徑**：帶符號數量 × 價格 × 契約乘數 × 每日目標槓桿 × 匯率，以目前 NAV 為分母。
 - **期貨**：不計市值；未實現損益計入資產，已實現損益結算到現金。保證金是現金，不是曝險，也不是負債。
+- **選擇權**：權利金是證券（賣出為負的市值）；曝險是 Delta 調整後的標的曝險。無法計算 Delta 時曝險以 0 計並警示。
 - **負債**：貸款餘額加上為負的現金餘額。
 - **還款來源**：外部資金還款計入累積投入並提高 NAV；組合內資金還款不改變 NAV。
 - **不強制槓桿上限**：門檻只產生提醒。
