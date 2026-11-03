@@ -44,6 +44,10 @@ interface Draft {
   initialMargin: string;
   maintenanceMargin: string;
   settlement: '' | 'cash' | 'physical';
+  optionRight: '' | 'call' | 'put';
+  strike: string;
+  underlyingId: string;
+  impliedVol: string;
   brokerIds: string[];
   validFrom: string;
   validTo: string;
@@ -72,6 +76,11 @@ function toDraft(i: Instrument): Draft {
     initialMargin: numStr(i.initialMargin),
     maintenanceMargin: numStr(i.maintenanceMargin),
     settlement: i.settlement ?? '',
+    optionRight: i.optionRight ?? '',
+    strike: numStr(i.strike),
+    underlyingId: i.underlyingId ?? '',
+    // Shown as a percentage: 0.22 → "22".
+    impliedVol: i.impliedVol === undefined ? '' : String(+(i.impliedVol * 100).toFixed(6)),
     brokerIds: i.brokerIds ?? [],
     validFrom: i.validFrom ?? '',
     validTo: i.validTo ?? '',
@@ -128,6 +137,17 @@ function fromDraft(d: Draft): Instrument {
       if (v !== undefined) i[k] = v;
     }
     if (d.settlement) i.settlement = d.settlement;
+  }
+  if (d.type === 'option') {
+    if (d.optionRight) i.optionRight = d.optionRight;
+    const strike = parseNum(d.strike);
+    if (strike !== undefined) i.strike = strike;
+    if (d.underlyingId) i.underlyingId = d.underlyingId;
+    if (d.expiry) i.expiry = d.expiry;
+    if (d.settlement) i.settlement = d.settlement;
+    const vol = parseNum(d.impliedVol);
+    if (vol !== undefined) i.impliedVol = vol / 100;
+    delete i.expenseRatio;
   }
   return i;
 }
@@ -391,7 +411,7 @@ export default function InstrumentsTab() {
                 onChange={(e) => set({ leverage: e.target.value })}
               />
             </Field>
-            {!deriv && (
+            {!deriv && d.type !== 'option' && (
               <Field label="費用率" hint="例如 0.0095 = 0.95%">
                 <input
                   type="number"
@@ -491,6 +511,78 @@ export default function InstrumentsTab() {
                     step="any"
                     value={d.maintenanceMargin}
                     onChange={(e) => set({ maintenanceMargin: e.target.value })}
+                  />
+                </Field>
+                <Field label="結算方式">
+                  <select
+                    value={d.settlement}
+                    onChange={(e) => set({ settlement: e.target.value as Draft['settlement'] })}
+                  >
+                    <option value="">（未指定）</option>
+                    <option value="cash">現金結算</option>
+                    <option value="physical">實物交割</option>
+                  </select>
+                </Field>
+              </div>
+            </>
+          )}
+
+          {d.type === 'option' && (
+            <>
+              <div className="settings-section-title">選擇權規格</div>
+              <p className="muted">
+                曝險以 Delta × 數量 × 標的價格 ×
+                合約乘數計算，歸入標的商品的指數。波動率優先由本商品報價反推；沒有報價時才用下方設定。
+              </p>
+              <div className="form-grid">
+                <Field label="買權／賣權">
+                  <select
+                    value={d.optionRight}
+                    onChange={(e) => set({ optionRight: e.target.value as Draft['optionRight'] })}
+                  >
+                    <option value="">選擇…</option>
+                    <option value="call">買權 Call</option>
+                    <option value="put">賣權 Put</option>
+                  </select>
+                </Field>
+                <Field label="履約價">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={d.strike}
+                    onChange={(e) => set({ strike: e.target.value })}
+                  />
+                </Field>
+                <Field label="到期日">
+                  <input
+                    type="date"
+                    value={d.expiry}
+                    onChange={(e) => set({ expiry: e.target.value })}
+                  />
+                </Field>
+                <Field label="標的商品" hint="現股、ETF 或指數期貨">
+                  <select
+                    value={d.underlyingId}
+                    onChange={(e) => set({ underlyingId: e.target.value })}
+                  >
+                    <option value="">選擇標的…</option>
+                    {data.instruments
+                      .filter((x) => x.type !== 'option' && x.id !== d.id)
+                      .map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.symbol} {x.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="波動率（%）" hint="沒有報價時使用，例如 22">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={d.impliedVol}
+                    onChange={(e) => set({ impliedVol: e.target.value })}
                   />
                 </Field>
                 <Field label="結算方式">

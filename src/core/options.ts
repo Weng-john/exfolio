@@ -369,17 +369,47 @@ export interface CurvePoint {
   spot: number;
   /** P&L when the first leg expires. */
   expiry: number;
-  /** P&L now, every leg valued by the model. */
+  /** P&L at the evaluation date (now, or `elapsedYears` later), every leg valued by the model. */
   today: number;
 }
 
-/** P&L curve over [low, high] in `steps` intervals, plus every strike so kinks are exact. */
+/** The same legs `elapsedYears` later: every option has that much less time left. */
+export function shiftLegs(legs: Leg[], elapsedYears: number): Leg[] {
+  if (!(elapsedYears > 0)) return legs;
+  return legs.map((l) =>
+    l.kind === 'option' ? { ...l, years: Math.max(0, l.years - elapsedYears) } : l,
+  );
+}
+
+/**
+ * Underlying price range worth drawing: `sds` standard deviations of the
+ * move to the first expiry around the spot, widened to show every strike.
+ */
+export function curveRange(
+  legs: Leg[],
+  spot: number,
+  vol: number,
+  sds = 3.5,
+): { low: number; high: number } {
+  const sd = vol * Math.sqrt(Math.max(firstExpiry(legs), 1 / 365));
+  const strikes = legs.flatMap((l) => (l.kind === 'option' ? [l.strike] : []));
+  return {
+    low: Math.max(0, Math.min(spot * (1 - sds * sd), ...strikes.map((k) => k * 0.9))),
+    high: Math.max(spot * (1 + sds * sd), ...strikes.map((k) => k * 1.1)),
+  };
+}
+
+/**
+ * P&L curve over [low, high] in `steps` intervals, plus every strike so kinks
+ * are exact. The `today` series is valued `elapsedYears` from now.
+ */
 export function payoffCurve(
   legs: Leg[],
   ctx: StrategyContext,
   low: number,
   high: number,
   steps = 120,
+  elapsedYears = 0,
 ): CurvePoint[] {
   if (!(high > low) || !(low >= 0) || steps < 1) return [];
   const xs = new Set<number>();
@@ -391,7 +421,7 @@ export function payoffCurve(
     .map((spot) => ({
       spot,
       expiry: pnlAtExpiry(legs, spot, ctx),
-      today: strategyPnl(legs, spot, ctx, 0),
+      today: strategyPnl(legs, spot, ctx, Math.min(elapsedYears, firstExpiry(legs))),
     }));
 }
 
@@ -592,4 +622,35 @@ export function heldOptionAnalytics(p: HeldOptionInputs): HeldOptionAnalytics {
     greeks: bsGreeks({ ...base, vol })!,
     expired: false,
   };
+}
+
+/**
+ * Probability that a single-expiry strategy ends in profit, under the
+ * lognormal model with volatility `vol` (risk-neutral drift `rate`). A model
+ * figure, not a forecast: real returns have fatter tails than the model.
+ * Undefined when the expiry P&L is not piecewise linear or inputs are invalid.
+ */
+export function profitProbability(
+  legs: Leg[],
+  ctx: StrategyContext,
+  spot: number,
+  vol: number,
+): number | undefined {
+  const years = firstExpiry(legs);
+  const profile = expiryProfile(legs, ctx);
+  if (!profile || !(spot > 0) || !(vol > 0) || !(years > 0)) return undefined;
+  const r = ctx.rate ?? 0;
+  const q = ctx.dividendYield ?? 0;
+  const sd = vol * Math.sqrt(years);
+  /** P(S_T <= x). */
+  const below = (x: number) =>
+    x <= 0 ? 0 : normCdf((Math.log(x / spot) - (r - q - 0.5 * vol * vol) * years) / sd);
+  const cuts = [0, ...profile.breakevens, Infinity];
+  let p = 0;
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const [a, b] = [cuts[i], cuts[i + 1]];
+    const probe = b === Infinity ? Math.max(a * 2, a + 1) : (a + b) / 2;
+    if (pnlAtExpiry(legs, probe, ctx) > 0) p += (b === Infinity ? 1 : below(b)) - below(a);
+  }
+  return Math.min(1, Math.max(0, p));
 }

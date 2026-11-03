@@ -3,6 +3,8 @@ import {
   bsGreeks,
   bsPrice,
   computePortfolio,
+  heldStrategy,
+  optionBook,
   pickInstrument,
   runStressTest,
   runSurvival,
@@ -157,5 +159,42 @@ describe('options in the survival simulation', () => {
     const last = r.series[r.series.length - 1];
     expect(last.nav).toBeLessThan(day0.nav);
     expect(last.nav).toBeGreaterThan(day0.nav - premium * 1000);
+  });
+});
+
+describe('option book', () => {
+  it('scales Greeks to the position and totals the exposure', () => {
+    const premium = bsPrice({ ...base, vol: 0.2 })!;
+    const data = book(3, premium);
+    const { valuation } = computePortfolio(data, opts);
+    const b = optionBook(valuation);
+    expect(b.rows).toHaveLength(1);
+    const unit = bsGreeks({ ...base, vol: 0.2 })!;
+    expect(b.rows[0].greeks!.delta).toBeCloseTo(unit.delta * 3000, 3);
+    expect(b.totals.exposure).toBeCloseTo(b.rows[0].exposure, 6);
+    expect(b.rows[0].weight).toBeCloseTo(b.rows[0].exposure / valuation.nav, 10);
+    expect(b.incomplete).toBe(0);
+  });
+
+  it('counts positions without a model as incomplete', () => {
+    const { valuation } = computePortfolio(book(1, 5, call({ underlyingId: undefined })), opts);
+    const b = optionBook(valuation);
+    expect(b.incomplete).toBe(1);
+    expect(b.rows[0].greeks).toBeUndefined();
+  });
+
+  it('rebuilds a covered call from holdings', () => {
+    const premium = bsPrice({ ...base, vol: 0.2 })!;
+    const data = book(-2, premium);
+    data.transactions.push(
+      tx({ type: 'buy', date: D, instrumentId: 'tw_0050', quantity: 2000, price: 98 }),
+    );
+    const { valuation } = computePortfolio(data, opts);
+    const s = heldStrategy(valuation, 'tw_0050')!;
+    expect(s.multiplier).toBe(1000);
+    expect(s.spot).toBe(105);
+    expect(s.legs[0]).toEqual({ kind: 'underlying', quantity: 2, price: 98 });
+    expect(s.legs[1]).toMatchObject({ kind: 'option', right: 'call', strike: 100, quantity: -2 });
+    expect(heldStrategy(valuation, 'nothing')).toBeUndefined();
   });
 });

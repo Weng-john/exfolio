@@ -8,6 +8,7 @@ const PAGES: Array<[string, RegExp]> = [
   ['/loans', /借款|Loans/],
   ['/futures', /期貨|Futures/],
   ['/risk', /風險|Risk/],
+  ['/options', /選擇權/],
   ['/settings', /設定|Settings/],
 ];
 

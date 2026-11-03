@@ -7,8 +7,11 @@ import {
   netPremium,
   niceStep,
   normCdf,
+  curveRange,
   payoffCurve,
+  shiftLegs,
   pnlAtExpiry,
+  profitProbability,
   strategyGreeks,
   strategyPnl,
   TEMPLATES,
@@ -232,5 +235,55 @@ describe('niceStep', () => {
     expect(niceStep(22600)).toBe(500);
     expect(niceStep(640)).toBe(20);
     expect(niceStep(0)).toBe(1);
+  });
+});
+
+describe('profitProbability', () => {
+  it('a long call profits when the underlying ends above the break-even', () => {
+    const legs = [call(100, 1, 4)];
+    const p = profitProbability(legs, ctx, 100, 0.2)!;
+    // P(S_T > 104) with zero drift: N(d2) at strike 104.
+    const sd = 0.2 * Math.sqrt(0.25);
+    const expected = normCdf((Math.log(100 / 104) - 0.5 * 0.04 * 0.25) / sd);
+    expect(p).toBeCloseTo(expected, 10);
+  });
+
+  it('a short strangle profits between its break-evens', () => {
+    const legs = [put(90, -1, 2), call(110, -1, 3)];
+    const p = profitProbability(legs, ctx, 100, 0.2)!;
+    expect(p).toBeGreaterThan(0.5);
+    expect(p).toBeLessThan(1);
+  });
+
+  it('is undefined without a model volatility or for mixed expiries', () => {
+    expect(profitProbability([call(100, 1, 4)], ctx, 100, 0)).toBeUndefined();
+    const far = { ...(call(100, 1, 4) as Leg & { kind: 'option' }), years: 1 };
+    expect(profitProbability([call(100, -1, 2), far], ctx, 100, 0.2)).toBeUndefined();
+  });
+});
+
+describe('time and range helpers', () => {
+  it('shiftLegs takes time off every option, never below zero', () => {
+    const legs: Leg[] = [call(100, 1, 2), { kind: 'underlying', quantity: 1, price: 90 }];
+    const later = shiftLegs(legs, 0.1);
+    expect((later[0] as Leg & { kind: 'option' }).years).toBeCloseTo(0.15);
+    expect(later[1]).toBe(legs[1]);
+    expect((shiftLegs(legs, 1)[0] as Leg & { kind: 'option' }).years).toBe(0);
+  });
+
+  it('the evaluation-date curve moves toward the expiry curve', () => {
+    const legs = [call(100, 1, 3)];
+    const now = payoffCurve(legs, ctx, 100, 100.0001, 1)[0];
+    const later = payoffCurve(legs, ctx, 100, 100.0001, 1, 0.2)[0];
+    const end = payoffCurve(legs, ctx, 100, 100.0001, 1, 5)[0];
+    expect(later.today).toBeLessThan(now.today);
+    expect(end.today).toBeCloseTo(end.expiry, 8); // capped at the expiry
+  });
+
+  it('curveRange covers the spread of outcomes and every strike', () => {
+    const r = curveRange([call(200, 1, 1)], 100, 0.2);
+    expect(r.low).toBeLessThan(80);
+    expect(r.high).toBeGreaterThanOrEqual(220);
+    expect(r.low).toBeGreaterThanOrEqual(0);
   });
 });
