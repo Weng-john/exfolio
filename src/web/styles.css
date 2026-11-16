@@ -2376,3 +2376,25 @@ th.num {
   border-radius: 1px;
   background: var(--accent);
 }
+
+/* ==== Secondary figures as a compact list under the headline cards. ==== */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 24px;
+  margin: 4px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.facts dt {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.facts dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.contract-series h3 {
+  margin: 0;
+}

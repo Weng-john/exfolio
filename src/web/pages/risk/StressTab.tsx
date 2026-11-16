@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { runStressTest, STRESS_PRESETS, type StressShocks } from '@core/index';
+import { Accordion, SegmentedControl } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Stat } from '../../components/ui';
 import { fmtMoney, fmtNum, fmtPct, fmtX, signClass } from '../../format';
 import { useData } from '../../store';
@@ -7,6 +8,14 @@ import { usePortfolio } from '../../usePortfolio';
 import { foreignCurrencies, NumInput, PctInput, ScenarioBar } from './shared';
 
 const EMPTY: StressShocks = { indexMoves: {}, currencyMoves: {} };
+
+const RESULT_VIEWS = [
+  { id: 'summary', label: '摘要與警示' },
+  { id: 'index', label: '各指數' },
+  { id: 'positions', label: '各部位' },
+  { id: 'debt', label: '借款、保證金與利息' },
+] as const;
+type ResultView = (typeof RESULT_VIEWS)[number]['id'];
 
 /** Saved params may come from an older version or by hand: keep only what is valid. */
 function readShocks(params: Record<string, unknown>): StressShocks {
@@ -30,6 +39,7 @@ export default function StressTab() {
   const portfolio = usePortfolio();
   const base = portfolio.valuation.baseCurrency;
   const [shocks, setShocks] = useState<StressShocks>(EMPTY);
+  const [view, setView] = useState<ResultView>('summary');
 
   const result = useMemo(() => runStressTest(data, portfolio, shocks), [data, portfolio, shocks]);
   const held = new Set(portfolio.valuation.byIndex.map((i) => i.indexId));
@@ -40,6 +50,15 @@ export default function StressTab() {
       .map((id) => ({ id, name: id })),
   ].sort((a, b) => Number(held.has(b.id)) - Number(held.has(a.id)));
   const currencies = foreignCurrencies(data, portfolio);
+  const indexField = (i: { id: string; name: string }) => (
+    <Field key={i.id} label={i.name}>
+      <PctInput
+        value={shocks.indexMoves[i.id]}
+        onChange={(v) => setIndex(i.id, v)}
+        placeholder={fmtPct(shocks.defaultIndexMove ?? 0, 0)}
+      />
+    </Field>
+  );
   const symbolOf = (id: string) => data.instruments.find((i) => i.id === id)?.symbol ?? id;
   const indexName = (id: string) => data.indices.find((i) => i.id === id)?.name ?? id;
   const accountName = (id: string) => data.accounts.find((a) => a.id === id)?.name ?? id;
@@ -90,15 +109,7 @@ export default function StressTab() {
       <Card title="衝擊設定（瞬間）">
         <div className="risk-subhead">各指數漲跌（留空 = 使用「其餘指數」）</div>
         <div className="risk-form-grid">
-          {indices.map((i) => (
-            <Field key={i.id} label={`${i.name}${held.has(i.id) ? '' : '（未持有）'}`}>
-              <PctInput
-                value={shocks.indexMoves[i.id]}
-                onChange={(v) => setIndex(i.id, v)}
-                placeholder={fmtPct(shocks.defaultIndexMove ?? 0, 0)}
-              />
-            </Field>
-          ))}
+          {indices.filter((i) => held.has(i.id)).map(indexField)}
           <Field label="其餘指數（統一漲跌）">
             <PctInput
               value={shocks.defaultIndexMove}
@@ -107,6 +118,13 @@ export default function StressTab() {
             />
           </Field>
         </div>
+        {indices.some((i) => !held.has(i.id)) && (
+          <Accordion title={`未持有的指數（${indices.filter((i) => !held.has(i.id)).length}）`}>
+            <div className="risk-form-grid">
+              {indices.filter((i) => !held.has(i.id)).map(indexField)}
+            </div>
+          </Accordion>
+        )}
         <div className="risk-subhead">匯率：各幣別對 {base} 的升貶（正 = 該幣升值）</div>
         <div className="risk-form-grid">
           {currencies.map((c) => (
@@ -174,271 +192,295 @@ export default function StressTab() {
             />
           </div>
 
-          <Card title="衝擊前後">
-            <div
-              className="table-wrap"
-              role="region"
-              aria-label="衝擊前後（可左右捲動）"
-              tabIndex={0}
-            >
-              <table className="stack-table">
-                <thead>
-                  <tr>
-                    <th />
-                    <th className="num">之前</th>
-                    <th className="num">之後</th>
-                    <th className="num">變化</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(
-                    [
-                      ['NAV', 'nav'],
-                      ['總資產', 'totalAssets'],
-                      ['負債（含透支現金）', 'liabilities'],
-                      ['Gross 曝險', 'grossExposure'],
-                      ['Net 曝險', 'netExposure'],
-                    ] as const
-                  ).map(([label, key]) => (
-                    <tr key={key}>
-                      <td>{label}</td>
-                      <td className="num">{fmtMoney(r.before[key], base)}</td>
-                      <td className="num">{fmtMoney(r.after[key], base)}</td>
-                      <td className={`num ${signClass(r.after[key] - r.before[key])}`}>
-                        {fmtMoney(r.after[key] - r.before[key], base)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <SegmentedControl label="結果明細" items={RESULT_VIEWS} value={view} onChange={setView}>
+            {view === 'summary' && (
+              <>
+                <Card title="衝擊前後">
+                  <div
+                    className="table-wrap"
+                    role="region"
+                    aria-label="衝擊前後（可左右捲動）"
+                    tabIndex={0}
+                  >
+                    <table className="stack-table">
+                      <thead>
+                        <tr>
+                          <th />
+                          <th className="num">之前</th>
+                          <th className="num">之後</th>
+                          <th className="num">變化</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          [
+                            ['NAV', 'nav'],
+                            ['總資產', 'totalAssets'],
+                            ['負債（含透支現金）', 'liabilities'],
+                            ['Gross 曝險', 'grossExposure'],
+                            ['Net 曝險', 'netExposure'],
+                          ] as const
+                        ).map(([label, key]) => (
+                          <tr key={key}>
+                            <td>{label}</td>
+                            <td className="num">{fmtMoney(r.before[key], base)}</td>
+                            <td className="num">{fmtMoney(r.after[key], base)}</td>
+                            <td className={`num ${signClass(r.after[key] - r.before[key])}`}>
+                              {fmtMoney(r.after[key] - r.before[key], base)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
 
-          <Card title="各指數曝險">
-            <div
-              className="table-wrap"
-              role="region"
-              aria-label="各指數曝險（可左右捲動）"
-              tabIndex={0}
-            >
-              <table className="stack-table">
-                <thead>
-                  <tr>
-                    <th>指數</th>
-                    <th className="num">衝擊</th>
-                    <th className="num">Net 之前</th>
-                    <th className="num">Net 之後</th>
-                    <th className="num">Gross 之前</th>
-                    <th className="num">Gross 之後</th>
-                    <th className="num">Net 權重（之後）</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.byIndex.map((i) => (
-                    <tr key={i.indexId}>
-                      <td>{indexName(i.indexId)}</td>
-                      <td className={`num ${signClass(i.move)}`}>{fmtPct(i.move, 1)}</td>
-                      <td className="num">{fmtMoney(i.netBefore, base)}</td>
-                      <td className="num">{fmtMoney(i.netAfter, base)}</td>
-                      <td className="num">{fmtMoney(i.grossBefore, base)}</td>
-                      <td className="num">{fmtMoney(i.grossAfter, base)}</td>
-                      <td className="num">{fmtPct(i.weightAfter, 1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <Card title="各部位">
-            <div
-              className="table-wrap"
-              role="region"
-              aria-label="各部位（可左右捲動）"
-              tabIndex={0}
-            >
-              <table className="stack-table">
-                <thead>
-                  <tr>
-                    <th>商品</th>
-                    <th>帳戶</th>
-                    <th className="num">數量</th>
-                    <th className="num">價格變動</th>
-                    <th className="num">價格之前</th>
-                    <th className="num">價格之後</th>
-                    <th className="num">價值之後</th>
-                    <th className="num">損益（{base}）</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.positions.map((p) => (
-                    <tr key={p.key}>
-                      <td>
-                        {p.symbol} {p.floored && <Badge tone="bad">跌幅下限 −100%</Badge>}{' '}
-                        {p.derivative && <Badge>衍生品</Badge>}
-                      </td>
-                      <td>{accountName(p.accountId)}</td>
-                      <td className="num">{fmtNum(p.quantity, 4)}</td>
-                      <td className={`num ${signClass(p.priceMove)}`}>{fmtPct(p.priceMove, 1)}</td>
-                      <td className="num">{fmtNum(p.priceBefore, 2)}</td>
-                      <td className="num">{fmtNum(p.priceAfter, 2)}</td>
-                      <td className="num">{p.derivative ? '—' : fmtMoney(p.valueAfter, base)}</td>
-                      <td className={`num ${signClass(p.pnl)}`}>{fmtMoney(p.pnl, base)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <Card title="質押借款維持率">
-            {!r.loans.length ? (
-              <Empty>沒有使用中的質押借款。</Empty>
-            ) : (
-              <div
-                className="table-wrap"
-                role="region"
-                aria-label="質押借款維持率（可左右捲動）"
-                tabIndex={0}
-              >
-                <table className="stack-table">
-                  <thead>
-                    <tr>
-                      <th>借款</th>
-                      <th className="num">餘額</th>
-                      <th className="num">維持率之前</th>
-                      <th className="num">維持率之後</th>
-                      <th className="num">追繳門檻</th>
-                      <th>狀態</th>
-                      <th className="num">需還款</th>
-                      <th className="num">或補擔保品</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.loans.map((l) => (
-                      <tr key={l.loanId}>
-                        <td>{l.name}</td>
-                        <td className="num">
-                          {fmtMoney(l.balance, l.currency)} {l.currency}
-                        </td>
-                        <td className="num">{fmtPct(l.ratioBefore, 1)}</td>
-                        <td className={`num ${l.belowCallAfter ? 'neg' : ''}`}>
-                          {fmtPct(l.ratioAfter, 1)}
-                        </td>
-                        <td className="num">{fmtPct(l.callRatio, 0)}</td>
-                        <td>
-                          {l.belowCallAfter ? (
-                            <Badge tone="bad">低於門檻</Badge>
-                          ) : (
-                            <Badge tone="ok">未觸發</Badge>
-                          )}
-                        </td>
-                        <td className="num">
-                          {l.cureRepayment !== undefined
-                            ? `${fmtMoney(l.cureRepayment, l.currency)} ${l.currency}`
-                            : '—'}
-                        </td>
-                        <td className="num">
-                          {l.cureCollateral !== undefined
-                            ? `${fmtMoney(l.cureCollateral, l.currency)} ${l.currency}`
-                            : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                <Card title="警示">
+                  {r.warnings.length ? (
+                    <ul className="risk-list">
+                      {r.warnings.map((w) => (
+                        <li key={w}>{w}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="muted">此情境沒有觸發警示。</span>
+                  )}
+                </Card>
+              </>
             )}
-          </Card>
-
-          <Card title="期貨／永續合約保證金">
-            {!r.margins.length ? (
-              <Empty>沒有期貨或永續合約部位。</Empty>
-            ) : (
-              <div
-                className="table-wrap"
-                role="region"
-                aria-label="期貨／永續合約保證金（可左右捲動）"
-                tabIndex={0}
-              >
-                <table className="stack-table">
-                  <thead>
-                    <tr>
-                      <th>帳戶</th>
-                      <th className="num">現金</th>
-                      <th className="num">權益之前</th>
-                      <th className="num">權益之後</th>
-                      <th className="num">維持保證金需求</th>
-                      <th className="num">缺口</th>
-                      <th className="num">清算估計（標的變動）</th>
-                      <th>備註</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.margins.map((m) => (
-                      <tr key={`${m.accountId}|${m.currency}`}>
-                        <td>{accountName(m.accountId)}</td>
-                        <td className="num">
-                          {fmtMoney(m.cash, m.currency)} {m.currency}
-                        </td>
-                        <td className="num">{fmtMoney(m.equityBefore, m.currency)}</td>
-                        <td className={`num ${m.equityAfter < m.required ? 'neg' : ''}`}>
-                          {fmtMoney(m.equityAfter, m.currency)}
-                        </td>
-                        <td className="num">{fmtMoney(m.required, m.currency)}</td>
-                        <td className={`num ${m.shortfall > 0 ? 'neg' : ''}`}>
-                          {m.shortfall > 0 ? fmtMoney(m.shortfall, m.currency) : '—'}
-                        </td>
-                        <td className="num">
-                          {m.liquidationMove !== undefined ? fmtPct(m.liquidationMove, 1) : '—'}
-                        </td>
-                        <td>
-                          {m.missingSpecs.length > 0 && (
-                            <Badge tone="warn">
-                              缺保證金規格：{m.missingSpecs.map(symbolOf).join('、')}
-                            </Badge>
-                          )}{' '}
-                          {m.hasPerpetual && <Badge>含永續合約</Badge>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {view === 'index' && (
+              <>
+                <Card title="各指數曝險">
+                  <div
+                    className="table-wrap"
+                    role="region"
+                    aria-label="各指數曝險（可左右捲動）"
+                    tabIndex={0}
+                  >
+                    <table className="stack-table">
+                      <thead>
+                        <tr>
+                          <th>指數</th>
+                          <th className="num">衝擊</th>
+                          <th className="num">Net 之前</th>
+                          <th className="num">Net 之後</th>
+                          <th className="num">Gross 之前</th>
+                          <th className="num">Gross 之後</th>
+                          <th className="num">Net 權重（之後）</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.byIndex.map((i) => (
+                          <tr key={i.indexId}>
+                            <td>{indexName(i.indexId)}</td>
+                            <td className={`num ${signClass(i.move)}`}>{fmtPct(i.move, 1)}</td>
+                            <td className="num">{fmtMoney(i.netBefore, base)}</td>
+                            <td className="num">{fmtMoney(i.netAfter, base)}</td>
+                            <td className="num">{fmtMoney(i.grossBefore, base)}</td>
+                            <td className="num">{fmtMoney(i.grossAfter, base)}</td>
+                            <td className="num">{fmtPct(i.weightAfter, 1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
             )}
-            <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-              權益 = 帳戶現金 +
-              衍生品未實現損益（變動保證金逐日結算入現金，現金可能為負）。清算估計把同帳戶所有合約的標的同幅變動，從現價到權益等於維持保證金為止。
-            </p>
-          </Card>
-
-          <Card title="利息">
-            <div className="stats" style={{ marginBottom: 0 }}>
-              <Stat label={`每月利息 現況（${base}）`} value={fmtMoney(r.interest.before, base)} />
-              <Stat
-                label={`每月利息 衝擊後（${base}）`}
-                value={fmtMoney(r.interest.after, base)}
-                hint="浮動利率假設"
-              />
-              <Stat
-                label="變化"
-                value={fmtMoney(r.interest.delta, base)}
-                tone={r.interest.delta > 0 ? 'neg' : undefined}
-              />
-            </div>
-          </Card>
-
-          <Card title="警示">
-            {r.warnings.length ? (
-              <ul className="risk-list">
-                {r.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            ) : (
-              <span className="muted">此情境沒有觸發警示。</span>
+            {view === 'positions' && (
+              <>
+                <Card title="各部位">
+                  <div
+                    className="table-wrap"
+                    role="region"
+                    aria-label="各部位（可左右捲動）"
+                    tabIndex={0}
+                  >
+                    <table className="stack-table">
+                      <thead>
+                        <tr>
+                          <th>商品</th>
+                          <th>帳戶</th>
+                          <th className="num">數量</th>
+                          <th className="num">價格變動</th>
+                          <th className="num">價格之前</th>
+                          <th className="num">價格之後</th>
+                          <th className="num">價值之後</th>
+                          <th className="num">損益（{base}）</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.positions.map((p) => (
+                          <tr key={p.key}>
+                            <td>
+                              {p.symbol} {p.floored && <Badge tone="bad">跌幅下限 −100%</Badge>}{' '}
+                              {p.derivative && <Badge>衍生品</Badge>}
+                            </td>
+                            <td>{accountName(p.accountId)}</td>
+                            <td className="num">{fmtNum(p.quantity, 4)}</td>
+                            <td className={`num ${signClass(p.priceMove)}`}>
+                              {fmtPct(p.priceMove, 1)}
+                            </td>
+                            <td className="num">{fmtNum(p.priceBefore, 2)}</td>
+                            <td className="num">{fmtNum(p.priceAfter, 2)}</td>
+                            <td className="num">
+                              {p.derivative ? '—' : fmtMoney(p.valueAfter, base)}
+                            </td>
+                            <td className={`num ${signClass(p.pnl)}`}>{fmtMoney(p.pnl, base)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
             )}
-          </Card>
+            {view === 'debt' && (
+              <>
+                <Card title="質押借款維持率">
+                  {!r.loans.length ? (
+                    <Empty>沒有使用中的質押借款。</Empty>
+                  ) : (
+                    <div
+                      className="table-wrap"
+                      role="region"
+                      aria-label="質押借款維持率（可左右捲動）"
+                      tabIndex={0}
+                    >
+                      <table className="stack-table">
+                        <thead>
+                          <tr>
+                            <th>借款</th>
+                            <th className="num">餘額</th>
+                            <th className="num">維持率之前</th>
+                            <th className="num">維持率之後</th>
+                            <th className="num">追繳門檻</th>
+                            <th>狀態</th>
+                            <th className="num">需還款</th>
+                            <th className="num">或補擔保品</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.loans.map((l) => (
+                            <tr key={l.loanId}>
+                              <td>{l.name}</td>
+                              <td className="num">
+                                {fmtMoney(l.balance, l.currency)} {l.currency}
+                              </td>
+                              <td className="num">{fmtPct(l.ratioBefore, 1)}</td>
+                              <td className={`num ${l.belowCallAfter ? 'neg' : ''}`}>
+                                {fmtPct(l.ratioAfter, 1)}
+                              </td>
+                              <td className="num">{fmtPct(l.callRatio, 0)}</td>
+                              <td>
+                                {l.belowCallAfter ? (
+                                  <Badge tone="bad">低於門檻</Badge>
+                                ) : (
+                                  <Badge tone="ok">未觸發</Badge>
+                                )}
+                              </td>
+                              <td className="num">
+                                {l.cureRepayment !== undefined
+                                  ? `${fmtMoney(l.cureRepayment, l.currency)} ${l.currency}`
+                                  : '—'}
+                              </td>
+                              <td className="num">
+                                {l.cureCollateral !== undefined
+                                  ? `${fmtMoney(l.cureCollateral, l.currency)} ${l.currency}`
+                                  : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+
+                <Card title="期貨／永續合約保證金">
+                  {!r.margins.length ? (
+                    <Empty>沒有期貨或永續合約部位。</Empty>
+                  ) : (
+                    <div
+                      className="table-wrap"
+                      role="region"
+                      aria-label="期貨／永續合約保證金（可左右捲動）"
+                      tabIndex={0}
+                    >
+                      <table className="stack-table">
+                        <thead>
+                          <tr>
+                            <th>帳戶</th>
+                            <th className="num">現金</th>
+                            <th className="num">權益之前</th>
+                            <th className="num">權益之後</th>
+                            <th className="num">維持保證金需求</th>
+                            <th className="num">缺口</th>
+                            <th className="num">清算估計（標的變動）</th>
+                            <th>備註</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.margins.map((m) => (
+                            <tr key={`${m.accountId}|${m.currency}`}>
+                              <td>{accountName(m.accountId)}</td>
+                              <td className="num">
+                                {fmtMoney(m.cash, m.currency)} {m.currency}
+                              </td>
+                              <td className="num">{fmtMoney(m.equityBefore, m.currency)}</td>
+                              <td className={`num ${m.equityAfter < m.required ? 'neg' : ''}`}>
+                                {fmtMoney(m.equityAfter, m.currency)}
+                              </td>
+                              <td className="num">{fmtMoney(m.required, m.currency)}</td>
+                              <td className={`num ${m.shortfall > 0 ? 'neg' : ''}`}>
+                                {m.shortfall > 0 ? fmtMoney(m.shortfall, m.currency) : '—'}
+                              </td>
+                              <td className="num">
+                                {m.liquidationMove !== undefined
+                                  ? fmtPct(m.liquidationMove, 1)
+                                  : '—'}
+                              </td>
+                              <td>
+                                {m.missingSpecs.length > 0 && (
+                                  <Badge tone="warn">
+                                    缺保證金規格：{m.missingSpecs.map(symbolOf).join('、')}
+                                  </Badge>
+                                )}{' '}
+                                {m.hasPerpetual && <Badge>含永續合約</Badge>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
+                    權益 = 帳戶現金 +
+                    衍生品未實現損益（變動保證金逐日結算入現金，現金可能為負）。清算估計把同帳戶所有合約的標的同幅變動，從現價到權益等於維持保證金為止。
+                  </p>
+                </Card>
+
+                <Card title="利息">
+                  <div className="stats" style={{ marginBottom: 0 }}>
+                    <Stat
+                      label={`每月利息 現況（${base}）`}
+                      value={fmtMoney(r.interest.before, base)}
+                    />
+                    <Stat
+                      label={`每月利息 衝擊後（${base}）`}
+                      value={fmtMoney(r.interest.after, base)}
+                      hint="浮動利率假設"
+                    />
+                    <Stat
+                      label="變化"
+                      value={fmtMoney(r.interest.delta, base)}
+                      tone={r.interest.delta > 0 ? 'neg' : undefined}
+                    />
+                  </div>
+                </Card>
+              </>
+            )}
+          </SegmentedControl>
         </>
       )}
 

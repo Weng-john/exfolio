@@ -1,4 +1,4 @@
-import { Pager, Toast, usePaged } from '../../components/Primitives';
+import { Pager, Toast, useIsPhone, usePaged } from '../../components/Primitives';
 import { useRef, useState } from 'react';
 import {
   filterTransactions,
@@ -86,7 +86,8 @@ export default function TransactionsTab() {
     setPreview(undefined);
   };
 
-  const paged = usePaged(rows);
+  // Cards are tall: fewer to a page on a phone.
+  const paged = usePaged(rows, useIsPhone() ? 10 : 25);
 
   return (
     <Card

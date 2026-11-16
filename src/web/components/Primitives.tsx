@@ -395,3 +395,18 @@ export function PageSkeleton(props: { label: string }) {
     </div>
   );
 }
+
+/** Whether the screen is phone-sized, where tables are drawn as cards. */
+export function useIsPhone(): boolean {
+  const [phone, setPhone] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches,
+  );
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 640px)');
+    const update = () => setPhone(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return phone;
+}

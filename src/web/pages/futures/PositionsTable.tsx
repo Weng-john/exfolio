@@ -44,13 +44,13 @@ export function PositionsTable({
             <thead>
               <tr>
                 <th>商品 / 帳戶</th>
-                <th>Series</th>
+                <th>系列</th>
                 <th className="num">口數</th>
                 <th className="num">均價</th>
                 <th className="num">現價</th>
                 <th>到期</th>
-                <th className="num">Notional</th>
-                <th className="num">Exposure / NAV</th>
+                <th className="num">名目價值</th>
+                <th className="num">曝險 / NAV</th>
                 <th className="num">保證金</th>
               </tr>
             </thead>

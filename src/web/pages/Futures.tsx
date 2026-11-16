@@ -71,19 +71,19 @@ export default function FuturesPage() {
 
       <div className="stats">
         <Stat
-          label="Futures Gross Notional"
+          label="期貨名目總額（Gross）"
           value={fmtMoney(totalGross, base)}
           hint="未乘每日槓桿"
         />
         <Stat
-          label="Futures Net Notional"
+          label="期貨名目淨額（Net）"
           value={fmtMoney(totalNet, base)}
           hint="帶符號名目曝險"
           tone={totalNet >= 0 ? 'pos' : 'neg'}
         />
-        <Stat label="Exposure / NAV" value={fmtPct(exposureNav)} hint="期貨曝險以 NAV 為分母" />
+        <Stat label="曝險 / NAV" value={fmtPct(exposureNav)} hint="期貨曝險以 NAV 為分母" />
         <Stat
-          label="Initial Margin"
+          label="原始保證金"
           value={requiredInitial === undefined ? '—' : fmtMoney(requiredInitial, base)}
           hint={
             requiredInitial === undefined
@@ -119,7 +119,12 @@ export default function FuturesPage() {
         onSelect={choosePosition}
         onError={setError}
       />
-      <ContractMonths series={series} instruments={data.instruments} day={day} />
+      <ContractMonths
+        series={series}
+        heldSeries={new Set(positions.map((p) => p.seriesId))}
+        instruments={data.instruments}
+        day={day}
+      />
       <RolloverHistory histories={series.map((s) => seriesHistory(data, s.seriesId))} />
       <RollModes notifications={futuresNotifications(notifications)} />
     </>

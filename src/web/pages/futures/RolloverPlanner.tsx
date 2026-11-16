@@ -107,7 +107,7 @@ export function RolloverPlanner({
             onChange={(e) => chooseTarget(e.target.value)}
             disabled={!selected}
           >
-            <option value="">選擇同一 Series 的合約</option>
+            <option value="">選擇同一系列的合約</option>
             {targetContracts.map((i) => (
               <option key={i.id} value={i.id}>
                 {instrumentLabel(i)}
@@ -117,7 +117,7 @@ export function RolloverPlanner({
         </Field>
         <div className="futures-action">
           <button className="primary" onClick={makePlan} disabled={!selected || !targetId}>
-            計算 Plan
+            試算轉倉
           </button>
         </div>
       </div>

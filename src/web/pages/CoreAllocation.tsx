@@ -1,4 +1,4 @@
-import { Accordion } from '../components/Primitives';
+import { Accordion, SegmentedControl } from '../components/Primitives';
 import { useMemo, useState } from 'react';
 import {
   compareAllocation,
@@ -15,6 +15,14 @@ import { PlanView } from './allocation/PlanView';
 import { ReplacementPanel } from './allocation/ReplacementPanel';
 import { WeightBar } from './allocation/WeightBar';
 import './allocation/allocation.css';
+
+const VIEWS = [
+  { id: 'compare', label: '目標與實際' },
+  { id: 'targets', label: '目標設定' },
+  { id: 'rebalance', label: '再平衡建議' },
+  { id: 'replace', label: '商品替代' },
+] as const;
+type View = (typeof VIEWS)[number]['id'];
 
 /** Percent input that keeps what is typed and commits on blur. */
 function PctInput(props: { value: number; label: string; onCommit: (v: number) => void }) {
@@ -97,6 +105,8 @@ export default function CoreAllocationPage() {
   const data = useData();
   const { valuation } = usePortfolio();
   const [newIndex, setNewIndex] = useState('');
+  // With no targets yet there is nothing to compare: start where they are set.
+  const [view, setView] = useState<View>(data.targets.length ? 'compare' : 'targets');
   const base = valuation.baseCurrency;
 
   const cmp = useMemo(() => compareAllocation(data, valuation), [data, valuation]);
@@ -164,137 +174,146 @@ export default function CoreAllocationPage() {
 
       {cmp.warnings.length > 0 && <div className="notice warn">{cmp.warnings.join('；')}</div>}
 
-      <Card
-        title="目標設定"
-        actions={
+      <SegmentedControl label="配置檢視" items={VIEWS} value={view} onChange={setView}>
+        {view === 'targets' && (
+          <Card
+            title="目標設定"
+            actions={
+              <>
+                <select
+                  value={newIndex}
+                  onChange={(e) => setNewIndex(e.target.value)}
+                  aria-label="選擇指數"
+                >
+                  <option value="">選擇指數…</option>
+                  {available.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="primary"
+                  disabled={!newIndex}
+                  onClick={() => {
+                    upsertRow('targets', {
+                      id: newId('tg'),
+                      indexId: newIndex,
+                      targetWeight: 0,
+                      tolerance: 0.02,
+                    });
+                    setNewIndex('');
+                  }}
+                >
+                  新增目標
+                </button>
+              </>
+            }
+          >
+            {data.targets.length === 0 ? (
+              <Empty>尚未設定目標，請先選擇指數並新增</Empty>
+            ) : (
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label="目標設定（可左右捲動）"
+                tabIndex={0}
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>指數</th>
+                      <th className="num">目標權重 %</th>
+                      <th className="num">容忍區間 ± %</th>
+                      <th>偏好商品</th>
+                      <th>備註</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.targets.map((tg) => (
+                      <TargetRow
+                        key={tg.id}
+                        target={tg}
+                        indexName={names[tg.indexId] ?? tg.indexId}
+                        options={data.instruments
+                          .filter((i) => i.indexId === tg.indexId && i.active)
+                          .map((i): [ID, string] => [
+                            i.id,
+                            `${i.symbol}${i.leverage !== 1 ? `（${i.leverage}×）` : ''}`,
+                          ])}
+                      />
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>合計</td>
+                      <td className="num">Net {fmtPct(t.targetNet)}</td>
+                      <td className="num">Gross {fmtPct(t.targetGross)}</td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+        {view === 'compare' && (
+          <Card
+            title="目標 vs 實際"
+            actions={
+              <span className="muted">
+                <span className="legend" />
+                目標
+                <span className="legend actual" />
+                Core 實際
+              </span>
+            }
+          >
+            {cmp.rows.length === 0 ? (
+              <Empty>沒有目標也沒有持倉</Empty>
+            ) : (
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label="目標 vs 實際（可左右捲動）"
+                tabIndex={0}
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>市場 / 指數 / 商品</th>
+                      <th className="num">目標</th>
+                      <th className="num">Core 實際</th>
+                      <th className="num">策略</th>
+                      <th className="num">合計</th>
+                      <th className="num">缺口（{base}）</th>
+                      <th className="num">缺口（百分點）</th>
+                      <th>狀態</th>
+                      <th>目標 / 實際</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cmp.groups.map((g) => (
+                      <GroupRows key={g.market} group={g} scale={scale} base={base} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+        {view === 'rebalance' && (
           <>
-            <select
-              value={newIndex}
-              onChange={(e) => setNewIndex(e.target.value)}
-              aria-label="選擇指數"
-            >
-              <option value="">選擇指數…</option>
-              {available.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
-            <button
-              className="primary"
-              disabled={!newIndex}
-              onClick={() => {
-                upsertRow('targets', {
-                  id: newId('tg'),
-                  indexId: newIndex,
-                  targetWeight: 0,
-                  tolerance: 0.02,
-                });
-                setNewIndex('');
-              }}
-            >
-              新增目標
-            </button>
+            <h2>再平衡建議</h2>
+            <p className="muted">
+              再平衡模式（可買可賣）：只處理超出容忍區間的指數，並以賣出所得支應買進。以下為建議清單，網站不會下單、也不會寫入任何交易。
+            </p>
+            <PlanView plan={plan} names={names} />
           </>
-        }
-      >
-        {data.targets.length === 0 ? (
-          <Empty>尚未設定目標，請先選擇指數並新增</Empty>
-        ) : (
-          <div
-            className="table-wrap"
-            role="region"
-            aria-label="目標設定（可左右捲動）"
-            tabIndex={0}
-          >
-            <table>
-              <thead>
-                <tr>
-                  <th>指數</th>
-                  <th className="num">目標權重 %</th>
-                  <th className="num">容忍區間 ± %</th>
-                  <th>偏好商品</th>
-                  <th>備註</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {data.targets.map((tg) => (
-                  <TargetRow
-                    key={tg.id}
-                    target={tg}
-                    indexName={names[tg.indexId] ?? tg.indexId}
-                    options={data.instruments
-                      .filter((i) => i.indexId === tg.indexId && i.active)
-                      .map((i): [ID, string] => [
-                        i.id,
-                        `${i.symbol}${i.leverage !== 1 ? `（${i.leverage}×）` : ''}`,
-                      ])}
-                  />
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>合計</td>
-                  <td className="num">Net {fmtPct(t.targetNet)}</td>
-                  <td className="num">Gross {fmtPct(t.targetGross)}</td>
-                  <td colSpan={3} />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
         )}
-      </Card>
-
-      <Card
-        title="目標 vs 實際"
-        actions={
-          <span className="muted">
-            <span className="legend" />
-            目標
-            <span className="legend actual" />
-            Core 實際
-          </span>
-        }
-      >
-        {cmp.rows.length === 0 ? (
-          <Empty>沒有目標也沒有持倉</Empty>
-        ) : (
-          <div
-            className="table-wrap"
-            role="region"
-            aria-label="目標 vs 實際（可左右捲動）"
-            tabIndex={0}
-          >
-            <table>
-              <thead>
-                <tr>
-                  <th>市場 / 指數 / 商品</th>
-                  <th className="num">目標</th>
-                  <th className="num">Core 實際</th>
-                  <th className="num">策略</th>
-                  <th className="num">合計</th>
-                  <th className="num">缺口（{base}）</th>
-                  <th className="num">缺口（百分點）</th>
-                  <th>狀態</th>
-                  <th>目標 / 實際</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cmp.groups.map((g) => (
-                  <GroupRows key={g.market} group={g} scale={scale} base={base} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <h2>再平衡建議</h2>
-      <p className="muted">
-        再平衡模式（可買可賣）：只處理超出容忍區間的指數，並以賣出所得支應買進。以下為建議清單，網站不會下單、也不會寫入任何交易。
-      </p>
-      <PlanView plan={plan} names={names} />
+        {view === 'replace' && <ReplacementPanel />}
+      </SegmentedControl>
 
       <Accordion title="曝險權重與保證金怎麼看？">
         <p>
@@ -302,7 +321,6 @@ export default function CoreAllocationPage() {
           100%；期貨保證金是現金占用，不能拿來替代名目曝險。
         </p>
       </Accordion>
-      <ReplacementPanel />
     </>
   );
 }
