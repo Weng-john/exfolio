@@ -40,6 +40,7 @@ import FuturesPage from './pages/Futures';
 import JournalPage from './pages/Journal';
 import LoansPage from './pages/Loans';
 import NewMoneyPage from './pages/NewMoney';
+import OptionsLabPage from './pages/OptionsLab';
 import OverviewPage from './pages/Overview';
 import PerformancePage from './pages/Performance';
 import RiskLabPage from './pages/RiskLab';
@@ -105,6 +106,7 @@ const NAV: Array<{
     items: [
       { path: '/performance', label: '績效分析', element: <PerformancePage />, fullOnly: true },
       { path: '/risk', label: '風險實驗室', element: <RiskLabPage /> },
+      { path: '/options', label: '選擇權實驗室', element: <OptionsLabPage /> },
     ],
   },
   {

@@ -486,14 +486,15 @@ export function pickInstrument(
   override?: ID,
 ): Instrument | undefined {
   const byId = (id?: ID) => (id ? data.instruments.find((i) => i.id === id) : undefined);
+  // Options carry delta-adjusted exposure, not price x leverage: never an allocation tool.
   const usable = (instrument: Instrument | undefined) =>
-    instrument?.active && instrument.indexId === indexId;
+    instrument?.active && instrument.indexId === indexId && instrument.type !== 'option';
   const explicit =
     (usable(byId(override)) ? byId(override) : undefined) ??
     (usable(byId(preferred)) ? byId(preferred) : undefined);
   if (explicit) return explicit;
   const plain = data.instruments.filter(
-    (i) => i.active && i.indexId === indexId && i.leverage === 1,
+    (i) => i.active && i.indexId === indexId && i.leverage === 1 && i.type !== 'option',
   );
   const cash = plain.filter((i) => !isDerivative(i.type));
   const pool = cash.length ? cash : plain;
@@ -515,11 +516,16 @@ function pickInstrumentForGap(
   const explicit = [override, preferred]
     .filter((id): id is ID => Boolean(id))
     .map((id) => data.instruments.find((i) => i.id === id))
-    .find((i) => i?.active && i.indexId === indexId);
+    .find((i) => i?.active && i.indexId === indexId && i.type !== 'option');
   if (explicit) return explicit;
   if (sign > 0) return pickInstrument(data, indexId);
   const inverse = data.instruments.filter(
-    (i) => i.active && i.indexId === indexId && i.leverage < 0 && !isDerivative(i.type),
+    (i) =>
+      i.active &&
+      i.indexId === indexId &&
+      i.leverage < 0 &&
+      !isDerivative(i.type) &&
+      i.type !== 'option',
   );
   return inverse.find((i) => quoteOf(data, i.id) !== undefined) ?? inverse[0];
 }

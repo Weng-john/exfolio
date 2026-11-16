@@ -8,7 +8,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fetchQuotes } from '../server/quotes';
 import type { QuoteRequestItem } from '../src/core/api';
+import { reviewSnapshot } from '../src/core/quoteFreshness';
 import { SEED_FX_PAIRS, SEED_INSTRUMENTS } from '../src/core/seed';
+
+/** Share of quotes that must come back with a price (fresh or stale) to publish. */
+const MIN_USABLE_SHARE = 0.8;
 
 const output = path.resolve(process.argv[2] ?? 'dist/quotes.json');
 
@@ -22,19 +26,26 @@ for (const instrument of SEED_INSTRUMENTS) {
 }
 for (const [, , source, symbol] of SEED_FX_PAIRS) items.set(`${source}:${symbol}`, { source, symbol });
 
-const quotes = await fetchQuotes([...items.values()]);
-// Anything without a finite positive price counts as a failure, whatever the source said.
-const failed = quotes.filter((q) => q.error || !Number.isFinite(q.price) || !(q.price! > 0));
+const now = new Date();
+const review = reviewSnapshot(await fetchQuotes([...items.values()]), now, MIN_USABLE_SHARE);
 await mkdir(path.dirname(output), { recursive: true });
-await writeFile(output, JSON.stringify({ generatedAt: new Date().toISOString(), quotes }, null, 1));
+await writeFile(
+  output,
+  JSON.stringify({ generatedAt: now.toISOString(), quotes: review.quotes }, null, 1),
+);
 
-console.log(`quotes: ${quotes.length - failed.length} ok, ${failed.length} failed → ${output}`);
-for (const q of failed) console.log(`  ${q.source}:${q.symbol} — ${q.error}`);
-// A mostly-empty snapshot would replace a good one on the published site and
-// leave visitors with a mix of fresh and stale prices. Failing here stops
-// the deployment, so the previous snapshot stays up.
-const MIN_SUCCESS = 0.8;
-if (quotes.length - failed.length < quotes.length * MIN_SUCCESS) {
-  console.error(`quotes: fewer than ${MIN_SUCCESS * 100}% succeeded; not publishing this snapshot`);
+console.log(
+  `quotes: ${review.fresh} fresh, ${review.stale.length} stale, ${review.failed.length} failed → ${output}`,
+);
+for (const q of review.stale)
+  console.log(`  stale ${q.source}:${q.symbol} — ${q.ageHours.toFixed(1)} h old (limit ${q.limitHours} h)`);
+for (const q of review.failed) console.log(`  failed ${q.source}:${q.symbol} — ${q.reason}`);
+// A mostly-empty snapshot would replace a good one on the published site.
+// Failing here stops the deployment, so the previous snapshot stays up.
+// Stale quotes are published but labelled, so visitors see their age.
+if (!review.publish) {
+  console.error(
+    `quotes: fewer than ${MIN_USABLE_SHARE * 100}% came back with a price; not publishing this snapshot`,
+  );
   process.exit(1);
 }

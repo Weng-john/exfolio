@@ -1,4 +1,5 @@
 import { FxTable } from './fx';
+import { heldOptionAnalytics, type HeldOptionAnalytics } from './options';
 import { buildLedger, type Ledger, type LedgerOptions, type Position } from './ledger';
 import {
   getSettings,
@@ -32,6 +33,11 @@ export interface ValuedPosition extends Position {
   exposure: number;
   costBasis: number;
   unrealizedPnl: number;
+  /**
+   * Options only: model Greeks behind the delta-adjusted exposure, per unit
+   * (before quantity and multiplier), or why they could not be computed.
+   */
+  option?: HeldOptionAnalytics;
 }
 
 export interface CashValue {
@@ -113,6 +119,8 @@ export function valuePortfolio(
   const instruments = new Map(data.instruments.map((i) => [i.id, i]));
   const prices = new Map(data.prices.map((p) => [p.id, p]));
   const now = (options.now ?? new Date()).getTime();
+  // Calendar date for option expiries, in UTC like every date in the engine.
+  const today = new Date(now).toISOString().slice(0, 10);
   const staleMs = settings.alerts.staleQuoteMinutes * 60_000;
   const warnings = [...ledger.warnings];
 
@@ -152,19 +160,57 @@ export function valuePortfolio(
     const notionalLocal = pos.quantity * price * instrument.multiplier;
     const costLocal = pos.quantity * pos.avgCost * instrument.multiplier;
     const notional = notionalLocal * fxRate;
+    let exposure = notional * instrument.leverage;
+    let indexId = instrument.indexId;
+    let option: HeldOptionAnalytics | undefined;
+    if (instrument.type === 'option') {
+      // The premium is an asset (or, sold, a liability) like any security, but
+      // the market exposure is the underlying's, scaled by delta.
+      const underlying = instrument.underlyingId
+        ? instruments.get(instrument.underlyingId)
+        : undefined;
+      const uq = underlying ? prices.get(underlying.id) : undefined;
+      option = heldOptionAnalytics({
+        right: instrument.optionRight,
+        strike: instrument.strike,
+        expiry: instrument.expiry,
+        premium: price,
+        quoted: priceStatus !== 'missing',
+        underlyingPrice: uq && uq.price > 0 ? uq.price : undefined,
+        impliedVol: instrument.impliedVol,
+        today,
+      });
+      indexId ??= underlying?.indexId;
+      if (option.ok) {
+        exposure =
+          option.greeks.delta *
+          pos.quantity *
+          option.underlyingPrice *
+          instrument.multiplier *
+          (underlying?.leverage ?? 1) *
+          fxRate;
+        if (option.expired && pos.quantity !== 0)
+          warnings.push(`${instrument.symbol} 已到期，請記錄履約或到期結算`);
+      } else {
+        exposure = 0;
+        if (pos.quantity !== 0)
+          warnings.push(`${instrument.symbol} 無法計算 Delta（${option.reason}），曝險暫以 0 計`);
+      }
+    }
     positions.push({
       ...pos,
       instrument,
-      indexId: instrument.indexId ?? UNCLASSIFIED_INDEX,
+      indexId: indexId ?? UNCLASSIFIED_INDEX,
       price,
       priceStatus,
       priceAsOf: quote?.asOf,
       fxRate,
       marketValue: derivative ? 0 : notional,
       notional,
-      exposure: notional * instrument.leverage,
+      exposure,
       costBasis: costLocal * fxRate,
       unrealizedPnl: (notionalLocal - costLocal) * fxRate,
+      option,
     });
   }
 

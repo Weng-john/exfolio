@@ -84,6 +84,8 @@ const NAV_PATHS: Record<string, string> = {
   '/journal': 'M5 3h14v18H5zM9 7h6M9 11h6M9 15h4',
   '/performance': 'M3 3v18h18M6 16l5-6 4 3 6-8',
   '/risk': 'M12 3l9 4v5c0 5-9 9-9 9s-9-4-9-9V7zM12 8v5M12 16h.01',
+  // A payoff "hockey stick" over a baseline.
+  '/options': 'M3 15h8l10-10M3 20h18M15 5h6v6',
 };
 
 export const NavIcon = (props: { path: string }) =>

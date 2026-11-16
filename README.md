@@ -19,6 +19,7 @@ npm run typecheck
 npm run build          # 產生可部署到 GitHub Pages 的 dist/
 npm run serve          # 以 Node 提供 dist/ 與 API：http://127.0.0.1:8787
 npm run check:privacy  # 檢查版本庫內沒有個人資料或金鑰
+npm run test:e2e       # 瀏覽器測試與無障礙檢查（Playwright，需 Chromium）
 ```
 
 ## 兩種版本
@@ -28,7 +29,7 @@ npm run check:privacy  # 檢查版本庫內沒有個人資料或金鑰
 | 用途 | 放在 GitHub Pages 的靜態網站 | 在自己的機器上搭配後端使用 |
 | 後端與帳號 | 不登入可試算；會員用 Google 登入，資料存在共用的 GAS 後端 | Node 或 GAS 後端，會員登入 |
 | 資料存放 | 試算：只在分頁記憶體；會員：管理員的 Google 試算表 | 後端 |
-| 頁面 | Overview、Core Allocation、New Money Allocator、Accounts & Positions、Loans & Collateral、Futures & Rollover、Risk Lab、Settings（會員另有我的帳號、會員管理） | 全部 |
+| 頁面 | Overview、Core Allocation、New Money Allocator、Accounts & Positions、Loans & Collateral、Futures & Rollover、Risk Lab、選擇權實驗室、Settings（會員另有我的帳號、會員管理） | 全部 |
 | 報價 | 定時產生的公開報價快照；Binance 由瀏覽器直接查詢 | 後端代理，每 30 秒更新 |
 | 建置 | `npm run build:public` | `npm run build` |
 
@@ -48,6 +49,7 @@ src/web/    React 前端。頁面在 pages/，共用元件在 components/。
 server/     本機 Node 後端：JSON 檔儲存與報價代理。
 gas/        Google Apps Script 後端：與 server/ 相同的 API，資料存在 Google Sheets。
 tests/      Vitest 測試。
+e2e/        Playwright 瀏覽器測試與 axe 無障礙檢查（公開版）。
 ```
 
 後端只負責儲存與報價，所有計算都在 `src/core/`。兩個後端使用同一個協定（[src/core/api.ts](src/core/api.ts)）：對單一網址 POST 一個帶 `action` 的 JSON。前端依序嘗試設定的後端，都連不上時改用瀏覽器 localStorage（只限完整版；公開版見上文）。
@@ -57,6 +59,7 @@ tests/      Vitest 測試。
 - NAV = 證券市值 + 現金 + 期貨未實現損益 − 負債。
 - 曝險 = 帶符號數量 × 價格 × 契約乘數 × 每日目標槓桿 × 匯率。
 - 期貨保證金是帳戶內的現金，不是曝險，也不是負債。
+- 選擇權的權利金計入資產（賣出為負債）；曝險 = Delta × 數量 × 標的價格 × 契約乘數 × 匯率（Black-Scholes-Merton 模型）。
 - 外部投入與外部資金還款計入累積投入；帳戶間轉帳與換匯不計。
 
 ## 報價

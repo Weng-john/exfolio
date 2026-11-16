@@ -122,7 +122,7 @@ export default function OverviewPage() {
 
       <Card title="風險警示">
         {alerts.length === 0 ? (
-          <Empty>目前沒有警示。門檻可在 Settings 設定，僅供提醒，不限制任何操作。</Empty>
+          <Empty clear>目前沒有警示。門檻可在 Settings 設定，僅供提醒，不限制任何操作。</Empty>
         ) : (
           <div className="table-wrap" role="region" aria-label="風險警示" tabIndex={0}>
             <table>
@@ -143,7 +143,7 @@ export default function OverviewPage() {
 
       <Card title="所有通知">
         {notifications.length === 0 ? (
-          <Empty>目前沒有通知。提醒門檻僅供資訊參考，不限制任何操作。</Empty>
+          <Empty clear>目前沒有通知。提醒門檻僅供資訊參考，不限制任何操作。</Empty>
         ) : (
           <div className="table-wrap" role="region" aria-label="所有通知" tabIndex={0}>
             <table>

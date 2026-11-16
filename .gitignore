@@ -51,6 +51,10 @@ gas/config.local.js
 
 # ---- Build output and tooling ---------------------------------------
 dist/
+dist-e2e/
+dist-public/
+test-results/
+playwright-report/
 # Copied from node_modules at build time (scripts/vendor-ocr.mjs).
 public/vendor/
 node_modules/

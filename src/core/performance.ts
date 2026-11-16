@@ -771,17 +771,28 @@ function strategyBenchmark(data: AppData, scope: PerformanceScope): ID | undefin
   return (
     strategy.benchmarkInstrumentId ??
     data.instruments.find(
-      (instrument) => instrument.indexId === strategy.benchmarkIndexId && instrument.leverage === 1,
+      (instrument) =>
+        instrument.indexId === strategy.benchmarkIndexId &&
+        instrument.leverage === 1 &&
+        instrument.type !== 'option',
     )?.id
   );
 }
 
 function plainInstrumentForIndex(data: AppData, indexId: ID, preferred?: ID): ID | undefined {
   const preferredInstrument = preferred && data.instruments.find((row) => row.id === preferred);
-  if (preferredInstrument && preferredInstrument.leverage === 1) return preferredInstrument.id;
+  if (
+    preferredInstrument &&
+    preferredInstrument.leverage === 1 &&
+    preferredInstrument.type !== 'option'
+  )
+    return preferredInstrument.id;
   return data.instruments.find(
     (instrument) =>
-      instrument.indexId === indexId && instrument.leverage === 1 && instrument.active,
+      instrument.indexId === indexId &&
+      instrument.leverage === 1 &&
+      instrument.active &&
+      instrument.type !== 'option',
   )?.id;
 }
 

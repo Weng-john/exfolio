@@ -204,6 +204,53 @@ describe('addMissingSeed', () => {
   });
 });
 
+describe('validateInstrument for options', () => {
+  const underlying = {
+    id: 'u',
+    symbol: 'U',
+    name: '標的',
+    type: 'etf' as const,
+    exchange: 'X',
+    currency: 'TWD',
+    leverage: 1,
+    multiplier: 1,
+    lotSize: 1,
+    quoteSource: 'manual' as const,
+    active: true,
+  };
+  const option = { ...underlying, id: 'o', symbol: 'O', type: 'option' as const, multiplier: 100 };
+
+  it('asks for what the delta needs', () => {
+    const errs = validateInstrument(option, [underlying], true);
+    expect(errs).toEqual([
+      '選擇權需選擇買權或賣權',
+      '履約價必須大於 0',
+      '選擇權需填寫到期日',
+      '選擇權需指定標的商品',
+    ]);
+  });
+
+  it('accepts a complete option and rejects a bad underlying or volatility', () => {
+    const ok = {
+      ...option,
+      optionRight: 'put' as const,
+      strike: 50,
+      expiry: '2027-01-15',
+      underlyingId: 'u',
+    };
+    expect(validateInstrument(ok, [underlying], true)).toEqual([]);
+    expect(validateInstrument({ ...ok, underlyingId: 'o' }, [underlying], true)).toContain(
+      '標的商品不可是選擇權本身',
+    );
+    expect(validateInstrument({ ...ok, underlyingId: 'zz' }, [underlying], true)).toContain(
+      '找不到指定的標的商品',
+    );
+    expect(validateInstrument({ ...ok, impliedVol: 0 }, [underlying], true)).toContain(
+      '波動率必須大於 0',
+    );
+  });
+});
+
 describe('validateInstrument', () => {
   it('accepts a valid instrument', () => {
     expect(validateInstrument(base(), [], true)).toEqual([]);

@@ -75,6 +75,7 @@ export function ContractMonths({ series, instruments, day }: Props) {
                       <td>
                         <input
                           type="date"
+                          aria-label={`${i.symbol} 到期日`}
                           value={i.expiry ?? ''}
                           onChange={(e) => editInstrument(i, 'expiry', e.target.value)}
                         />
@@ -82,6 +83,7 @@ export function ContractMonths({ series, instruments, day }: Props) {
                       <td>
                         <input
                           type="number"
+                          aria-label={`${i.symbol} 原始保證金`}
                           value={i.initialMargin ?? ''}
                           onChange={(e) => editInstrument(i, 'initialMargin', e.target.value)}
                         />
@@ -89,6 +91,7 @@ export function ContractMonths({ series, instruments, day }: Props) {
                       <td>
                         <input
                           type="number"
+                          aria-label={`${i.symbol} 維持保證金`}
                           value={i.maintenanceMargin ?? ''}
                           onChange={(e) => editInstrument(i, 'maintenanceMargin', e.target.value)}
                         />
