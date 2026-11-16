@@ -32,3 +32,28 @@ test.describe('display preferences', () => {
     await expect(page.locator('html')).toHaveAttribute('data-pnl', 'red-up');
   });
 });
+
+test.describe('long tables', () => {
+  test('the instrument list is paged', async ({ page }) => {
+    await open(page, '/settings');
+    const rows = page.getByRole('region', { name: /^商品登錄/ }).locator('tbody tr');
+    await expect(rows).toHaveCount(25);
+    const first = await rows.first().innerText();
+    const pager = page.getByRole('navigation', { name: '商品登錄分頁' });
+    await expect(pager.getByRole('button', { name: '上一頁' })).toBeDisabled();
+    await pager.getByRole('button', { name: '下一頁' }).click();
+    await expect(rows.first()).not.toHaveText(first);
+    // Filtering down to one page removes the pager.
+    await page.getByRole('searchbox').fill('0050');
+    await expect(pager).toHaveCount(0);
+  });
+
+  test('positions read as cards on a phone', async ({ page }, info) => {
+    test.skip(info.project.name !== 'mobile', 'phone layout only');
+    await loadDemo(page);
+    await open(page, '/accounts');
+    const table = page.getByRole('region', { name: /^持倉/ }).locator('table');
+    const fits = await table.evaluate((el) => el.scrollWidth <= el.parentElement!.clientWidth);
+    expect(fits).toBe(true);
+  });
+});

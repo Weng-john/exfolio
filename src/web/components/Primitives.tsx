@@ -320,3 +320,78 @@ export function Toast(props: {
     </div>
   );
 }
+
+/**
+ * One page of `rows` and the state to move between pages. The page falls
+ * back to the last one when the list shrinks (a filter, a deleted row).
+ */
+export function usePaged<T>(rows: T[], size = 25) {
+  const [wanted, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const page = Math.min(wanted, pages - 1);
+  return {
+    page,
+    pages,
+    setPage,
+    from: rows.length ? page * size + 1 : 0,
+    to: Math.min(rows.length, (page + 1) * size),
+    total: rows.length,
+    slice: rows.slice(page * size, (page + 1) * size),
+  };
+}
+
+/** Previous / next controls under a long table. Renders nothing for a single page. */
+export function Pager(props: {
+  label: string;
+  page: number;
+  pages: number;
+  from: number;
+  to: number;
+  total: number;
+  setPage: (page: number) => void;
+}) {
+  if (props.pages <= 1) return null;
+  return (
+    <nav className="pager" aria-label={`${props.label}分頁`}>
+      <span className="muted" aria-live="polite">
+        第 {props.from}–{props.to} 筆，共 {props.total} 筆
+      </span>
+      <div className="pager-buttons">
+        <button
+          type="button"
+          disabled={props.page === 0}
+          onClick={() => props.setPage(props.page - 1)}
+        >
+          上一頁
+        </button>
+        <span className="pager-count">
+          {props.page + 1} / {props.pages}
+        </span>
+        <button
+          type="button"
+          disabled={props.page >= props.pages - 1}
+          onClick={() => props.setPage(props.page + 1)}
+        >
+          下一頁
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/** Placeholder in the shape of a page while its data loads. */
+export function PageSkeleton(props: { label: string }) {
+  return (
+    <div className="skeleton" role="status" aria-label={props.label}>
+      <div className="skeleton-line title" />
+      <div className="skeleton-line" />
+      <div className="skeleton-cards">
+        <div />
+        <div />
+        <div />
+        <div />
+      </div>
+      <div className="skeleton-block" />
+    </div>
+  );
+}

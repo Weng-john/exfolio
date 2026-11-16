@@ -81,9 +81,24 @@ export function Stat(props: {
           props.label
         )}
       </div>
-      <div className={`stat-value ${props.tone ?? ''}`}>{props.value}</div>
+      <div className={`stat-value ${props.tone ?? ''}`}>
+        {typeof props.value === 'string' ? <Figure text={props.value} /> : props.value}
+      </div>
       {props.hint && <div className="stat-hint">{props.hint}</div>}
     </div>
+  );
+}
+
+/** A formatted number with its decimals set smaller, so the whole part reads first. */
+export function Figure(props: { text: string }) {
+  const match = /^([^.]*\d)(\.\d+)(.*)$/.exec(props.text);
+  if (!match) return <>{props.text}</>;
+  return (
+    <>
+      {match[1]}
+      <span className="figure-decimals">{match[2]}</span>
+      {match[3]}
+    </>
   );
 }
 

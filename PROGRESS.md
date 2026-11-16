@@ -9,7 +9,7 @@
 - PR #1（選擇權、瀏覽器測試、報價新鮮度、CI）已於 2026-11-16 合併到 `main`。
 - 目前任務：UI/UX 改版。擁有者已核准方向並授權實作。**先讀 `docs/design/`**：`DESIGN_PROFILE.md`（方向與設計變數）、`UIUX_REDESIGN_PLAN.md`（逐頁建議與路線圖，含每一步的狀態）、`DESIGN_DECISIONS.md`（已確認的決定）。實作依路線圖 P1 → P7，每完成一步更新該表的狀態欄。
 - 工作分支 `claude/epic-goodall-taucwr` 已從合併後的 `main` 重開；改版的變更開新的 PR，不要重用 #1。
-- 改版進度：P1（設計變數、明體標題、損益顏色切換）與 P2（上導覽、左次導覽、手機霧面漂浮分頁列）完成。下一步是 P3（KPI 卡、資料表分頁與手機卡片、骨架畫面）。`styles.css` 裡舊側欄與抽屜的規則還在，可在 P3 清掉。
+- 改版進度：P1、P2 完成；P3 的共用元件已做好並各套用一頁（商品登錄分頁、持倉手機卡片、載入骨架、金額小數縮小），PR #2 尚未合併。下一步：把 `.stack-table` 與 `Pager` 推廣到其他長表格（交易、攤還表、借款列表），再做 P4 總覽改版。做法見 `docs/design/UIUX_REDESIGN_PLAN.md` 的狀態欄。
 - 轉倉自動化（`docs/ROLLOVER_PLAN.md`）仍等擁有者回答四個問題，暫緩。
 - 擁有者的要求：回覆用繁體中文，區分查證事實與推論，時效性資訊附來源；額度可能隨時用完，所以每完成一段就提交、推送並更新本段。
 - 雲端環境：沒有 `RESEARCH_PROJECT`／`RESEARCH_TASK`，也沒有 `private/` 規格書；Playwright 用預裝的 Chromium（`@playwright/test` 固定 1.63.0）。環境的網路允許清單已加入設計參考網站。

@@ -261,10 +261,6 @@ h2 {
   color: var(--text);
 }
 
-.nav-toggle {
-  display: none;
-}
-
 .spin svg {
   animation: spin 0.9s linear infinite;
 }
@@ -360,62 +356,9 @@ h2 {
   min-height: calc(100vh - var(--header-height));
 }
 
-.sidebar {
-  flex: 0 0 232px;
-  padding: 16px 12px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  position: sticky;
-  top: var(--header-height);
-  height: calc(100vh - var(--header-height));
-  overflow-y: auto;
-}
-
-.nav-group {
-  margin-bottom: 14px;
-}
-
-.nav-title {
-  padding: 4px 10px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-3);
-}
-
-.sidebar a {
-  display: block;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  text-decoration: none;
-  font-size: var(--fs-md);
-}
-
-.sidebar a:hover {
-  background: var(--surface-2);
-}
-
-.sidebar a.active {
-  background: var(--primary-soft);
-  color: var(--primary-text);
-  font-weight: 600;
-}
-
 .main {
   flex: 1;
   min-width: 0;
-}
-
-.theme-switch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px;
-  border: none;
-  background: transparent;
-  color: var(--text);
 }
 
 .theme-switch {
@@ -860,24 +803,8 @@ input[type='checkbox'] {
 }
 
 @media (max-width: 1024px) {
-  .nav-toggle {
-    display: inline-flex;
-  }
-
   .hide-sm {
     display: none;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
-  .nav-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 350;
-    background: rgba(15, 20, 30, 0.45);
   }
 }
 
@@ -1058,92 +985,6 @@ a:focus-visible {
 
 .breadcrumbs a {
   text-decoration: none;
-}
-
-.sidebar {
-  flex-basis: 240px;
-  padding: 28px 16px 20px;
-}
-
-.sidebar-intro {
-  padding: 0 12px 24px;
-}
-
-.sidebar-intro .eyebrow {
-  margin-bottom: 6px;
-}
-
-.sidebar-intro p {
-  margin: 0;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
-
-.sidebar a,
-.drawer-dialog nav a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-2);
-  font-size: var(--fs-md);
-  text-decoration: none;
-  transition:
-    background 160ms,
-    color 160ms;
-}
-
-.sidebar a svg,
-.drawer-dialog nav a svg {
-  flex: none;
-  stroke-width: 1.7;
-}
-
-.sidebar a.active,
-.drawer-dialog nav a.active {
-  background: var(--primary-soft);
-  color: var(--primary-text);
-  font-weight: 650;
-}
-
-.drawer-dialog nav a:hover {
-  background: var(--surface-2);
-}
-
-.nav-arrow {
-  margin-left: auto;
-  opacity: 0;
-}
-
-.active .nav-arrow {
-  opacity: 1;
-}
-
-.nav-title {
-  padding: 8px 12px;
-}
-
-.sidebar-note {
-  margin: 32px 4px 0;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  background: var(--surface-2);
-}
-
-.sidebar-note-mark {
-  display: block;
-  margin-bottom: 10px;
-  color: var(--primary-text);
-  font-size: 26px;
-}
-
-.sidebar-note p {
-  margin: 6px 0 0;
 }
 
 .card-head {
@@ -1547,26 +1388,6 @@ button.row-select[aria-pressed='true'] {
   padding: 24px;
 }
 
-.drawer-dialog {
-  width: min(320px, 88vw);
-  height: 100dvh;
-  max-height: 100dvh;
-  margin: 0 auto 0 0;
-  border-radius: 0 20px 20px 0;
-  padding: 20px 16px;
-}
-
-.drawer-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 12px 20px;
-}
-.drawer-dialog .sidebar-intro,
-.drawer-dialog .sidebar-note {
-  display: none;
-}
-
 .onboarding {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
@@ -1748,9 +1569,6 @@ input[type='checkbox'] {
   .content {
     padding-top: 24px;
   }
-  .sidebar {
-    display: none;
-  }
 }
 
 @media (max-width: 640px) {
@@ -1839,9 +1657,7 @@ input[type='checkbox'] {
   .native-dialog {
     max-height: calc(100dvh - 24px);
   }
-  .native-dialog.drawer-dialog {
-    max-height: 100dvh;
-  }
+
   .modal-body,
   .dialog-body {
     padding: 20px 16px;
@@ -2240,4 +2056,154 @@ th.num {
 .choice-sample[data-scheme='green-up'] i,
 .choice-sample[data-scheme='red-up'] b {
   color: var(--danger-text);
+}
+
+/* ==== Figures: decimals read after the whole part. ==== */
+.figure-decimals {
+  font-size: 0.62em;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+/* ==== Pager under long tables. ==== */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: var(--fs-sm);
+}
+.pager-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pager-count {
+  min-width: 4.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==== Loading skeleton. ==== */
+.skeleton {
+  display: grid;
+  gap: 16px;
+}
+.skeleton > div,
+.skeleton-cards > div {
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--surface-3), var(--surface-2), var(--surface-3));
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+.skeleton-line {
+  width: min(420px, 70%);
+  height: 14px;
+}
+.skeleton-line.title {
+  width: min(260px, 50%);
+  height: 30px;
+}
+.skeleton > .skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  background: none;
+  animation: none;
+}
+.skeleton-cards > div {
+  height: 96px;
+}
+.skeleton-block {
+  height: 280px;
+}
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton > div,
+  .skeleton-cards > div {
+    animation: none;
+  }
+}
+
+/* ==== Tables as cards on a phone: one card per row, each value under its
+   column name (data-label), the row's name (data-title) as the heading. ==== */
+@media (max-width: 640px) {
+  .stack-table,
+  .stack-table tbody,
+  .stack-table tfoot {
+    display: block;
+  }
+  .stack-table thead {
+    display: none;
+  }
+  .stack-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stack-table td,
+  .table-wrap .stack-table td:first-child:not([colspan]) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    position: static;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    white-space: normal;
+  }
+  .stack-table tbody tr:hover td {
+    background: none;
+  }
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--text-2);
+    font-size: var(--fs-xs);
+    font-weight: 400;
+  }
+  .stack-table td[data-title] {
+    grid-column: 1 / -1;
+    order: -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    font-size: var(--fs-base);
+  }
+  /* Three values across for short figures. */
+  .stack-table.stack-3 tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stack-table td {
+    overflow-wrap: anywhere;
+  }
+  /* Detail that a card has no room for; the wide table still shows it. */
+  .stack-table .stack-hide,
+  .stack-table.grouped td[data-label='帳戶'] {
+    display: none;
+  }
+  .stack-table tr.acct-group,
+  .stack-table tfoot tr {
+    margin-top: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+  }
+  .stack-table tr.acct-group td[data-title],
+  .stack-table tfoot td[data-title] {
+    font-weight: 600;
+  }
 }

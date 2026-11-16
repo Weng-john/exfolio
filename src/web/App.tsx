@@ -20,7 +20,7 @@ import {
 } from './components/icons';
 import { ThemeButton } from './components/ThemeButton';
 import { Badge, Spinner } from './components/ui';
-import { Banner, EmptyState, Popover } from './components/Primitives';
+import { Banner, EmptyState, PageSkeleton, Popover } from './components/Primitives';
 import { confirmDialog } from './dialog';
 import { IS_PUBLIC, MEMBERS_ENABLED } from './edition';
 import { fmtTime } from './format';
@@ -580,7 +580,7 @@ export default function App() {
           )}
           <main id="main-content" className="content" tabIndex={-1}>
             {store.status === 'loading' ? (
-              <Spinner text="載入資料中…" />
+              <PageSkeleton label="載入資料中…" />
             ) : (
               <Routes>
                 {visible
