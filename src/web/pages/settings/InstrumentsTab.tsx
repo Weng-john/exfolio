@@ -10,7 +10,7 @@ import {
 } from '@core/index';
 import { removeRow, upsertRow, useData } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
-import { Pager, usePaged } from '../../components/Primitives';
+import { Pager, useIsPhone, usePaged } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import { Check, describeRefs, ErrorList, numStr, parseNum } from './shared';
 import { confirmDialog } from '../../dialog';
@@ -176,7 +176,8 @@ export default function InstrumentsTab() {
     );
   }, [data.instruments, q, type, indexId, active]);
 
-  const paged = usePaged(rows);
+  // Cards are tall: fewer to a page on a phone.
+  const paged = usePaged(rows, useIsPhone() ? 10 : 25);
 
   const set = (patch: Partial<Draft>) =>
     editing && setEditing({ ...editing, draft: { ...editing.draft, ...patch } });

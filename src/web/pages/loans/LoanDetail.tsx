@@ -7,7 +7,7 @@ import {
   type LoanStatus,
   type ScheduleRow,
 } from '@core/index';
-import { Pager, usePaged } from '../../components/Primitives';
+import { Pager, SegmentedControl, useIsPhone, usePaged } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Stat } from '../../components/ui';
 import { fmtMoney, fmtPct } from '../../format';
 import CollateralPanel from './CollateralPanel';
@@ -17,8 +17,8 @@ import { KIND_LABEL, METHOD_LABEL, num } from './shared';
 function ScheduleTable(props: { rows: ScheduleRow[]; currency: string; highlight?: string }) {
   const { rows, currency } = props;
   const sum = (f: (r: ScheduleRow) => number) => rows.reduce((s, r) => s + f(r), 0);
-  // A year at a time; the totals below still cover every period.
-  const paged = usePaged(rows, 12);
+  // A year at a time (half on a phone); the totals below still cover every period.
+  const paged = usePaged(rows, useIsPhone() ? 6 : 12);
   return (
     <>
       <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
@@ -254,6 +254,13 @@ function History(props: { data: AppData; loan: Loan }) {
   );
 }
 
+const DETAIL_VIEWS = [
+  { id: 'schedule', label: '剩餘攤還表' },
+  { id: 'prepay', label: '提前還款試算' },
+  { id: 'history', label: '動用與還款紀錄' },
+] as const;
+type DetailView = (typeof DETAIL_VIEWS)[number]['id'];
+
 export default function LoanDetail(props: {
   data: AppData;
   loan: Loan;
@@ -266,6 +273,7 @@ export default function LoanDetail(props: {
   const cur = loan.currency;
   const scheduled = loan.method !== 'revolving' && !!loan.termMonths;
 
+  const [view, setView] = useState<DetailView>('schedule');
   return (
     <>
       {modal === 'draw' && <DrawForm data={data} loan={loan} onClose={() => setModal(undefined)} />}
@@ -296,15 +304,6 @@ export default function LoanDetail(props: {
             value={fmtMoney(status.balance, cur)}
             hint={`${cur} · 原始本金 ${fmtMoney(loan.principal, cur)}`}
           />
-          <Stat label="累計動用" value={fmtMoney(status.drawn, cur)} />
-          <Stat label="已還本金" value={fmtMoney(status.principalRepaid, cur)} />
-          <Stat label="已付利息" value={fmtMoney(status.interestPaid, cur)} />
-          <Stat label="未付利息" value={fmtMoney(status.accruedInterest, cur)} />
-          <Stat
-            label="外部資金還款"
-            value={fmtMoney(status.repaidExternally, cur)}
-            hint={`投資組合資金 ${fmtMoney(status.repaidFromPortfolio, cur)}`}
-          />
           <Stat
             label="剩餘期數"
             value={status.remainingPeriods === undefined ? '—' : String(status.remainingPeriods)}
@@ -329,30 +328,59 @@ export default function LoanDetail(props: {
             hint="以目前餘額計"
           />
         </div>
+        <dl className="facts">
+          <div>
+            <dt>累計動用</dt>
+            <dd>{fmtMoney(status.drawn, cur)}</dd>
+          </div>
+          <div>
+            <dt>已還本金</dt>
+            <dd>{fmtMoney(status.principalRepaid, cur)}</dd>
+          </div>
+          <div>
+            <dt>已付利息</dt>
+            <dd>{fmtMoney(status.interestPaid, cur)}</dd>
+          </div>
+          <div>
+            <dt>未付利息</dt>
+            <dd>{fmtMoney(status.accruedInterest, cur)}</dd>
+          </div>
+          <div>
+            <dt>外部資金還款</dt>
+            <dd>{fmtMoney(status.repaidExternally, cur)}</dd>
+          </div>
+          <div>
+            <dt>投資組合資金還款</dt>
+            <dd>{fmtMoney(status.repaidFromPortfolio, cur)}</dd>
+          </div>
+        </dl>
       </Card>
 
       {(loan.kind === 'pledge' || loan.kind === 'margin' || loan.collateral?.length) && (
         <CollateralPanel data={data} loan={loan} status={collateral} />
       )}
 
-      <Card title="剩餘攤還表">
-        {scheduled && status.remainingSchedule.length ? (
-          <ScheduleTable rows={status.remainingSchedule} currency={cur} />
-        ) : (
-          <Empty>
-            {scheduled
-              ? '已無待繳期數或餘額為 0。'
-              : '循環額度沒有固定攤還表，只預估每月利息 ' +
-                fmtMoney(status.projectedMonthlyInterest, cur) +
-                ' ' +
-                cur +
-                '。'}
-          </Empty>
+      <SegmentedControl label="借款明細" items={DETAIL_VIEWS} value={view} onChange={setView}>
+        {view === 'schedule' && (
+          <Card title="剩餘攤還表">
+            {scheduled && status.remainingSchedule.length ? (
+              <ScheduleTable rows={status.remainingSchedule} currency={cur} />
+            ) : (
+              <Empty>
+                {scheduled
+                  ? '已無待繳期數或餘額為 0。'
+                  : '循環額度沒有固定攤還表，只預估每月利息 ' +
+                    fmtMoney(status.projectedMonthlyInterest, cur) +
+                    ' ' +
+                    cur +
+                    '。'}
+              </Empty>
+            )}
+          </Card>
         )}
-      </Card>
-
-      <PrepaymentCalc loan={loan} status={status} />
-      <History data={data} loan={loan} />
+        {view === 'prepay' && <PrepaymentCalc loan={loan} status={status} />}
+        {view === 'history' && <History data={data} loan={loan} />}
+      </SegmentedControl>
     </>
   );
 }

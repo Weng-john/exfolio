@@ -9,7 +9,7 @@
 - PR #1（選擇權、瀏覽器測試、報價新鮮度、CI）已於 2026-11-16 合併到 `main`。
 - 目前任務：UI/UX 改版。擁有者已核准方向並授權實作。**先讀 `docs/design/`**：`DESIGN_PROFILE.md`（方向與設計變數）、`UIUX_REDESIGN_PLAN.md`（逐頁建議與路線圖，含每一步的狀態）、`DESIGN_DECISIONS.md`（已確認的決定）。實作依路線圖 P1 → P7，每完成一步更新該表的狀態欄。
 - 工作分支 `claude/epic-goodall-taucwr` 已從合併後的 `main` 重開；改版的變更開新的 PR，不要重用 #1。
-- 改版進度：P1–P4 完成（PR #1、#2 已合併；P3 推廣與 P4 在新的 PR）。下一步是 P5 長頁面瘦身（設定、期貨、風險、借款、配置），再來 P6 選擇權損益表、P7 動效。手機上有些頁面因為表格改成卡片而變長（借款約 9,600px），P5 要用收合與「只顯示持有」處理。做法與狀態見 `docs/design/UIUX_REDESIGN_PLAN.md`。
+- 改版進度：P1–P5 完成（PR #1–#3 已合併，P5 在新的 PR）。剩 P6 選擇權的價格 × 日期損益表（計算放 `src/core/options.ts` 並附測試）與 P7 動效。資料隱私：擁有者選擇「公開網站加自己的 GAS 後端」，只有自己用、多裝置；待辦是自訂網域（解決同來源問題）與依 `gas/README.md` 部署，agent 無法代為部署。
 - 轉倉自動化（`docs/ROLLOVER_PLAN.md`）仍等擁有者回答四個問題，暫緩。
 - 擁有者的要求：回覆用繁體中文，區分查證事實與推論，時效性資訊附來源；額度可能隨時用完，所以每完成一段就提交、推送並更新本段。
 - 雲端環境：沒有 `RESEARCH_PROJECT`／`RESEARCH_TASK`，也沒有 `private/` 規格書；Playwright 用預裝的 Chromium（`@playwright/test` 固定 1.63.0）。環境的網路允許清單已加入設計參考網站。

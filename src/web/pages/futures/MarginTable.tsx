@@ -36,11 +36,11 @@ export function MarginTable({ margins }: { margins: MarginByAccount[] }) {
               <tr>
                 <th>帳戶</th>
                 <th>幣別</th>
-                <th className="num">Cash</th>
+                <th className="num">現金</th>
                 <th className="num">未實現損益</th>
-                <th className="num">Account Equity</th>
-                <th className="num">Initial</th>
-                <th className="num">Maintenance</th>
+                <th className="num">帳戶權益</th>
+                <th className="num">原始保證金</th>
+                <th className="num">維持保證金</th>
                 <th className="num">超額 / 短缺</th>
               </tr>
             </thead>

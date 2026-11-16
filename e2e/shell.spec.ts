@@ -34,10 +34,11 @@ test.describe('display preferences', () => {
 });
 
 test.describe('long tables', () => {
-  test('the instrument list is paged', async ({ page }) => {
+  test('the instrument list is paged', async ({ page }, info) => {
     await open(page, '/settings');
     const rows = page.getByRole('region', { name: /^商品登錄/ }).locator('tbody tr');
-    await expect(rows).toHaveCount(25);
+    // Rows are cards on a phone, so a page holds fewer of them.
+    await expect(rows).toHaveCount(info.project.name === 'mobile' ? 10 : 25);
     const first = await rows.first().innerText();
     const pager = page.getByRole('navigation', { name: '商品登錄分頁' });
     await expect(pager.getByRole('button', { name: '上一頁' })).toBeDisabled();
@@ -98,4 +99,38 @@ test.describe('tables on a phone', () => {
       expect(wide).toEqual([]);
     });
   }
+});
+
+test.describe('long pages show one part at a time', () => {
+  test('allocation opens on target against actual and switches views', async ({ page }) => {
+    await loadDemo(page);
+    await open(page, '/allocation');
+    await expect(page.getByRole('tab', { name: '目標與實際' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const targets = page.getByRole('heading', { level: 2, name: '目標設定' });
+    await expect(targets).toHaveCount(0);
+    await page.getByRole('tab', { name: '目標設定' }).click();
+    await expect(targets).toBeVisible();
+  });
+
+  test('futures list held series first and fold the rest away', async ({ page }) => {
+    await loadDemo(page);
+    await open(page, '/futures');
+    const card = page.getByRole('region', { name: '合約月份管理' });
+    await expect(card.getByRole('heading', { level: 3 })).toHaveCount(1);
+    await card.getByText(/^其他系列/).click();
+    expect(await card.getByRole('heading', { level: 3 }).count()).toBeGreaterThan(1);
+  });
+
+  test('stress inputs list held indices and keep the others one click away', async ({ page }) => {
+    await loadDemo(page);
+    await open(page, '/risk');
+    const form = page.getByRole('region', { name: '衝擊設定（瞬間）' });
+    await expect(form.getByLabel('台灣 50')).toBeVisible();
+    await expect(form.getByLabel('日經 225')).toBeHidden();
+    await form.getByText(/^未持有的指數/).click();
+    await expect(form.getByLabel('日經 225')).toBeVisible();
+  });
 });
