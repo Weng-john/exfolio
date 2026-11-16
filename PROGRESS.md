@@ -2,15 +2,16 @@
 
 給接手這個專案的開發者或 agent。需求與決策的完整內容在 `private/portfolio_management_spec.md`（私人文件，不進版本庫；找不到時向專案擁有者索取）。每次完成或變更工作，都要更新這份文件。
 
-最後更新：2026-11-03
+最後更新：2026-11-16
 
-## 交接（2026-11-03，給下一個接手的 agent）
+## 交接（2026-11-16，給下一個接手的 agent）
 
-- 工作分支 `claude/epic-goodall-taucwr`，已開 PR：https://github.com/Weng-john/exfolio/pull/1 （尚未合併）。這是第一個會觸發新 `ci.yml` 的 PR；先看它的檢查結果，失敗就修，不要跳過測試。
-- 本 PR 內容：選擇權（Delta 曝險、選擇權實驗室）、瀏覽器測試與 axe、報價逐筆新鮮度、CI。細節見下一節。
-- 下一個任務：轉倉自動化，規劃在 `docs/ROLLOVER_PLAN.md`。**擁有者尚未回答文件末的四個問題**，回答前不要開始第三階段（全自動送單）；第一階段（轉倉日曆與規則，不下單）可在擁有者同意後開始。
-- 擁有者的要求：UI 以 Awwwards／Webby／FWA 獲獎水準為目標，反覆截圖自查；善用 breadcrumbs、分頁、對話框、popover、tooltip、toast、banner、badge、spinner／進度條、CTA、卡片、accordion、輪播、開關。可用的話用 Figma 或 UI UX Pro Max（本雲端環境未啟用）。回覆一律繁體中文，區分查證事實與推論，時效性資訊要附來源。
-- 雲端環境注意：沒有 `RESEARCH_PROJECT`／`RESEARCH_TASK`，也沒有 `private/` 規格書；Playwright 用預裝的 Chromium（`@playwright/test` 固定 1.63.0 以配合）。驗收：五個 npm 指令加 `npm run test:e2e`。
+- PR #1（選擇權、瀏覽器測試、報價新鮮度、CI）已於 2026-11-16 合併到 `main`。
+- 目前任務：UI/UX 改版。擁有者已核准方向並授權實作。**先讀 `docs/design/`**：`DESIGN_PROFILE.md`（方向與設計變數）、`UIUX_REDESIGN_PLAN.md`（逐頁建議與路線圖，含每一步的狀態）、`DESIGN_DECISIONS.md`（已確認的決定）。實作依路線圖 P1 → P7，每完成一步更新該表的狀態欄。
+- 工作分支 `claude/epic-goodall-taucwr` 已從合併後的 `main` 重開；改版的變更開新的 PR，不要重用 #1。
+- 轉倉自動化（`docs/ROLLOVER_PLAN.md`）仍等擁有者回答四個問題，暫緩。
+- 擁有者的要求：回覆用繁體中文，區分查證事實與推論，時效性資訊附來源；額度可能隨時用完，所以每完成一段就提交、推送並更新本段。
+- 雲端環境：沒有 `RESEARCH_PROJECT`／`RESEARCH_TASK`，也沒有 `private/` 規格書；Playwright 用預裝的 Chromium（`@playwright/test` 固定 1.63.0）。環境的網路允許清單已加入設計參考網站。
 
 ## 選擇權、瀏覽器測試、報價新鮮度（2026-11-03）
 
