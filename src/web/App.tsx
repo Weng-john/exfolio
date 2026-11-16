@@ -391,6 +391,16 @@ function FocusMainOnNavigate() {
   return null;
 }
 
+/** Fades a page in when the route changes: the key remounts the wrapper. */
+function PageEnter(props: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <div key={pathname} className="page-enter">
+      {props.children}
+    </div>
+  );
+}
+
 /** The page frame under the header: sub-navigation beside the content. */
 function Layout(props: { sections: NavSection[]; children: ReactNode }) {
   const current = useCurrentSection(props.sections);
@@ -584,28 +594,30 @@ export default function App() {
             {store.status === 'loading' ? (
               <PageSkeleton label="載入資料中…" />
             ) : (
-              <Routes>
-                {visible
-                  .flatMap((g) => g.items)
-                  .map((item) => (
-                    <Route key={item.path} path={item.path} element={item.element} />
-                  ))}
-                <Route
-                  path="*"
-                  element={
-                    <EmptyState
-                      title="找不到這個頁面"
-                      action={
-                        <Link className="button primary" to="/">
-                          回到投資總覽
-                        </Link>
-                      }
-                    >
-                      從主選單選擇要查看的內容。
-                    </EmptyState>
-                  }
-                />
-              </Routes>
+              <PageEnter>
+                <Routes>
+                  {visible
+                    .flatMap((g) => g.items)
+                    .map((item) => (
+                      <Route key={item.path} path={item.path} element={item.element} />
+                    ))}
+                  <Route
+                    path="*"
+                    element={
+                      <EmptyState
+                        title="找不到這個頁面"
+                        action={
+                          <Link className="button primary" to="/">
+                            回到投資總覽
+                          </Link>
+                        }
+                      >
+                        從主選單選擇要查看的內容。
+                      </EmptyState>
+                    }
+                  />
+                </Routes>
+              </PageEnter>
             )}
           </main>
         </div>

@@ -1,6 +1,9 @@
 import {
   bsPrice,
   curveRange,
+  gridDays,
+  gridSpots,
+  pnlGrid,
   expiryProfile,
   firstExpiry,
   intrinsic,
@@ -12,6 +15,7 @@ import {
   strategyGreeks,
   templateLegs,
   type CurvePoint,
+  type PnlGrid,
   type ExpiryProfile,
   type Greeks,
   type Leg,
@@ -150,6 +154,8 @@ export interface Analysis {
   greeks: Greeks;
   probability?: number;
   curve: CurvePoint[];
+  /** P&L by underlying price and date, for the table view. */
+  grid: PnlGrid;
   /** Days until the first option leg expires. */
   horizon: number;
 }
@@ -160,6 +166,8 @@ export function analyse(b: Builder, m: ParsedMarket): Analysis {
   const horizon = Math.round(firstExpiry(legs) * 365);
   const elapsedYears = Math.min(b.elapsed, horizon) / 365;
   const { low, high } = curveRange(legs, m.spot, m.vol);
+  // The table covers the likelier prices only, so its rows are not mostly tails.
+  const table = curveRange(legs, m.spot, m.vol, 2.5);
   return {
     ctx,
     legs,
@@ -168,6 +176,7 @@ export function analyse(b: Builder, m: ParsedMarket): Analysis {
     greeks: strategyGreeks(shiftLegs(legs, elapsedYears), m.spot, ctx),
     probability: profitProbability(legs, ctx, m.spot, m.vol),
     curve: payoffCurve(legs, ctx, low, high, 160, elapsedYears),
+    grid: pnlGrid(legs, ctx, gridSpots(table.low, table.high, 15), gridDays(horizon)),
     horizon,
   };
 }

@@ -2398,3 +2398,29 @@ th.num {
 .contract-series h3 {
   margin: 0;
 }
+
+/* ==== Motion: small and brief. The reduced-motion rule above turns all of
+   it off. ==== */
+.page-enter,
+.tab-panel > * {
+  animation: enter 180ms ease-out both;
+}
+.value-enter {
+  animation: value-in 320ms ease-out both;
+}
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes value-in {
+  from {
+    opacity: 0.35;
+    transform: translateY(0.18em);
+  }
+}
+.card,
+.stat {
+  transition: border-color 0.15s;
+}

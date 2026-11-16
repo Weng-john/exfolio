@@ -21,6 +21,7 @@ import {
   type UiLeg,
 } from './model';
 import { PayoffChart } from './PayoffChart';
+import { PnlTable } from './PnlTable';
 import { TemplateCarousel } from './TemplateCarousel';
 
 const GREEKS: Array<{
@@ -65,6 +66,7 @@ export function StrategyBuilder(props: { builder: Builder; onChange: (b: Builder
   const [dialog, setDialog] = useState<{ leg?: UiLeg } | undefined>();
   const [toast, setToast] = useState<string | undefined>();
   const [showToday, setShowToday] = useState(true);
+  const [payoffView, setPayoffView] = useState<'chart' | 'table'>('chart');
 
   const parsed = parseMarket(b.market);
   const m = parsed.ok ? parsed.value : undefined;
@@ -375,44 +377,77 @@ export function StrategyBuilder(props: { builder: Builder; onChange: (b: Builder
           )}
 
           <Card
-            title="損益圖"
+            title={payoffView === 'chart' ? '損益圖' : '損益表'}
             className="opt-chart-card"
-            actions={<Toggle label="顯示模型曲線" checked={showToday} onChange={setShowToday} />}
+            actions={
+              <>
+                {payoffView === 'chart' && (
+                  <Toggle label="顯示模型曲線" checked={showToday} onChange={setShowToday} />
+                )}
+                <div className="view-switch" role="group" aria-label="損益檢視">
+                  <button
+                    type="button"
+                    aria-pressed={payoffView === 'chart'}
+                    onClick={() => setPayoffView('chart')}
+                  >
+                    圖
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={payoffView === 'table'}
+                    onClick={() => setPayoffView('table')}
+                  >
+                    表格
+                  </button>
+                </div>
+              </>
+            }
           >
-            <div className="opt-legend" aria-hidden="true">
-              <span className="opt-legend-expiry">到期損益</span>
-              {showToday && <span className="opt-legend-today">{todayLabel}</span>}
-              <span className="opt-legend-spot">現價</span>
-              <span className="opt-legend-be">損益兩平</span>
-            </div>
-            <PayoffChart
-              curve={result.curve}
-              spot={m.spot}
-              breakevens={result.profile?.breakevens ?? []}
-              showToday={showToday}
-              todayLabel={todayLabel}
-            />
-            {horizon > 0 && (
-              <div className="opt-time">
-                <label className="field">
-                  <span className="field-label">
-                    評估日：{elapsed === 0 ? '今天' : `${elapsed} 天後`}
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={horizon}
-                    step={1}
-                    value={elapsed}
-                    aria-valuetext={elapsed === 0 ? '今天' : `${elapsed} 天後`}
-                    onChange={(e) => set({ elapsed: Number(e.target.value) })}
-                  />
-                </label>
-                <ProgressBar
-                  label={`距最早到期 ${horizon - elapsed} 天`}
-                  value={horizon ? elapsed / horizon : 0}
+            {payoffView === 'chart' ? (
+              <>
+                <div className="opt-legend" aria-hidden="true">
+                  <span className="opt-legend-expiry">到期損益</span>
+                  {showToday && <span className="opt-legend-today">{todayLabel}</span>}
+                  <span className="opt-legend-spot">現價</span>
+                  <span className="opt-legend-be">損益兩平</span>
+                </div>
+                <PayoffChart
+                  curve={result.curve}
+                  spot={m.spot}
+                  breakevens={result.profile?.breakevens ?? []}
+                  showToday={showToday}
+                  todayLabel={todayLabel}
                 />
-              </div>
+                {horizon > 0 && (
+                  <div className="opt-time">
+                    <label className="field">
+                      <span className="field-label">
+                        評估日：{elapsed === 0 ? '今天' : `${elapsed} 天後`}
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={horizon}
+                        step={1}
+                        value={elapsed}
+                        aria-valuetext={elapsed === 0 ? '今天' : `${elapsed} 天後`}
+                        onChange={(e) => set({ elapsed: Number(e.target.value) })}
+                      />
+                    </label>
+                    <ProgressBar
+                      label={`距最早到期 ${horizon - elapsed} 天`}
+                      value={horizon ? elapsed / horizon : 0}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="muted opt-grid-note">
+                  每格是該價格、該日期的組合損益（模型估算，含權利金）。顏色深淺代表金額大小。
+                </p>
+                <PnlTable grid={result.grid} spot={m.spot} />
+              </>
             )}
           </Card>
 

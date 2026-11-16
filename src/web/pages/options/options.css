@@ -525,3 +525,92 @@ button.opt-load-card:hover:not(:disabled) .opt-load-arrow {
     transform: none;
   }
 }
+
+/* ---- chart / table switch */
+.view-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.view-switch button {
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.view-switch button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+/* ---- price x date grid: tinted softly, the number carries the value */
+.opt-grid-note {
+  margin: 0 0 12px;
+  font-size: var(--fs-sm);
+}
+.opt-grid {
+  font-size: var(--fs-sm);
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+.opt-grid th,
+.opt-grid td {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.opt-grid thead th {
+  background: none;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.opt-grid tbody th {
+  background: none;
+  color: var(--text-2);
+  font-weight: 500;
+  text-align: right;
+}
+.opt-grid td {
+  min-width: 76px;
+  color: var(--text);
+}
+.opt-grid tr.at-spot th {
+  color: var(--text);
+  font-weight: 700;
+}
+.opt-grid tr.at-spot td {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.opt-grid-now {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.opt-grid tbody tr:hover td {
+  filter: brightness(0.97);
+}
+@media (max-width: 640px) {
+  /* The outlined row already marks the current price. */
+  .opt-grid-now {
+    display: none;
+  }
+  .opt-grid th,
+  .opt-grid td {
+    padding: 6px 8px;
+  }
+  .opt-grid td {
+    min-width: 60px;
+  }
+}

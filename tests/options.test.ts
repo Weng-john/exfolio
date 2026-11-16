@@ -3,6 +3,9 @@ import {
   bsGreeks,
   bsPrice,
   expiryProfile,
+  gridDays,
+  gridSpots,
+  pnlGrid,
   impliedVol,
   netPremium,
   niceStep,
@@ -285,5 +288,45 @@ describe('time and range helpers', () => {
     expect(r.low).toBeLessThan(80);
     expect(r.high).toBeGreaterThanOrEqual(220);
     expect(r.low).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('price x date grid', () => {
+  it('spaces days evenly from today to the expiry', () => {
+    expect(gridDays(30)).toEqual([0, 6, 12, 18, 24, 30]);
+    expect(gridDays(3)).toEqual([0, 1, 2, 3]);
+    expect(gridDays(1)).toEqual([0, 1]);
+    expect(gridDays(0)).toEqual([0]);
+    expect(gridDays(30, 3)).toEqual([0, 15, 30]);
+  });
+
+  it('lists round prices, highest first, inside the range', () => {
+    const spots = gridSpots(78, 122);
+    expect(spots[0]).toBe(120);
+    expect(spots[spots.length - 1]).toBe(80);
+    expect(spots.every((v, i) => i === 0 || v < spots[i - 1])).toBe(true);
+    expect(spots).toContain(100);
+    expect(gridSpots(10, 5)).toEqual([]);
+    expect(gridSpots(0, 3).every((v) => v > 0)).toBe(true);
+  });
+
+  it('matches the payoff curve: last column at expiry, first column today', () => {
+    const legs = templateLegs('iron_condor', 100, 2, 0.22, 30 / 365);
+    const days = gridDays(30);
+    const g = pnlGrid(legs, ctx, [110, 100, 90], days);
+    expect(g.days).toEqual(days);
+    for (const row of g.rows) {
+      expect(row.pnl[row.pnl.length - 1]).toBeCloseTo(pnlAtExpiry(legs, row.spot, ctx), 8);
+      expect(row.pnl[0]).toBeCloseTo(strategyPnl(legs, row.spot, ctx, 0), 8);
+    }
+    // A freshly priced strategy is worth nothing more or less at the spot today.
+    expect(g.rows[1].pnl[0]).toBeCloseTo(0, 6);
+    expect(g.maxAbs).toBeCloseTo(Math.max(...g.rows.flatMap((r) => r.pnl.map(Math.abs))), 10);
+  });
+
+  it('holds a date past the first expiry at the expiry value', () => {
+    const legs = [call(100, 1, 3)];
+    const g = pnlGrid(legs, ctx, [105], [91, 500]);
+    expect(g.rows[0].pnl[1]).toBeCloseTo(pnlAtExpiry(legs, 105, ctx), 8);
   });
 });

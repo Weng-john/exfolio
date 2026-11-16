@@ -425,6 +425,70 @@ export function payoffCurve(
     }));
 }
 
+// ------------------------------------------------------------ price x date grid
+
+export interface PnlGrid {
+  /** Days from now of each column, ascending; the last is the first expiry. */
+  days: number[];
+  /** One row per underlying price, highest first; `pnl` lines up with `days`. */
+  rows: Array<{ spot: number; pnl: number[] }>;
+  /** Largest |P&L| in the grid, for scaling a colour by magnitude. */
+  maxAbs: number;
+}
+
+/**
+ * Evenly spaced whole days from today (0) to `horizonDays`, at most
+ * `columns` of them, always including both ends.
+ */
+export function gridDays(horizonDays: number, columns = 6): number[] {
+  const horizon = Math.max(0, Math.floor(horizonDays));
+  if (horizon === 0) return [0];
+  const n = Math.max(2, Math.min(columns, horizon + 1));
+  const days = new Set<number>();
+  for (let i = 0; i < n; i++) days.add(Math.round((horizon * i) / (n - 1)));
+  return [...days].sort((a, b) => a - b);
+}
+
+/**
+ * Round underlying prices covering [low, high], highest first, about `rows`
+ * of them. The step is a readable one (1, 2, 2.5, 5 x a power of ten), so
+ * the prices are values a person would quote.
+ */
+export function gridSpots(low: number, high: number, rows = 11): number[] {
+  if (!(high > low) || !(low >= 0)) return [];
+  const raw = (high - low) / Math.max(1, rows - 1);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * pow >= raw)! * pow;
+  const out: number[] = [];
+  for (let v = Math.floor(high / step) * step; v >= low - 1e-9; v -= step) {
+    if (v > 0) out.push(+v.toPrecision(12));
+  }
+  return out;
+}
+
+/**
+ * Strategy P&L at each underlying price on each date. A date at or past the
+ * first expiry is valued at that expiry, like the payoff curve.
+ */
+export function pnlGrid(
+  legs: Leg[],
+  ctx: StrategyContext,
+  spots: number[],
+  days: number[],
+): PnlGrid {
+  const first = firstExpiry(legs);
+  let maxAbs = 0;
+  const rows = spots.map((spot) => {
+    const pnl = days.map((d) => {
+      const v = strategyPnl(legs, spot, ctx, Math.min(d / 365, first));
+      maxAbs = Math.max(maxAbs, Math.abs(v));
+      return v;
+    });
+    return { spot, pnl };
+  });
+  return { days, rows, maxAbs };
+}
+
 // ------------------------------------------------------------ templates
 
 export type TemplateId =

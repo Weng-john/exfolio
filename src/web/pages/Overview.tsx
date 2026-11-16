@@ -76,7 +76,7 @@ function Kpi(props: { label: string; value: string; tone?: 'pos' | 'neg'; readin
   return (
     <div className="stat ov-kpi">
       <div className="stat-label">{props.label}</div>
-      <div className={`stat-value ${props.tone ?? ''}`}>
+      <div key={props.value} className={`stat-value value-enter ${props.tone ?? ''}`}>
         <Figure text={props.value} />
       </div>
       <div className={`ov-reading ${props.reading.tone}`}>
@@ -155,7 +155,7 @@ export default function OverviewPage() {
               資產與現金，加計期貨未實現損益，再扣除負債。外部投入與投資損益分開計算。
             </Term>
           </div>
-          <div className="ov-nav-value">
+          <div key={v.nav} className="ov-nav-value value-enter">
             <Figure text={fmtMoney(v.nav, base)} />
             <span className="ov-nav-unit">{base}</span>
           </div>

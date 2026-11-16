@@ -59,4 +59,22 @@ test.describe('Options Lab', () => {
     );
     await expect(page.getByRole('region', { name: /部位腿/ }).locator('tbody tr')).toHaveCount(2);
   });
+
+  test('the payoff can be read as a table of price by date', async ({ page }) => {
+    await open(page, '/options');
+    await page.getByRole('button', { name: /鐵兀鷹/ }).click();
+    await page.getByRole('button', { name: '表格', exact: true }).click();
+    const grid = page.getByRole('region', { name: /^損益表/ }).locator('table');
+    await expect(grid.locator('thead th').first()).toHaveText('標的價格');
+    await expect(grid.locator('thead th').nth(1)).toHaveText('今天');
+    await expect(grid.locator('thead th').last()).toContainText('到期');
+    // Opened at the model price, the strategy is flat at the current price today.
+    const now = grid.locator('tr.at-spot');
+    await expect(now).toHaveCount(1);
+    await expect(now.locator('td').first()).toHaveText('0');
+    // At expiry the same price earns the full credit.
+    await expect(now.locator('td').last()).toHaveText(/^\+\d/);
+    await page.getByRole('button', { name: '圖', exact: true }).click();
+    await expect(page.locator('.opt-chart svg').first()).toBeVisible();
+  });
 });
