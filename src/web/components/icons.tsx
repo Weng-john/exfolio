@@ -105,8 +105,8 @@ export const NavIcon = (props: { path: string }) =>
 export const Logo = () => (
   <svg width={28} height={28} viewBox="0 0 28 28" aria-hidden>
     <rect width="28" height="28" rx="8" fill="var(--primary)" />
-    <rect x="7" y="15" width="3.2" height="6" rx="1.2" fill="#fff" />
-    <rect x="12.4" y="11" width="3.2" height="10" rx="1.2" fill="#fff" />
+    <rect x="7" y="15" width="3.2" height="6" rx="1.2" fill="var(--on-primary)" />
+    <rect x="12.4" y="11" width="3.2" height="10" rx="1.2" fill="var(--on-primary)" />
     <rect x="17.8" y="7" width="3.2" height="14" rx="1.2" fill="var(--accent)" />
   </svg>
 );

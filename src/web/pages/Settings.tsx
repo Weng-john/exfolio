@@ -6,6 +6,7 @@ import InstrumentsTab from './settings/InstrumentsTab';
 import IndicesTab from './settings/IndicesTab';
 import QuotesTab from './settings/QuotesTab';
 import AlertsTab from './settings/AlertsTab';
+import DisplayTab from './settings/DisplayTab';
 import BackendTab from './settings/BackendTab';
 import ExchangeTab from './settings/ExchangeTab';
 import './settings/settings.css';
@@ -17,6 +18,7 @@ const ALL_TABS = [
   { id: 'alerts', label: '提醒門檻', Body: AlertsTab },
   { id: 'exchange', label: '交易所同步', Body: ExchangeTab, needsBackend: true },
   { id: 'backend', label: '後端與資料', Body: BackendTab },
+  { id: 'display', label: '顯示', Body: DisplayTab },
 ] as const;
 
 // Exchange sync keeps API keys on a backend, which the public edition does not have.

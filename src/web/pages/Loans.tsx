@@ -170,7 +170,7 @@ export default function LoansPage() {
                     <td>{status.nextDueDate ?? '—'}</td>
                     <td className="num">
                       {collateral ? (
-                        <span className={collateral.belowCall ? 'neg' : ''}>
+                        <span className={collateral.belowCall ? 'error-text' : ''}>
                           {fmtPct(collateral.maintenanceRatio, 1)}
                         </span>
                       ) : (

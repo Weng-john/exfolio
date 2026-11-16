@@ -70,7 +70,7 @@ export function BackendAddress() {
           套用並重新連線
         </button>
       </p>
-      {msg && <p className={msg.ok ? 'pos' : 'neg'}>{msg.text}</p>}
+      {msg && <p className={msg.ok ? 'ok-text' : 'error-text'}>{msg.text}</p>}
     </>
   );
 }

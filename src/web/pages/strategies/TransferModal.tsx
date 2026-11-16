@@ -151,7 +151,7 @@ export default function TransferModal(props: {
           <input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>
-      {error && <p className="neg">{error}</p>}
+      {error && <p className="error-text">{error}</p>}
     </Modal>
   );
 }

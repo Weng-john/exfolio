@@ -17,23 +17,3 @@ export function ThemeButton() {
     </button>
   );
 }
-
-/** The same choice as a switch, for the menu drawer on small screens. */
-export function ThemeSwitch() {
-  const theme = useTheme();
-  return (
-    <button
-      type="button"
-      className="theme-switch-row"
-      role="switch"
-      aria-checked={theme === 'dark'}
-      onClick={toggleTheme}
-    >
-      <IconMoon />
-      <span>深色模式</span>
-      <span className={`theme-switch ${theme}`}>
-        <span className="switch-handle" />
-      </span>
-    </button>
-  );
-}

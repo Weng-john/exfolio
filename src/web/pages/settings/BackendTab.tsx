@@ -102,7 +102,7 @@ function BackupCard() {
       </p>
       {errors.length > 0 && (
         <>
-          <p className="neg">備份檔驗證失敗，未做任何變更：</p>
+          <p className="error-text">備份檔驗證失敗，未做任何變更：</p>
           <ul className="settings-form-errors">
             {errors.slice(0, 20).map((e) => (
               <li key={e}>{e}</li>

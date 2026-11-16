@@ -10,6 +10,7 @@ import {
 } from '@core/index';
 import { removeRow, upsertRow, useData } from '../../store';
 import { usePortfolio } from '../../usePortfolio';
+import { Pager, usePaged } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Modal } from '../../components/ui';
 import { Check, describeRefs, ErrorList, numStr, parseNum } from './shared';
 import { confirmDialog } from '../../dialog';
@@ -175,6 +176,8 @@ export default function InstrumentsTab() {
     );
   }, [data.instruments, q, type, indexId, active]);
 
+  const paged = usePaged(rows);
+
   const set = (patch: Partial<Draft>) =>
     editing && setEditing({ ...editing, draft: { ...editing.draft, ...patch } });
 
@@ -268,7 +271,7 @@ export default function InstrumentsTab() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((i) => (
+              {paged.slice.map((i) => (
                 <tr key={i.id}>
                   <td>{i.symbol}</td>
                   <td>{i.name}</td>
@@ -304,6 +307,7 @@ export default function InstrumentsTab() {
           </table>
         </div>
       )}
+      <Pager label="商品登錄" {...paged} />
 
       {blocked && (
         <Modal

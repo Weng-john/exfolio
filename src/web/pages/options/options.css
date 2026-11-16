@@ -106,13 +106,13 @@ button.opt-template.active {
 }
 .opt-glyph-line {
   fill: none;
-  stroke: var(--danger-text);
+  stroke: var(--neg);
   stroke-width: 2.25;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 .opt-glyph-line.up {
-  stroke: var(--success-text);
+  stroke: var(--pos);
 }
 
 /* ---- market */
@@ -211,7 +211,7 @@ button.opt-template.active {
   vertical-align: middle;
 }
 .opt-hero.credit .opt-hero-label::before {
-  background: #6fd29a;
+  background: var(--success);
 }
 .opt-stats {
   margin: 0;
@@ -260,7 +260,7 @@ button.opt-template.active {
   height: 0;
   margin-right: 6px;
   vertical-align: middle;
-  border-top: 3px solid var(--success-text);
+  border-top: 3px solid var(--pos);
 }
 .opt-legend .opt-legend-today::before {
   border-top: 2px dashed var(--chart-2);
@@ -430,7 +430,8 @@ button.opt-load-card:hover:not(:disabled) .opt-load-arrow {
 .opt-toast-region {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  /* Clear of the floating tab bar on small screens. */
+  bottom: calc(24px + var(--tabbar-space));
   z-index: 40;
   width: min(420px, calc(100vw - 32px));
 }
@@ -513,7 +514,6 @@ button.opt-load-card:hover:not(:disabled) .opt-load-arrow {
   }
   .opt-toast-region {
     right: 16px;
-    bottom: 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

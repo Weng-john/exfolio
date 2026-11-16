@@ -32,29 +32,41 @@ export default function PositionsTab() {
 
   const line = (p: ValuedPosition) => (
     <tr key={p.key}>
-      <td>{accountName(p.accountId)}</td>
-      <td>
+      <td data-label="帳戶">{accountName(p.accountId)}</td>
+      <td data-title>
         <strong>{p.instrument.symbol}</strong> <span className="muted">{p.instrument.name}</span>
       </td>
-      <td>
+      <td data-label="策略">
         {p.bucket === 'core'
           ? 'core'
           : (data.strategies.find((s) => s.id === p.bucket)?.name ?? p.bucket)}
       </td>
-      <td className={`num ${signClass(p.quantity)}`}>{fmtNum(p.quantity, 4)}</td>
-      <td className="num">{fmtNum(p.avgCost, 4)}</td>
-      <td className="num">
+      <td data-label="數量" className={`num ${signClass(p.quantity)}`}>
+        {fmtNum(p.quantity, 4)}
+      </td>
+      <td data-label="均價" className="num">
+        {fmtNum(p.avgCost, 4)}
+      </td>
+      <td data-label="現價" className="num">
         {fmtNum(p.price, 4)}{' '}
         <Badge tone={PRICE_STATUS_TONES[p.priceStatus]}>{PRICE_STATUS_LABELS[p.priceStatus]}</Badge>
-        <div className="muted">{fmtTime(p.priceAsOf)}</div>
+        <div className="muted stack-hide">{fmtTime(p.priceAsOf)}</div>
       </td>
-      <td className="num">{fmtMoney(p.marketValue, base)}</td>
-      <td className={`num ${signClass(p.exposure)}`}>{fmtMoney(p.exposure, base)}</td>
-      <td className={`num ${signClass(p.unrealizedPnl)}`}>{fmtMoney(p.unrealizedPnl, base)}</td>
-      <td className={`num ${signClass(p.realizedPnl)}`}>
+      <td data-label="市值" className="num">
+        {fmtMoney(p.marketValue, base)}
+      </td>
+      <td data-label="曝險" className={`num ${signClass(p.exposure)}`}>
+        {fmtMoney(p.exposure, base)}
+      </td>
+      <td data-label="未實現損益" className={`num ${signClass(p.unrealizedPnl)}`}>
+        {fmtMoney(p.unrealizedPnl, base)}
+      </td>
+      <td data-label="已實現損益" className={`num ${signClass(p.realizedPnl)}`}>
         {fmtMoney(p.realizedPnl * p.fxRate, base)}
       </td>
-      <td className="num">{fmtPct(v.nav > 0 ? p.exposure / v.nav : undefined)}</td>
+      <td data-label="曝險 / NAV" className="num">
+        {fmtPct(v.nav > 0 ? p.exposure / v.nav : undefined)}
+      </td>
     </tr>
   );
 
@@ -104,7 +116,7 @@ export default function PositionsTab() {
         </EmptyState>
       ) : (
         <div className="table-wrap" role="region" aria-label="持倉（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className={`stack-table stack-3 ${grouped ? 'grouped' : ''}`}>
             <thead>
               <tr>
                 <th>帳戶</th>
@@ -127,12 +139,24 @@ export default function PositionsTab() {
                     const t = positionTotals(group, v.nav);
                     return [
                       <tr key={`g-${id}`} className="acct-group">
-                        <td colSpan={6}>{accountName(id)}</td>
-                        <td className="num">{fmtMoney(t.marketValue, base)}</td>
-                        <td className="num">{fmtMoney(t.exposure, base)}</td>
-                        <td className="num">{fmtMoney(t.unrealizedPnl, base)}</td>
-                        <td className="num">{fmtMoney(t.realizedPnl, base)}</td>
-                        <td className="num">{fmtPct(t.exposureToNav)}</td>
+                        <td colSpan={6} data-title>
+                          {accountName(id)}
+                        </td>
+                        <td data-label="市值" className="num">
+                          {fmtMoney(t.marketValue, base)}
+                        </td>
+                        <td data-label="曝險" className="num">
+                          {fmtMoney(t.exposure, base)}
+                        </td>
+                        <td data-label="未實現損益" className="num">
+                          {fmtMoney(t.unrealizedPnl, base)}
+                        </td>
+                        <td data-label="已實現損益" className="num">
+                          {fmtMoney(t.realizedPnl, base)}
+                        </td>
+                        <td data-label="曝險 / NAV" className="num">
+                          {fmtPct(t.exposureToNav)}
+                        </td>
                       </tr>,
                       ...group.map(line),
                     ];
@@ -141,18 +165,24 @@ export default function PositionsTab() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={6}>合計</td>
-                <td className="num">{fmtMoney(total.marketValue, base)}</td>
-                <td className={`num ${signClass(total.exposure)}`}>
+                <td colSpan={6} data-title>
+                  合計
+                </td>
+                <td data-label="市值" className="num">
+                  {fmtMoney(total.marketValue, base)}
+                </td>
+                <td data-label="曝險" className={`num ${signClass(total.exposure)}`}>
                   {fmtMoney(total.exposure, base)}
                 </td>
-                <td className={`num ${signClass(total.unrealizedPnl)}`}>
+                <td data-label="未實現損益" className={`num ${signClass(total.unrealizedPnl)}`}>
                   {fmtMoney(total.unrealizedPnl, base)}
                 </td>
-                <td className={`num ${signClass(total.realizedPnl)}`}>
+                <td data-label="已實現損益" className={`num ${signClass(total.realizedPnl)}`}>
                   {fmtMoney(total.realizedPnl, base)}
                 </td>
-                <td className="num">{fmtPct(total.exposureToNav)}</td>
+                <td data-label="曝險 / NAV" className="num">
+                  {fmtPct(total.exposureToNav)}
+                </td>
               </tr>
             </tfoot>
           </table>

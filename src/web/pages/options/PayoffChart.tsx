@@ -43,16 +43,16 @@ export function PayoffChart(props: {
         >
           <defs>
             <linearGradient id={`${gradient}-fill`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset={0} stopColor="var(--success)" stopOpacity={0.32} />
-              <stop offset={zero} stopColor="var(--success)" stopOpacity={0.06} />
-              <stop offset={zero} stopColor="var(--danger)" stopOpacity={0.06} />
-              <stop offset={1} stopColor="var(--danger)" stopOpacity={0.32} />
+              <stop offset={0} stopColor="var(--pos-fill)" stopOpacity={0.32} />
+              <stop offset={zero} stopColor="var(--pos-fill)" stopOpacity={0.06} />
+              <stop offset={zero} stopColor="var(--neg-fill)" stopOpacity={0.06} />
+              <stop offset={1} stopColor="var(--neg-fill)" stopOpacity={0.32} />
             </linearGradient>
             <linearGradient id={`${gradient}-line`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset={0} stopColor="var(--success-text)" />
-              <stop offset={zero} stopColor="var(--success-text)" />
-              <stop offset={zero} stopColor="var(--danger-text)" />
-              <stop offset={1} stopColor="var(--danger-text)" />
+              <stop offset={0} stopColor="var(--pos)" />
+              <stop offset={zero} stopColor="var(--pos)" />
+              <stop offset={zero} stopColor="var(--neg)" />
+              <stop offset={1} stopColor="var(--neg)" />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
