@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 // Sliced by unicode-range: only the slices a page needs are downloaded.
 import '@fontsource/noto-sans-tc/400.css';
+// Display face for page titles and the NAV figure only.
+import '@fontsource/noto-serif-tc/600.css';
 import App from './App';
 import { DialogHost } from './components/DialogHost';
 import './styles.css';

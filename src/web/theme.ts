@@ -55,3 +55,46 @@ export function useTheme(): Theme {
     () => current,
   );
 }
+
+// Which colour means a gain. Western charts use green for up; Taiwan's market
+// uses red. A display preference like the theme, kept the same way.
+
+export type PnlScheme = 'green-up' | 'red-up';
+
+const PNL_KEY = 'exfolio.pnl';
+
+function savedPnl(): PnlScheme {
+  try {
+    return localStorage.getItem(PNL_KEY) === 'red-up' ? 'red-up' : 'green-up';
+  } catch {
+    return 'green-up';
+  }
+}
+
+let pnl: PnlScheme = savedPnl();
+
+function applyPnl() {
+  if (typeof document !== 'undefined') document.documentElement.dataset.pnl = pnl;
+  listeners.forEach((l) => l());
+}
+applyPnl();
+
+export function setPnlScheme(next: PnlScheme) {
+  pnl = next;
+  try {
+    localStorage.setItem(PNL_KEY, next);
+  } catch {
+    // Storage unavailable: the choice holds for this page view only.
+  }
+  applyPnl();
+}
+
+export function usePnlScheme(): PnlScheme {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => pnl,
+  );
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { HashRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
   hasLegacyLocalData,
@@ -11,18 +11,15 @@ import {
 } from './auth';
 import { Brand } from './components/Brand';
 import {
-  IconClose,
   IconLogout,
-  IconMenu,
   IconRefresh,
   IconSettings,
   IconUser,
   IconUsers,
   NavIcon,
 } from './components/icons';
-import { ThemeButton, ThemeSwitch } from './components/ThemeButton';
+import { ThemeButton } from './components/ThemeButton';
 import { Badge, Spinner } from './components/ui';
-import { AccessibleDialog } from './components/AccessibleDialog';
 import { Banner, EmptyState, Popover } from './components/Primitives';
 import { confirmDialog } from './dialog';
 import { IS_PUBLIC, MEMBERS_ENABLED } from './edition';
@@ -62,25 +59,32 @@ import {
 } from './store';
 import { useDailySnapshot } from './useDailySnapshot';
 
-const NAV: Array<{
+interface NavItem {
+  path: string;
+  label: string;
+  element: JSX.Element;
+  adminOnly?: boolean;
+  /** Not offered in the public edition. */
+  fullOnly?: boolean;
+  /** Only for a signed-in member. */
+  membersOnly?: boolean;
+}
+
+interface NavSection {
+  /** Label in the top navigation and the phone tab bar. */
   group: string;
-  items: Array<{
-    path: string;
-    label: string;
-    element: JSX.Element;
-    adminOnly?: boolean;
-    /** Not offered in the public edition. */
-    fullOnly?: boolean;
-    /** Only for a signed-in member. */
-    membersOnly?: boolean;
-  }>;
-}> = [
+  items: NavItem[];
+}
+
+// The five sections of the top navigation; a section's pages are its
+// sub-navigation. Paths are unchanged from the earlier single-sidebar layout.
+const NAV: NavSection[] = [
   {
     group: '總覽',
     items: [{ path: '/', label: '投資總覽', element: <OverviewPage /> }],
   },
   {
-    group: '被動核心',
+    group: '配置',
     items: [
       { path: '/allocation', label: '核心配置', element: <CoreAllocationPage /> },
       { path: '/new-money', label: '新資金配置', element: <NewMoneyPage /> },
@@ -95,22 +99,17 @@ const NAV: Array<{
     ],
   },
   {
-    group: '主動策略',
+    group: '分析',
     items: [
+      { path: '/risk', label: '風險實驗室', element: <RiskLabPage /> },
+      { path: '/options', label: '選擇權實驗室', element: <OptionsLabPage /> },
+      { path: '/performance', label: '績效分析', element: <PerformancePage />, fullOnly: true },
       { path: '/strategies', label: '主動策略', element: <StrategiesPage />, fullOnly: true },
       { path: '/journal', label: '交易日誌', element: <JournalPage />, fullOnly: true },
     ],
   },
   {
-    group: '分析',
-    items: [
-      { path: '/performance', label: '績效分析', element: <PerformancePage />, fullOnly: true },
-      { path: '/risk', label: '風險實驗室', element: <RiskLabPage /> },
-      { path: '/options', label: '選擇權實驗室', element: <OptionsLabPage /> },
-    ],
-  },
-  {
-    group: '系統',
+    group: '設定',
     items: [
       { path: '/settings', label: '設定與資料', element: <SettingsPage /> },
       { path: '/account', label: '我的帳號', element: <AccountPage />, membersOnly: true },
@@ -124,6 +123,77 @@ const NAV: Array<{
     ],
   },
 ];
+
+/** The section the current page belongs to; the first one for an unknown path. */
+function useCurrentSection(sections: NavSection[]): NavSection | undefined {
+  const { pathname } = useLocation();
+  return sections.find((g) => g.items.some((item) => item.path === pathname)) ?? sections[0];
+}
+
+/** Section links in the header (wide screens). */
+function TopNav({ sections }: { sections: NavSection[] }) {
+  const current = useCurrentSection(sections);
+  return (
+    <nav className="topnav" aria-label="主選單">
+      {sections.map((g) => (
+        <Link key={g.group} to={g.items[0].path} aria-current={g === current ? 'true' : undefined}>
+          {g.group}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** Pages of the current section: a side list on wide screens, a pill row on small ones. */
+function SubNav({ sections }: { sections: NavSection[] }) {
+  const current = useCurrentSection(sections);
+  if (!current || current.items.length < 2) return null;
+  return (
+    <nav className="subnav" aria-label={`${current.group}的頁面`}>
+      <div className="subnav-title">{current.group}</div>
+      {current.items.map((item) => (
+        <NavLink key={item.path} to={item.path} end>
+          <NavIcon path={item.path} />
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+/** Whether the page was last scrolled down, so the tab bar can shrink out of the way. */
+function useScrolledDown(): boolean {
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      // Ignore jitter and the rubber-band region at the top.
+      if (Math.abs(y - last) < 8) return;
+      setDown(y > last && y > 80);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return down;
+}
+
+/** Floating section bar for phones and tablets. */
+function TabBar({ sections }: { sections: NavSection[] }) {
+  const current = useCurrentSection(sections);
+  const compact = useScrolledDown();
+  return (
+    <nav className={`tabbar ${compact ? 'compact' : ''}`} aria-label="主選單（行動版）">
+      {sections.map((g) => (
+        <Link key={g.group} to={g.items[0].path} aria-current={g === current ? 'true' : undefined}>
+          <NavIcon path={g.items[0].path} />
+          <span>{g.group}</span>
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 const STATUS: Record<SyncStatus, { tone: 'ok' | 'warn' | 'bad' | 'info'; text: string }> = {
   loading: { tone: 'info', text: '載入中' },
@@ -163,7 +233,7 @@ function UserMenu() {
   );
 }
 
-function Header(props: { onSignIn: () => void; onMenu: () => void; navOpen: boolean }) {
+function Header(props: { onSignIn: () => void; nav: ReactNode }) {
   const store = useStore();
   const quotes = useQuoteSync();
   const status = STATUS[store.status];
@@ -171,19 +241,10 @@ function Header(props: { onSignIn: () => void; onMenu: () => void; navOpen: bool
   const snapshot = (IS_PUBLIC || !store.backendRemote) && snapshotGeneratedAt();
   return (
     <header className="app-header">
-      <button
-        type="button"
-        className="icon-btn nav-toggle"
-        aria-label="開啟選單"
-        aria-expanded={props.navOpen}
-        aria-controls={props.navOpen ? 'mobile-navigation' : undefined}
-        onClick={props.onMenu}
-      >
-        <IconMenu />
-      </button>
       <Link to="/" className="header-brand" aria-label="Exfolio 投資總覽">
         <Brand />
       </Link>
+      {props.nav}
       <div className="header-status">
         {store.scratch ? (
           <Badge tone="warn">試算</Badge>
@@ -193,7 +254,7 @@ function Header(props: { onSignIn: () => void; onMenu: () => void; navOpen: bool
           <Badge tone={status.tone}>{status.text}</Badge>
         )}
         <span className="muted hide-sm">{store.backendLabel}</span>
-        {store.error && <span className="neg">{store.error}</span>}
+        {store.error && <span className="error-text">{store.error}</span>}
         {(store.status === 'error' || store.status === 'conflict') && (
           <button className="ghost" onClick={() => void initStore(auth.viewing?.id)}>
             重新載入
@@ -315,20 +376,30 @@ function IdleCover(props: {
   );
 }
 
-/** Closes the small-screen menu drawer whenever the route changes. */
-function CloseDrawerOnNavigate(props: { onNavigate: () => void }) {
+/** Moves focus to the page content whenever the route changes. */
+function FocusMainOnNavigate() {
   const location = useLocation();
-  const { onNavigate } = props;
   const previous = useRef(location.pathname);
   useEffect(() => {
-    onNavigate();
     const changed = previous.current !== location.pathname;
     previous.current = location.pathname;
     if (!changed) return;
     const frame = requestAnimationFrame(() => document.getElementById('main-content')?.focus());
     return () => cancelAnimationFrame(frame);
-  }, [location.pathname, onNavigate]);
+  }, [location.pathname]);
   return null;
+}
+
+/** The page frame under the header: sub-navigation beside the content. */
+function Layout(props: { sections: NavSection[]; children: ReactNode }) {
+  const current = useCurrentSection(props.sections);
+  const hasSubnav = !!current && current.items.length > 1;
+  return (
+    <div className={hasSubnav ? 'layout' : 'layout no-subnav'}>
+      <SubNav sections={props.sections} />
+      {props.children}
+    </div>
+  );
 }
 
 export default function App() {
@@ -340,16 +411,6 @@ export default function App() {
   // that starts empty and keeps nothing.
   const guest = auth.phase === 'signedOut' || auth.phase === 'error' || auth.phase === 'preview';
   const [showAuth, setShowAuth] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  const closeNav = useCallback(() => setNavOpen(false), []);
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 1025px)');
-    const closeOnDesktop = () => {
-      if (query.matches) closeNav();
-    };
-    query.addEventListener('change', closeOnDesktop);
-    return () => query.removeEventListener('change', closeOnDesktop);
-  }, [closeNav]);
   const [showLegacy, setShowLegacy] = useState(false);
   const [legacy, setLegacy] = useState(hasLegacyLocalData);
   useEffect(() => {
@@ -427,39 +488,9 @@ export default function App() {
   })).filter((g) => g.items.length > 0);
   const signIn = () => setShowAuth(true);
 
-  const navigation = (
-    <>
-      <div className="sidebar-intro">
-        <span className="eyebrow">你的投資工作台</span>
-        <p>看清配置，從容決策。</p>
-      </div>
-      {visible.map((g) => (
-        <div key={g.group} className="nav-group">
-          <div className="nav-title">{g.group}</div>
-          {g.items.map((item) => (
-            <NavLink key={item.path} to={item.path} end={item.path === '/'}>
-              <NavIcon path={item.path} />
-              <span>{item.label}</span>
-              <span className="nav-arrow" aria-hidden="true">
-                ↗
-              </span>
-            </NavLink>
-          ))}
-        </div>
-      ))}
-      <div className="sidebar-note">
-        <span className="sidebar-note-mark" aria-hidden="true">
-          ◎
-        </span>
-        <strong>讓風險看得見</strong>
-        <p>以淨資產為基準，掌握每一筆曝險。</p>
-      </div>
-    </>
-  );
-
   return (
     <HashRouter>
-      <CloseDrawerOnNavigate onNavigate={closeNav} />
+      <FocusMainOnNavigate />
       <a
         className="skip-link"
         href="#main-content"
@@ -470,25 +501,8 @@ export default function App() {
       >
         跳至主要內容
       </a>
-      <Header onSignIn={signIn} onMenu={() => setNavOpen(true)} navOpen={navOpen} />
-      <div className="layout">
-        <nav className="sidebar" aria-label="主選單">
-          {navigation}
-        </nav>
-        {navOpen && (
-          <AccessibleDialog title="主選單" onClose={closeNav} className="drawer-dialog">
-            <div className="drawer-heading">
-              <Brand />
-              <button type="button" className="icon-btn" aria-label="關閉選單" onClick={closeNav}>
-                <IconClose />
-              </button>
-            </div>
-            <nav id="mobile-navigation" aria-label="行動版主選單">
-              {navigation}
-            </nav>
-            <ThemeSwitch />
-          </AccessibleDialog>
-        )}
+      <Header onSignIn={signIn} nav={<TopNav sections={visible} />} />
+      <Layout sections={visible}>
         <div className="main">
           {guest && IS_PUBLIC && (
             <div className="notice" role="note" style={{ margin: 0, borderRadius: 0 }}>
@@ -593,7 +607,8 @@ export default function App() {
             )}
           </main>
         </div>
-      </div>
+      </Layout>
+      <TabBar sections={visible} />
     </HashRouter>
   );
 }

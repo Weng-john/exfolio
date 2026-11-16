@@ -137,7 +137,7 @@ export default function TradeGroups(props: { base: string }) {
                       {r.status === 'open' ? '進行中' : '已結束'}
                     </Badge>
                     {r.status === 'closed' && !r.fullyClosed && r.legs.length > 0 && (
-                      <span className="neg"> 仍有未平倉</span>
+                      <span className="error-text"> 仍有未平倉</span>
                     )}
                   </td>
                   <td className="num">{r.legs.length}</td>

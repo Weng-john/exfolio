@@ -69,5 +69,5 @@ export function GoogleButton(props: {
     };
   }, [clientId, onToken, label, nonce]);
 
-  return error ? <p className="neg">{error}</p> : <div ref={ref} />;
+  return error ? <p className="error-text">{error}</p> : <div ref={ref} />;
 }
