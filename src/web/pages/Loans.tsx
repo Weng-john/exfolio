@@ -130,7 +130,7 @@ export default function LoansPage() {
             aria-label="借款列表（可左右捲動）"
             tabIndex={0}
           >
-            <table className="loans-list">
+            <table className="loans-list stack-table">
               <thead>
                 <tr>
                   <th>名稱</th>
@@ -209,7 +209,7 @@ export default function LoansPage() {
           <Empty>沒有待繳的借款。</Empty>
         ) : (
           <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr>
                   <th>月份</th>

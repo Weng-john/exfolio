@@ -256,7 +256,7 @@ export default function InstrumentsTab() {
         <Empty>沒有符合的商品</Empty>
       ) : (
         <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>代號</th>

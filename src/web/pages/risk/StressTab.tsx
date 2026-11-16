@@ -181,7 +181,7 @@ export default function StressTab() {
               aria-label="衝擊前後（可左右捲動）"
               tabIndex={0}
             >
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th />
@@ -221,7 +221,7 @@ export default function StressTab() {
               aria-label="各指數曝險（可左右捲動）"
               tabIndex={0}
             >
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>指數</th>
@@ -257,7 +257,7 @@ export default function StressTab() {
               aria-label="各部位（可左右捲動）"
               tabIndex={0}
             >
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>商品</th>
@@ -301,7 +301,7 @@ export default function StressTab() {
                 aria-label="質押借款維持率（可左右捲動）"
                 tabIndex={0}
               >
-                <table>
+                <table className="stack-table">
                   <thead>
                     <tr>
                       <th>借款</th>
@@ -361,7 +361,7 @@ export default function StressTab() {
                 aria-label="期貨／永續合約保證金（可左右捲動）"
                 tabIndex={0}
               >
-                <table>
+                <table className="stack-table">
                   <thead>
                     <tr>
                       <th>帳戶</th>

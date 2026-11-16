@@ -28,7 +28,7 @@ export default function CashTab() {
         <Empty>尚無現金餘額。</Empty>
       ) : (
         <div className="table-wrap" role="region" aria-label="現金（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>帳戶</th>

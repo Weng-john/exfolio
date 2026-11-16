@@ -89,7 +89,7 @@ export default function IndicesTab() {
         <Empty>尚無指數</Empty>
       ) : (
         <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>id</th>

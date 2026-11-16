@@ -81,7 +81,7 @@ export function HoldingsTab(props: { onLoad: (s: HeldStrategy, label: string) =>
           aria-label="選擇權部位（可左右捲動）"
           tabIndex={0}
         >
-          <table className="opt-holdings">
+          <table className="opt-holdings stack-table">
             <thead>
               <tr>
                 <th>商品</th>
