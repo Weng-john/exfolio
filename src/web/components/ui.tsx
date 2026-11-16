@@ -89,9 +89,13 @@ export function Stat(props: {
   );
 }
 
-/** A formatted number with its decimals set smaller, so the whole part reads first. */
+/**
+ * A formatted amount with its decimals set smaller, so the whole part reads
+ * first. Only for amounts of a thousand or more (they carry a separator):
+ * the decimals of a ratio such as 1.82× are the figure, not a remainder.
+ */
 export function Figure(props: { text: string }) {
-  const match = /^([^.]*\d)(\.\d+)(.*)$/.exec(props.text);
+  const match = /^(-?[\d,]*,\d{3})(\.\d+)(.*)$/.exec(props.text);
   if (!match) return <>{props.text}</>;
   return (
     <>

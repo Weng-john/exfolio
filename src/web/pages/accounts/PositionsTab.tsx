@@ -116,7 +116,7 @@ export default function PositionsTab() {
         </EmptyState>
       ) : (
         <div className="table-wrap" role="region" aria-label="持倉（可左右捲動）" tabIndex={0}>
-          <table className={`stack-table stack-3 ${grouped ? 'grouped' : ''}`}>
+          <table className={`stack-table ${grouped ? 'grouped' : ''}`}>
             <thead>
               <tr>
                 <th>帳戶</th>

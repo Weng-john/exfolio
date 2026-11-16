@@ -1,4 +1,4 @@
-import { Toast } from '../../components/Primitives';
+import { Pager, Toast, usePaged } from '../../components/Primitives';
 import { useRef, useState } from 'react';
 import {
   filterTransactions,
@@ -85,6 +85,8 @@ export default function TransactionsTab() {
     );
     setPreview(undefined);
   };
+
+  const paged = usePaged(rows);
 
   return (
     <Card
@@ -173,7 +175,7 @@ export default function TransactionsTab() {
         <Empty>沒有符合條件的交易。</Empty>
       ) : (
         <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>日期</th>
@@ -188,7 +190,7 @@ export default function TransactionsTab() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((t) => (
+              {paged.slice.map((t) => (
                 <tr key={t.id}>
                   <td>{t.date}</td>
                   <td>
@@ -246,6 +248,7 @@ export default function TransactionsTab() {
           </table>
         </div>
       )}
+      <Pager label="交易" {...paged} />
       <p className="muted">
         金額欄為現金金額（{base} 以外幣別另標示）；買賣的現金影響由數量 × 價格推算。
       </p>
@@ -294,7 +297,7 @@ export default function TransactionsTab() {
           )}
           {preview.fresh.length > 0 && (
             <div className="table-wrap acct-preview">
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>日期</th>

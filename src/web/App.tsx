@@ -58,6 +58,7 @@ import {
   type SyncStatus,
 } from './store';
 import { useDailySnapshot } from './useDailySnapshot';
+import { useStackTables } from './stackTables';
 
 interface NavItem {
   path: string;
@@ -444,6 +445,7 @@ export default function App() {
   useEffect(() => setIdleState('none'), [auth.user?.id]);
   useMemberIdleSignOut(IS_PUBLIC && signedIn && idleState === 'none', onIdle);
   useDailySnapshot();
+  useStackTables();
 
   if (auth.phase === 'loading') return <Spinner text="連線中…" />;
   if (signedIn && idleState !== 'none') {

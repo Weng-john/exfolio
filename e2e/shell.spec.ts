@@ -57,3 +57,45 @@ test.describe('long tables', () => {
     expect(fits).toBe(true);
   });
 });
+
+test.describe('overview', () => {
+  test('states where the portfolio stands and what to look at', async ({ page }) => {
+    await loadDemo(page);
+    const leverage = page.locator('.ov-kpi').filter({ hasText: 'Gross 槓桿' });
+    await expect(leverage).toContainText('低於提醒門檻');
+    const targets = page.getByRole('region', { name: '目標與實際' });
+    await expect(targets).toContainText(/個目標/);
+    await expect(targets.locator('.ov-devs li').first()).toContainText('S&P 500');
+    await targets.getByRole('link', { name: /查看配置/ }).click();
+    await expect(page.locator('main h1')).toHaveText('核心配置');
+  });
+
+  test('shows the most important notices first and the rest on request', async ({ page }) => {
+    await loadDemo(page);
+    const card = page.getByRole('region', { name: /^提醒/ });
+    await expect(card.locator('.ov-notices li')).toHaveCount(3);
+    const more = card.getByRole('button', { name: /顯示全部/ });
+    await more.click();
+    expect(await card.locator('.ov-notices li').count()).toBeGreaterThan(3);
+    await expect(card.getByRole('button', { name: '只顯示最重要的' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+});
+
+test.describe('tables on a phone', () => {
+  for (const path of ['/', '/accounts', '/loans', '/new-money', '/risk', '/options']) {
+    test(`${path} needs no sideways scrolling`, async ({ page }, info) => {
+      test.skip(info.project.name !== 'mobile', 'phone layout only');
+      await loadDemo(page);
+      await open(page, path);
+      const wide = await page
+        .locator('.table-wrap')
+        .evaluateAll((els) =>
+          els.filter((el) => el.scrollWidth > el.clientWidth + 2).map((el) => el.ariaLabel),
+        );
+      expect(wide).toEqual([]);
+    });
+  }
+});

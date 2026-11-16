@@ -247,7 +247,7 @@ export default function NewMoneyPage() {
           </div>
         )}
         <div className="table-wrap" role="region" aria-label="工具比較（可左右捲動）" tabIndex={0}>
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>商品</th>

@@ -68,7 +68,7 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
             aria-label="交易建議清單（僅供參考，網站不會下單）（可左右捲動）"
             tabIndex={0}
           >
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr>
                   <th>指數</th>
@@ -122,7 +122,7 @@ export function PlanView(props: { plan: AllocationPlan; names: Record<string, st
             aria-label="交易後剩餘缺口（可左右捲動）"
             tabIndex={0}
           >
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr>
                   <th>指數</th>

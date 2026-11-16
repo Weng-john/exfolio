@@ -40,7 +40,7 @@ export function PositionsTable({
         <Empty>目前沒有未平倉期貨或永續合約。</Empty>
       ) : (
         <div className="table-wrap" role="region" aria-label="期貨部位（可左右捲動）" tabIndex={0}>
-          <table className="futures-table">
+          <table className="futures-table stack-table">
             <thead>
               <tr>
                 <th>商品 / 帳戶</th>

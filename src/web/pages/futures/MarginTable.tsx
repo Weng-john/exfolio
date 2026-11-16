@@ -31,7 +31,7 @@ export function MarginTable({ margins }: { margins: MarginByAccount[] }) {
           aria-label="各帳戶保證金（可左右捲動）"
           tabIndex={0}
         >
-          <table className="futures-table">
+          <table className="futures-table stack-table">
             <thead>
               <tr>
                 <th>帳戶</th>

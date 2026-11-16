@@ -64,7 +64,7 @@ export default function CashflowTable() {
           aria-label="外部收支（現金流項目）（可左右捲動）"
           tabIndex={0}
         >
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>名稱</th>

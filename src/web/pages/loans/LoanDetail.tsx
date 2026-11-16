@@ -7,6 +7,7 @@ import {
   type LoanStatus,
   type ScheduleRow,
 } from '@core/index';
+import { Pager, usePaged } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Stat } from '../../components/ui';
 import { fmtMoney, fmtPct } from '../../format';
 import CollateralPanel from './CollateralPanel';
@@ -16,57 +17,62 @@ import { KIND_LABEL, METHOD_LABEL, num } from './shared';
 function ScheduleTable(props: { rows: ScheduleRow[]; currency: string; highlight?: string }) {
   const { rows, currency } = props;
   const sum = (f: (r: ScheduleRow) => number) => rows.reduce((s, r) => s + f(r), 0);
+  // A year at a time; the totals below still cover every period.
+  const paged = usePaged(rows, 12);
   return (
-    <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-      <table>
-        <thead>
-          <tr>
-            <th className="num">期</th>
-            <th>到期日</th>
-            <th className="num">應繳</th>
-            <th className="num">本金</th>
-            <th className="num">利息</th>
-            <th className="num">剩餘本金</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.period}>
-              <td className="num">{r.period}</td>
-              <td>{r.dueDate}</td>
-              <td className="num">{fmtMoney(r.payment, currency)}</td>
-              <td className="num">{fmtMoney(r.principal, currency)}</td>
-              <td className="num">{fmtMoney(r.interest, currency)}</td>
-              <td className="num">{fmtMoney(r.balance, currency)}</td>
+    <>
+      <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
+        <table className="stack-table">
+          <thead>
+            <tr>
+              <th className="num">期</th>
+              <th>到期日</th>
+              <th className="num">應繳</th>
+              <th className="num">本金</th>
+              <th className="num">利息</th>
+              <th className="num">剩餘本金</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan={2}>合計</td>
-            <td className="num">
-              {fmtMoney(
-                sum((r) => r.payment),
-                currency,
-              )}
-            </td>
-            <td className="num">
-              {fmtMoney(
-                sum((r) => r.principal),
-                currency,
-              )}
-            </td>
-            <td className="num">
-              {fmtMoney(
-                sum((r) => r.interest),
-                currency,
-              )}
-            </td>
-            <td />
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {paged.slice.map((r) => (
+              <tr key={r.period}>
+                <td className="num">{r.period}</td>
+                <td>{r.dueDate}</td>
+                <td className="num">{fmtMoney(r.payment, currency)}</td>
+                <td className="num">{fmtMoney(r.principal, currency)}</td>
+                <td className="num">{fmtMoney(r.interest, currency)}</td>
+                <td className="num">{fmtMoney(r.balance, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2}>合計</td>
+              <td className="num">
+                {fmtMoney(
+                  sum((r) => r.payment),
+                  currency,
+                )}
+              </td>
+              <td className="num">
+                {fmtMoney(
+                  sum((r) => r.principal),
+                  currency,
+                )}
+              </td>
+              <td className="num">
+                {fmtMoney(
+                  sum((r) => r.interest),
+                  currency,
+                )}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <Pager label="攤還表" {...paged} />
+    </>
   );
 }
 
@@ -109,7 +115,7 @@ function PrepaymentCalc(props: { loan: Loan; status: LoanStatus }) {
             aria-label="提前還款試算（可左右捲動）"
             tabIndex={0}
           >
-            <table>
+            <table className="stack-table">
               <thead>
                 <tr>
                   <th>方案</th>
@@ -158,7 +164,7 @@ function History(props: { data: AppData; loan: Loan }) {
           aria-label="動用、還款與展延紀錄（可左右捲動）"
           tabIndex={0}
         >
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>日期</th>

@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
   Line,
@@ -11,19 +14,25 @@ import {
 } from 'recharts';
 import {
   buildNotifications,
+  compareAllocation,
   CORE_BUCKET,
   demoData,
+  getSettings,
   leverageHistory,
+  overviewSummary,
   portfolioAlerts,
   today,
   UNCLASSIFIED_INDEX,
+  type Reading,
 } from '@core/index';
-import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
+import { Badge, Card, Empty, Figure, PageHeader } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX, signClass } from '../format';
 import { loadDemo, replaceAll, useData, useStore } from '../store';
 import { usePortfolio } from '../usePortfolio';
 import { FundingNotice } from '../components/FundingEvidence';
-import { Accordion, EmptyState } from '../components/Primitives';
+import { Accordion, EmptyState, Tooltip as Term } from '../components/Primitives';
+import { WeightBar } from './allocation/WeightBar';
+import './allocation/allocation.css';
 import { Onboarding } from '../components/Onboarding';
 import { CHART_TOOLTIP, useChartMotion } from '../components/chartTheme';
 
@@ -36,6 +45,47 @@ const CATEGORY: Record<string, string> = {
   portfolio: '組合',
 };
 const TONE = { info: 'info', warn: 'warn', bad: 'bad' } as const;
+const SEVERITY = { bad: 0, warn: 1, info: 2 } as const;
+/** Notices shown before "show all". */
+const NOTICE_PREVIEW = 3;
+const READING_MARK = { ok: '✓', info: '·', warn: '!' } as const;
+
+/**
+ * Actual weight as a bar with the target as a tick. Long-only weights read
+ * best from a zero at the left; a short or negative target needs the
+ * zero-centred bar the allocation page uses.
+ */
+function GapBar(props: { target: number; actual: number; scale: number }) {
+  const { target, actual, scale } = props;
+  if (target < 0 || actual < 0) return <WeightBar {...props} />;
+  const at = (x: number) => `${Math.min(100, (x / (scale * 1.05)) * 100)}%`;
+  return (
+    <div
+      className="ov-bar"
+      role="img"
+      aria-label={`實際 ${(actual * 100).toFixed(1)}%，目標 ${(target * 100).toFixed(1)}%`}
+    >
+      <span className="ov-bar-fill" style={{ width: at(actual) }} />
+      <span className="ov-bar-target" style={{ left: at(target) }} />
+    </div>
+  );
+}
+
+/** A headline figure with one sentence saying how it stands. */
+function Kpi(props: { label: string; value: string; tone?: 'pos' | 'neg'; reading: Reading }) {
+  return (
+    <div className="stat ov-kpi">
+      <div className="stat-label">{props.label}</div>
+      <div className={`stat-value ${props.tone ?? ''}`}>
+        <Figure text={props.value} />
+      </div>
+      <div className={`ov-reading ${props.reading.tone}`}>
+        <span aria-hidden="true">{READING_MARK[props.reading.tone]}</span>
+        {props.reading.text}
+      </div>
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const animate = useChartMotion();
@@ -51,6 +101,21 @@ export default function OverviewPage() {
   const bucketName = (id: string) =>
     id === CORE_BUCKET ? 'Core 被動核心' : (data.strategies.find((s) => s.id === id)?.name ?? id);
   const maxGross = Math.max(1, ...v.byIndex.map((ix) => ix.gross));
+  const summary = overviewSummary(
+    v,
+    compareAllocation(data, v),
+    getSettings(data).alerts.grossLeverage,
+  );
+  const devScale = Math.max(
+    0.1,
+    ...summary.deviations.flatMap((d) => [Math.abs(d.targetWeight), Math.abs(d.actualWeight)]),
+  );
+  // Alerts first, then notifications; within each, the most severe first.
+  const notices = [
+    ...alerts.map((a) => ({ ...a, tag: '警示', dueDate: undefined as string | undefined })),
+    ...notifications.map((n) => ({ ...n, tag: CATEGORY[n.category] ?? n.category })),
+  ].sort((x, y) => SEVERITY[x.level] - SEVERITY[y.level]);
+  const [showAll, setShowAll] = useState(false);
   const empty = !v.positions.length && !v.cash.length && !v.loans.length;
 
   return (
@@ -83,89 +148,132 @@ export default function OverviewPage() {
         </EmptyState>
       )}
 
-      <div className="stats overview-stats">
-        <Stat
-          label="NAV 淨資產"
-          value={fmtMoney(v.nav, base)}
-          hint={`資產 ${fmtMoney(v.totalAssets, base)}`}
-        />
-        <Stat
-          label="外部累積投入"
-          value={fmtMoney(v.contributedCapital, base)}
-          hint="含外部資金還款"
-        />
-        <Stat
-          label="總損益"
-          value={fmtMoney(v.totalPnl, base)}
-          tone={v.totalPnl > 0 ? 'pos' : v.totalPnl < 0 ? 'neg' : undefined}
-          hint={`未實現 ${fmtMoney(v.unrealizedPnl, base)}`}
-        />
-        <Stat
-          label="Gross 曝險"
-          value={fmtMoney(v.grossExposure, base)}
-          hint={`槓桿 ${fmtX(v.grossLeverage)}`}
-        />
-        <Stat
-          label="Net 曝險"
-          value={fmtMoney(v.netExposure, base)}
-          hint={`槓桿 ${fmtX(v.netLeverage)}`}
-        />
-        <Stat
-          label="負債"
-          value={fmtMoney(v.liabilities, base)}
-          hint={`負債 / NAV ${fmtPct(v.debtToNav)}`}
-        />
-        <Stat label="現金" value={fmtMoney(v.cashValue, base)} hint="各帳戶正餘額合計" />
+      <div className="ov-top">
+        <section className="ov-nav" aria-label="NAV 淨資產">
+          <div className="stat-label">
+            <Term label="NAV 淨資產">
+              資產與現金，加計期貨未實現損益，再扣除負債。外部投入與投資損益分開計算。
+            </Term>
+          </div>
+          <div className="ov-nav-value">
+            <Figure text={fmtMoney(v.nav, base)} />
+            <span className="ov-nav-unit">{base}</span>
+          </div>
+          <p className="ov-nav-line">
+            資產 {fmtMoney(v.totalAssets, base)} · 外部投入 {fmtMoney(v.contributedCapital, base)}
+          </p>
+          {history.length >= 2 ? (
+            <div
+              className="ov-spark"
+              role="img"
+              aria-label={`NAV 走勢：${history[0].date} 至 ${history[history.length - 1].date}`}
+            >
+              <ResponsiveContainer>
+                <AreaChart data={history} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                  <Area
+                    isAnimationActive={animate}
+                    dataKey="nav"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2}
+                    fill="var(--chart-1)"
+                    fillOpacity={0.08}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="ov-nav-hint">累積兩天的快照後，這裡會顯示 NAV 走勢。</p>
+          )}
+        </section>
+        <div className="ov-kpis">
+          <Kpi
+            label="總損益"
+            value={fmtMoney(v.totalPnl, base)}
+            tone={v.totalPnl > 0 ? 'pos' : v.totalPnl < 0 ? 'neg' : undefined}
+            reading={summary.pnl}
+          />
+          <Kpi label="Gross 槓桿" value={fmtX(v.grossLeverage)} reading={summary.leverage} />
+          <Kpi label="負債" value={fmtMoney(v.liabilities, base)} reading={summary.debt} />
+          <Kpi label="現金" value={fmtMoney(v.cashValue, base)} reading={summary.cash} />
+        </div>
       </div>
       {(store.scratch || store.demo) && <Onboarding />}
       <FundingNotice transactions={data.transactions} />
 
-      <Card title="風險警示">
-        {alerts.length === 0 ? (
-          <Empty clear>目前沒有警示。門檻可在 Settings 設定，僅供提醒，不限制任何操作。</Empty>
-        ) : (
-          <div className="table-wrap" role="region" aria-label="風險警示" tabIndex={0}>
-            <table>
-              <tbody>
-                {alerts.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <Badge tone={TONE[a.level]}>{a.title}</Badge>
-                    </td>
-                    <td style={{ whiteSpace: 'normal' }}>{a.detail}</td>
-                  </tr>
+      <div className="grid">
+        <Card
+          title="目標與實際"
+          actions={
+            <Link className="button ghost" to="/allocation">
+              查看配置 →
+            </Link>
+          }
+        >
+          {summary.deviations.length === 0 ? (
+            <Empty>設定各指數的目標權重後，這裡會列出偏離最大的項目。</Empty>
+          ) : (
+            <>
+              <p className="ov-verdict">
+                {summary.outOfBand === 0
+                  ? `${summary.targets} 個目標都在容忍區間內。`
+                  : `${summary.targets} 個目標中有 ${summary.outOfBand} 個超出容忍區間。`}
+              </p>
+              <ul className="ov-devs">
+                {summary.deviations.map((d) => (
+                  <li key={d.indexId}>
+                    <div className="ov-dev-head">
+                      <strong>{d.name}</strong>
+                      <span className="num">
+                        {fmtPct(d.actualWeight)}{' '}
+                        <span className="muted">/ 目標 {fmtPct(d.targetWeight)}</span>
+                      </span>
+                    </div>
+                    <GapBar target={d.targetWeight} actual={d.actualWeight} scale={devScale} />
+                    <span className={d.outOfBand ? 'ov-dev-text out' : 'ov-dev-text'}>
+                      {d.text}
+                    </span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+              </ul>
+            </>
+          )}
+        </Card>
 
-      <Card title="所有通知">
-        {notifications.length === 0 ? (
-          <Empty clear>目前沒有通知。提醒門檻僅供資訊參考，不限制任何操作。</Empty>
-        ) : (
-          <div className="table-wrap" role="region" aria-label="所有通知" tabIndex={0}>
-            <table>
-              <tbody>
-                {notifications.map((n) => (
-                  <tr key={n.id}>
-                    <td>
-                      <Badge tone={TONE[n.level]}>{CATEGORY[n.category] ?? n.category}</Badge>
-                    </td>
-                    <td>
+        <Card title={`提醒${notices.length ? `（${notices.length}）` : ''}`}>
+          {notices.length === 0 ? (
+            <Empty clear>目前沒有警示或通知。門檻可在設定調整，僅供提醒，不限制任何操作。</Empty>
+          ) : (
+            <>
+              <ul className="ov-notices">
+                {(showAll ? notices : notices.slice(0, NOTICE_PREVIEW)).map((n) => (
+                  <li key={n.id}>
+                    <Badge tone={TONE[n.level]}>{n.tag}</Badge>
+                    <div>
                       <strong>{n.title}</strong>
-                    </td>
-                    <td style={{ whiteSpace: 'normal' }}>{n.detail}</td>
-                    <td>{n.dueDate ?? '—'}</td>
-                  </tr>
+                      <span>{n.detail}</span>
+                    </div>
+                    {n.dueDate && <span className="num muted">{n.dueDate}</span>}
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+              </ul>
+              {notices.length > NOTICE_PREVIEW && (
+                <button
+                  type="button"
+                  className="ghost"
+                  aria-expanded={showAll}
+                  onClick={() => setShowAll(!showAll)}
+                >
+                  {showAll ? '只顯示最重要的' : `顯示全部 ${notices.length} 則`}
+                </button>
+              )}
+            </>
+          )}
+        </Card>
+      </div>
 
+      <div className="section-kicker">
+        <span aria-hidden="true">↓</span> 明細
+      </div>
       <div className="grid">
         <Card title="各指數曝險">
           {v.byIndex.length === 0 ? (
@@ -177,7 +285,7 @@ export default function OverviewPage() {
               aria-label="各指數曝險（可左右捲動）"
               tabIndex={0}
             >
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>指數</th>
@@ -247,7 +355,7 @@ export default function OverviewPage() {
               aria-label="被動核心與主動策略（可左右捲動）"
               tabIndex={0}
             >
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>組合</th>
@@ -279,7 +387,7 @@ export default function OverviewPage() {
             aria-label="組合損益摘要（可左右捲動）"
             tabIndex={0}
           >
-            <table>
+            <table className="stack-table">
               <tbody>
                 <tr>
                   <td>已實現損益</td>
