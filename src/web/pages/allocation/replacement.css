@@ -67,3 +67,13 @@
 .rp-disclaimer {
   margin-top: 14px;
 }
+
+@media (max-width: 640px) {
+  /* As a card, the notes take the card's full width instead of a narrow column. */
+  .rp-table.stack-table td:has(.rp-notes) {
+    grid-column: 1 / -1;
+  }
+  .rp-notes {
+    min-width: 0;
+  }
+}

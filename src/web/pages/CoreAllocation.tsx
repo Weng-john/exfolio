@@ -219,7 +219,7 @@ export default function CoreAllocationPage() {
                 aria-label="目標設定（可左右捲動）"
                 tabIndex={0}
               >
-                <table>
+                <table className="stack-table">
                   <thead>
                     <tr>
                       <th>指數</th>
@@ -279,7 +279,7 @@ export default function CoreAllocationPage() {
                 aria-label="目標 vs 實際（可左右捲動）"
                 tabIndex={0}
               >
-                <table>
+                <table className="stack-table">
                   <thead>
                     <tr>
                       <th>市場 / 指數 / 商品</th>

@@ -61,7 +61,7 @@ export function ContractMonths({ series, heldSeries, instruments, day }: Props) 
         aria-label={`${seriesName(group)} 合約月份（可左右捲動）`}
         tabIndex={0}
       >
-        <table className="futures-table">
+        <table className="futures-table stack-table">
           <thead>
             <tr>
               <th>商品</th>

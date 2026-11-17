@@ -2167,6 +2167,23 @@ th.num {
   .stack-table tbody tr:hover td {
     background: none;
   }
+  /* A cell with nothing in it (a spacer, a group row's padding) takes no room. */
+  .stack-table td:empty {
+    display: none;
+  }
+  /* A choice or a free-text field gets the card's full width: too narrow
+     to read in a third of it. Numbers and dates stay side by side. */
+  .stack-table td:has(> select),
+  .stack-table td:has(> input:not([type])),
+  .stack-table td:has(> input[type='text']) {
+    grid-column: 1 / -1;
+  }
+  /* Inputs in a card fill their cell. */
+  .stack-table td input,
+  .stack-table td select {
+    width: 100%;
+    min-width: 0;
+  }
   .stack-table td[data-label='']::before {
     content: none;
   }
@@ -2423,4 +2440,49 @@ th.num {
 .card,
 .stat {
   transition: border-color 0.15s;
+}
+
+/* ==== Column picker (positions). ==== */
+.text-trigger.active {
+  border-color: var(--primary);
+}
+.col-picker {
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+}
+.col-picker legend {
+  padding: 4px 0 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.col-picker label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.col-picker label:hover {
+  background: var(--surface-2);
+}
+.col-picker input {
+  width: auto;
+  accent-color: var(--primary);
+}
+.col-picker .field-hint {
+  margin: 6px 4px 2px;
+}
+.hide-account [data-col='account'],
+.hide-bucket [data-col='bucket'],
+.hide-avgCost [data-col='avgCost'],
+.hide-price [data-col='price'],
+.hide-realized [data-col='realized'],
+.hide-weight [data-col='weight'] {
+  display: none !important;
 }

@@ -107,7 +107,7 @@ export function ReplacementHistory(props: {
       {cmp && cmp.daysUsed >= 2 && cmp.base && cmp.candidate ? (
         <>
           <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-            <table className="rp-table">
+            <table className="rp-table stack-table">
               <thead>
                 <tr>
                   <th />

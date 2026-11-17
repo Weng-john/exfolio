@@ -134,3 +134,46 @@ test.describe('long pages show one part at a time', () => {
     await expect(form.getByLabel('日經 225')).toBeVisible();
   });
 });
+
+test.describe('positions columns', () => {
+  test('optional columns can be hidden and stay hidden', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'wide table only');
+    await loadDemo(page);
+    await open(page, '/accounts');
+    const headers = page.getByRole('region', { name: /^持倉/ }).locator('thead th:visible');
+    const before = await headers.count();
+    await page.getByRole('button', { name: '選擇顯示的欄位' }).click();
+    await page.getByRole('checkbox', { name: '均價' }).uncheck();
+    await expect(headers).toHaveCount(before - 1);
+    await expect(headers.filter({ hasText: '均價' })).toHaveCount(0);
+    // The account group rows still line up with the header.
+    const span = await page
+      .locator('tr.acct-group td')
+      .first()
+      .evaluate((td) => (td as HTMLTableCellElement).colSpan);
+    expect(span).toBe(5);
+    await page.reload();
+    await loadDemo(page);
+    await open(page, '/accounts');
+    await expect(headers.filter({ hasText: '均價' })).toHaveCount(0);
+  });
+});
+
+test.describe('editable tables on a phone', () => {
+  for (const [path, tab] of [
+    ['/allocation', '目標設定'],
+    ['/allocation', '商品替代'],
+    ['/futures', ''],
+  ] as const) {
+    test(`${path} ${tab} needs no sideways scrolling`, async ({ page }, info) => {
+      test.skip(info.project.name !== 'mobile', 'phone layout only');
+      await loadDemo(page);
+      await open(page, path);
+      if (tab) await page.getByRole('tab', { name: tab }).click();
+      const wide = await page
+        .locator('.table-wrap')
+        .evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 2).length);
+      expect(wide).toBe(0);
+    });
+  }
+});
