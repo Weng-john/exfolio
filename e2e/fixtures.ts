@@ -2,15 +2,20 @@ import { expect, test as base, type Page } from '@playwright/test';
 
 // Every test starts offline from the outside world: the public edition may
 // only talk to its own origin, so anything else is answered with an error
-// rather than waiting on the network.
+// rather than waiting on the network. The fixture is automatic, so a test is
+// offline (and checked for uncaught errors) whether or not it asks for
+// `errors`; otherwise a CI runner with network access sees live prices.
 export const test = base.extend<{ errors: string[] }>({
-  errors: async ({ page }, use) => {
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message));
-    await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
-    await use(errors);
-    expect(errors, 'uncaught errors in the page').toEqual([]);
-  },
+  errors: [
+    async ({ page }, use) => {
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
+      await use(errors);
+      expect(errors, 'uncaught errors in the page').toEqual([]);
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };

@@ -151,7 +151,8 @@ test.describe('positions columns', () => {
       .locator('tr.acct-group td')
       .first()
       .evaluate((td) => (td as HTMLTableCellElement).colSpan);
-    expect(span).toBe(5);
+    // Grouped by account, the account column is left out too: 6 − 2.
+    expect(span).toBe(4);
     await page.reload();
     await loadDemo(page);
     await open(page, '/accounts');
@@ -176,4 +177,46 @@ test.describe('editable tables on a phone', () => {
       expect(wide).toBe(0);
     });
   }
+});
+
+test.describe('positions table', () => {
+  test('leaves out the repeated account column when grouped', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'wide table only');
+    await loadDemo(page);
+    await open(page, '/accounts');
+    const headers = page.getByRole('region', { name: /^持倉/ }).locator('thead th:visible');
+    await expect(headers.filter({ hasText: '帳戶' })).toHaveCount(0);
+    await page.getByRole('switch', { name: '依帳戶分組' }).click();
+    await expect(headers.filter({ hasText: '帳戶' })).toHaveCount(1);
+  });
+
+  test('fits a 1366px screen with every column shown', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'wide table only');
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await loadDemo(page);
+    await open(page, '/accounts');
+    const wrap = page.getByRole('region', { name: '持倉（可左右捲動）' });
+    const fits = await wrap.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+    expect(fits).toBe(true);
+  });
+
+  test('quantities are not coloured like profit and loss', async ({ page }) => {
+    await loadDemo(page);
+    await open(page, '/accounts');
+    const qty = page.locator('td[data-label="數量"]').first();
+    await expect(qty).not.toHaveClass(/\b(pos|neg)\b/);
+  });
+});
+
+test.describe('quote status', () => {
+  test('says plainly when no quote could be fetched and lists why', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'the status is hidden on small screens');
+    // The scratch calculator refreshes quotes; with no network every one fails.
+    await open(page, '/');
+    const status = page.getByRole('button', { name: /無法取得報價/ });
+    await expect(status).toBeVisible();
+    await status.click();
+    await expect(page.getByText('未更新的報價')).toBeVisible();
+    await expect(page.locator('.quote-details li').first()).toContainText(/等 \d+ 項|、/);
+  });
 });

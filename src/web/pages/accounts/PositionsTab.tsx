@@ -5,7 +5,7 @@ import { usePortfolio } from '../../usePortfolio';
 import { QuickPosition } from '../../components/QuickPosition';
 import { Badge, Card } from '../../components/ui';
 import { EmptyState, Popover, Toggle } from '../../components/Primitives';
-import { fmtMoney, fmtNum, fmtPct, fmtTime, signClass } from '../../format';
+import { fmtMoney, fmtNum, fmtPct, fmtShortTime, fmtTime, signClass } from '../../format';
 import { PRICE_STATUS_LABELS, PRICE_STATUS_TONES } from './labels';
 
 /** Columns a viewer may hide, in table order; the others always show. */
@@ -13,7 +13,7 @@ const OPTIONAL = [
   ['account', '帳戶'],
   ['bucket', '策略'],
   ['avgCost', '均價'],
-  ['price', '現價 / 報價時間'],
+  ['price', '現價與報價時間'],
   ['realized', '已實現損益'],
   ['weight', '曝險 / NAV'],
 ] as const;
@@ -67,7 +67,13 @@ export default function PositionsTab() {
   const total = positionTotals(rows, v.nav);
   const [hidden, setHidden] = useHiddenColumns();
   // Group and total rows label the leading columns with one cell.
-  const leadSpan = 6 - LEADING.filter((c) => hidden.has(c)).length;
+  // Grouped by account, each group's heading already names it: the column
+  // would only repeat it.
+  const shown = (c: Column) => !hidden.has(c) && !(grouped && c === 'account');
+  const leadSpan = 6 - LEADING.filter((c) => !shown(c)).length;
+  const hiddenClasses = OPTIONAL.filter(([c]) => !shown(c))
+    .map(([c]) => `hide-${c}`)
+    .join(' ');
 
   const line = (p: ValuedPosition) => (
     <tr key={p.key}>
@@ -75,23 +81,30 @@ export default function PositionsTab() {
         {accountName(p.accountId)}
       </td>
       <td data-title>
-        <strong>{p.instrument.symbol}</strong> <span className="muted">{p.instrument.name}</span>
+        <strong>{p.instrument.symbol}</strong>{' '}
+        <span className="muted pos-name">{p.instrument.name}</span>
       </td>
       <td data-col="bucket" data-label="策略">
         {p.bucket === 'core'
           ? 'core'
           : (data.strategies.find((s) => s.id === p.bucket)?.name ?? p.bucket)}
       </td>
-      <td data-label="數量" className={`num ${signClass(p.quantity)}`}>
+      <td data-label="數量" className="num">
         {fmtNum(p.quantity, 4)}
       </td>
       <td data-col="avgCost" data-label="均價" className="num">
         {fmtNum(p.avgCost, 4)}
       </td>
       <td data-col="price" data-label="現價" className="num">
-        {fmtNum(p.price, 4)}{' '}
-        <Badge tone={PRICE_STATUS_TONES[p.priceStatus]}>{PRICE_STATUS_LABELS[p.priceStatus]}</Badge>
-        <div className="muted stack-hide">{fmtTime(p.priceAsOf)}</div>
+        {fmtNum(p.price, 4)}
+        <div className="pos-quote">
+          <Badge tone={PRICE_STATUS_TONES[p.priceStatus]}>
+            {PRICE_STATUS_LABELS[p.priceStatus]}
+          </Badge>
+          <span className="muted" title={fmtTime(p.priceAsOf)}>
+            {fmtShortTime(p.priceAsOf)}
+          </span>
+        </div>
       </td>
       <td data-label="市值" className="num">
         {fmtMoney(p.marketValue, base)}
@@ -133,7 +146,8 @@ export default function PositionsTab() {
                 <label key={col}>
                   <input
                     type="checkbox"
-                    checked={!hidden.has(col)}
+                    checked={shown(col)}
+                    disabled={grouped && col === 'account'}
                     onChange={(e) => {
                       const next = new Set(hidden);
                       if (e.target.checked) next.delete(col);
@@ -142,6 +156,9 @@ export default function PositionsTab() {
                     }}
                   />
                   {label}
+                  {grouped && col === 'account' && (
+                    <span className="field-hint">依帳戶分組時已由分組標題顯示</span>
+                  )}
                 </label>
               ))}
               <p className="field-hint">商品、數量、市值、曝險與未實現損益一律顯示。</p>
@@ -183,7 +200,7 @@ export default function PositionsTab() {
       ) : (
         <div className="table-wrap" role="region" aria-label="持倉（可左右捲動）" tabIndex={0}>
           <table
-            className={`stack-table ${grouped ? 'grouped' : ''} ${[...hidden].map((c) => `hide-${c}`).join(' ')}`}
+            className={`stack-table positions-table ${grouped ? 'grouped' : ''} ${hiddenClasses}`}
           >
             <thead>
               <tr>
@@ -195,7 +212,7 @@ export default function PositionsTab() {
                   均價
                 </th>
                 <th data-col="price" className="num">
-                  現價 / 報價時間
+                  現價
                 </th>
                 <th className="num">市值（{base}）</th>
                 <th className="num">曝險</th>
