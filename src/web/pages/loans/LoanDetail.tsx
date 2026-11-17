@@ -7,7 +7,7 @@ import {
   type LoanStatus,
   type ScheduleRow,
 } from '@core/index';
-import { Pager, SegmentedControl, useIsPhone, usePaged } from '../../components/Primitives';
+import { Pager, SegmentedControl, usePaged } from '../../components/Primitives';
 import { Badge, Card, Empty, Field, Stat } from '../../components/ui';
 import { fmtMoney, fmtPct } from '../../format';
 import CollateralPanel from './CollateralPanel';
@@ -17,8 +17,8 @@ import { KIND_LABEL, METHOD_LABEL, num } from './shared';
 function ScheduleTable(props: { rows: ScheduleRow[]; currency: string; highlight?: string }) {
   const { rows, currency } = props;
   const sum = (f: (r: ScheduleRow) => number) => rows.reduce((s, r) => s + f(r), 0);
-  // A year at a time (half on a phone); the totals below still cover every period.
-  const paged = usePaged(rows, useIsPhone() ? 6 : 12);
+  // Six periods at a time; the totals below still cover every period.
+  const paged = usePaged(rows, 6);
   return (
     <>
       <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>

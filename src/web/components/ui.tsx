@@ -81,7 +81,11 @@ export function Stat(props: {
           props.label
         )}
       </div>
-      <div className={`stat-value ${props.tone ?? ''}`}>
+      {/* Keyed by its text: a changed figure remounts and eases in. */}
+      <div
+        key={typeof props.value === 'string' ? props.value : undefined}
+        className={`stat-value value-enter ${props.tone ?? ''}`}
+      >
         {typeof props.value === 'string' ? <Figure text={props.value} /> : props.value}
       </div>
       {props.hint && <div className="stat-hint">{props.hint}</div>}

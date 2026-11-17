@@ -30,7 +30,7 @@ export function ReplacementTable(props: { analysis: ReplacementAnalysis }) {
   const hasFrom = a.rows.some((r) => r.isCurrent);
   return (
     <div className="table-wrap" role="region" aria-label="資料表（可左右捲動）" tabIndex={0}>
-      <table className="rp-table">
+      <table className="rp-table stack-table">
         <thead>
           <tr>
             <th>商品</th>

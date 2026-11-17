@@ -8,6 +8,7 @@ import {
   type Loan,
   type LoanStatus,
 } from '@core/index';
+import { Pager, usePaged } from '../components/Primitives';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { fmtMoney, fmtPct, fmtX } from '../format';
 import { removeRow, upsertRow, useData } from '../store';
@@ -38,6 +39,8 @@ export default function LoansPage() {
     [data, ledger, valuation, day],
   );
   const forecast = useMemo(() => debtCashflowForecast(data, ledger, 12, day), [data, ledger, day]);
+  // Half a year at a time; the footer still totals all twelve months.
+  const forecastPage = usePaged(forecast, 6);
 
   const active = rows.filter((r) => r.loan.active);
   const totalDebt = valuation.loans.reduce((s, l) => s + l.value, 0);
@@ -224,7 +227,7 @@ export default function LoansPage() {
                 </tr>
               </thead>
               <tbody>
-                {forecast.map((f) => (
+                {forecastPage.slice.map((f) => (
                   <tr key={f.month}>
                     <td>{f.month}</td>
                     {forecastLoans.map((l) => {
@@ -262,6 +265,7 @@ export default function LoansPage() {
             </table>
           </div>
         )}
+        <Pager label="債務現金流" {...forecastPage} />
       </Card>
     </>
   );

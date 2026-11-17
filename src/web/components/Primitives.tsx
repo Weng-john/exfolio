@@ -78,7 +78,13 @@ export function SegmentedControl<T extends string>(props: {
 }
 
 /** A disclosure, not a menu: links retain normal Tab navigation. */
-export function Popover(props: { label: string; trigger: ReactNode; children: ReactNode }) {
+export function Popover(props: {
+  label: string;
+  trigger: ReactNode;
+  children: ReactNode;
+  /** Trigger style; the default is the round avatar button. */
+  className?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -112,7 +118,7 @@ export function Popover(props: { label: string; trigger: ReactNode; children: Re
       <button
         type="button"
         ref={trigger}
-        className={`avatar-btn ${open ? 'active' : ''}`}
+        className={`${props.className ?? 'avatar-btn'} ${open ? 'active' : ''}`}
         aria-label={props.label}
         aria-expanded={open}
         aria-controls={open ? id : undefined}

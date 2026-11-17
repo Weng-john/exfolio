@@ -50,6 +50,14 @@ const STATES: Array<[string, string, (page: import('@playwright/test').Page) => 
     },
   ],
   [
+    'option payoff table',
+    '/options',
+    async (page) => {
+      await page.getByRole('button', { name: /鐵兀鷹/ }).click();
+      await page.getByRole('button', { name: '表格', exact: true }).click();
+    },
+  ],
+  [
     'option leg dialog',
     '/options',
     async (page) => {
