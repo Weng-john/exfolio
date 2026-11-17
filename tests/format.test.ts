@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtMoney, fmtNum, fmtPct } from '../src/web/format';
+import { fmtMoney, fmtNum, fmtPct, fmtShortTime } from '../src/web/format';
 
 describe('number formatting', () => {
   it('never shows a negative zero', () => {
@@ -14,5 +14,14 @@ describe('number formatting', () => {
     expect(fmtMoney(-0.6)).toBe('-1');
     expect(fmtMoney(-1234.5, 'USD')).toBe('-1,234.50');
     expect(fmtPct(-0.0006)).toBe('-0.1%');
+  });
+});
+
+describe('short time', () => {
+  it('gives month, day and minute in local time', () => {
+    const d = new Date(2026, 10, 7, 9, 5);
+    expect(fmtShortTime(d.toISOString())).toBe('11/7 09:05');
+    expect(fmtShortTime(undefined)).toBe('—');
+    expect(fmtShortTime('not a date')).toBe('—');
   });
 });

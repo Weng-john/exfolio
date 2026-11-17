@@ -82,7 +82,7 @@ export function PositionsTable({
                       </span>
                     </td>
                     <td>{p.seriesId}</td>
-                    <td className={`num ${signClass(p.contracts)}`}>{fmtNum(p.contracts)}</td>
+                    <td className="num">{fmtNum(p.contracts)}</td>
                     <td className="num">{fmtNum(p.averagePrice)}</td>
                     <td className="num">
                       {fmtNum(p.currentPrice)}{' '}

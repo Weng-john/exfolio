@@ -57,6 +57,7 @@ import {
   useStore,
   type SyncStatus,
 } from './store';
+import { quoteStatus, type QuoteStatus } from './quoteStatus';
 import { useDailySnapshot } from './useDailySnapshot';
 import { useStackTables } from './stackTables';
 
@@ -234,6 +235,50 @@ function UserMenu() {
   );
 }
 
+/** Quote state in the header; when some quotes failed, a list of which and why. */
+function QuoteStatusView({ status }: { status: QuoteStatus }) {
+  const mark = status.tone === 'warn' ? '!' : status.tone === 'ok' ? '' : '·';
+  if (!status.groups.length)
+    return <span className={`quote-status hide-sm ${status.tone}`}>{status.text}</span>;
+  return (
+    <span className="hide-sm">
+      <Popover
+        label={`${status.text}，查看未更新的報價`}
+        className={`text-trigger quote-status ${status.tone}`}
+        trigger={
+          <span>
+            {mark && (
+              <span className="quote-mark" aria-hidden="true">
+                {mark}
+              </span>
+            )}
+            {status.text}
+          </span>
+        }
+      >
+        <div className="quote-details">
+          <strong>未更新的報價</strong>
+          <p className="field-hint">
+            這些商品沿用上次的價格估值；沒有任何價格時以成本估值。可在「設定 →
+            報價與匯率」手動輸入。
+          </p>
+          <ul>
+            {status.groups.slice(0, 6).map((g) => (
+              <li key={g.reason}>
+                <span className="quote-reason">{g.reason}</span>
+                <span className="muted">
+                  {g.names.slice(0, 12).join('、')}
+                  {g.names.length > 12 && ` 等 ${g.names.length} 項`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Popover>
+    </span>
+  );
+}
+
 function Header(props: { onSignIn: () => void; nav: ReactNode }) {
   const store = useStore();
   const quotes = useQuoteSync();
@@ -263,10 +308,15 @@ function Header(props: { onSignIn: () => void; nav: ReactNode }) {
         )}
       </div>
       <div className="header-actions">
-        <span className="muted hide-sm" title={quotes.errors.join('\n')}>
-          {snapshot ? `報價快照 ${fmtTime(snapshot)}` : `報價 ${fmtTime(quotes.lastSuccessAt)}`}
-          {quotes.errors.length > 0 && `（${quotes.errors.length} 項失敗）`}
-        </span>
+        <QuoteStatusView
+          status={quoteStatus({
+            refreshing: quotes.refreshing,
+            requested: quotes.requested,
+            failures: quotes.failures,
+            lastSuccess: quotes.lastSuccessAt ? fmtTime(quotes.lastSuccessAt) : undefined,
+            snapshot: snapshot ? fmtTime(snapshot) : undefined,
+          })}
+        />
         {(!store.demo || store.scratch) && (
           <button
             type="button"

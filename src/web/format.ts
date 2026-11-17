@@ -39,6 +39,15 @@ export function fmtTime(iso: string | undefined): string {
   return d.toLocaleString('zh-TW', { hour12: false });
 }
 
+/** Month, day and minute in the viewer's time zone, e.g. "11/17 01:04", for narrow columns. */
+export function fmtShortTime(iso: string | undefined): string {
+  if (!iso) return DASH;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return DASH;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
 /** CSS class for a signed amount. */
 export function signClass(value: number | undefined): string {
   if (!value) return '';

@@ -50,6 +50,15 @@ const STATES: Array<[string, string, (page: import('@playwright/test').Page) => 
     },
   ],
   [
+    'quote status details',
+    '/',
+    async (page) => {
+      await page.getByRole('button', { name: '改用自己的數字試算' }).click();
+      const status = page.locator('.app-header button.quote-status');
+      if (await status.isVisible()) await status.click();
+    },
+  ],
+  [
     'option payoff table',
     '/options',
     async (page) => {

@@ -6,6 +6,7 @@ import {
   type QuoteRequestItem,
   type QuoteSource,
 } from '@core/index';
+import type { QuoteFailure } from './quoteStatus';
 import { getBackend, getState, setTable } from './store';
 
 // Market quotes are refreshed separately from account data: on page open,
@@ -18,9 +19,13 @@ export interface QuoteSyncState {
   lastAttemptAt?: string;
   lastSuccessAt?: string;
   errors: string[];
+  /** The same failures, structured for the header's details list. */
+  failures: QuoteFailure[];
+  /** Quotes asked for in the last refresh. */
+  requested: number;
 }
 
-let sync: QuoteSyncState = { refreshing: false, errors: [] };
+let sync: QuoteSyncState = { refreshing: false, errors: [], failures: [], requested: 0 };
 const listeners = new Set<() => void>();
 
 function setSync(patch: Partial<QuoteSyncState>) {
@@ -60,19 +65,19 @@ export async function refreshQuotes(): Promise<void> {
     items.set(key(source, symbol), { source, symbol });
   if (!items.size) return;
 
-  setSync({ refreshing: true, lastAttemptAt: new Date().toISOString() });
+  setSync({ refreshing: true, lastAttemptAt: new Date().toISOString(), requested: items.size });
   try {
     const res = await backend.call({ action: 'quotes', items: [...items.values()] });
     if (!res.ok) throw new Error(res.error);
     const results = new Map((res.quotes ?? []).map((q) => [key(q.source, q.symbol), q]));
-    const errors: string[] = [];
+    const failures: QuoteFailure[] = [];
     const latest = getState().data;
 
     const prices = new Map(latest.prices.map((p) => [p.id, p]));
     for (const i of instruments) {
       const q = results.get(key(i.quoteSource, i.quoteSymbol!));
       if (!q || q.error || !q.price) {
-        errors.push(`${i.symbol}: ${q?.error ?? '沒有回應'}`);
+        failures.push({ name: i.symbol, reason: q?.error ?? '沒有回應' });
         continue;
       }
       const quote: PriceQuote = {
@@ -90,7 +95,7 @@ export async function refreshQuotes(): Promise<void> {
     for (const [from, to, source, symbol] of SEED_FX_PAIRS) {
       const q = results.get(key(source, symbol));
       if (!q || q.error || !q.price) {
-        errors.push(`${from}/${to}: ${q?.error ?? '沒有回應'}`);
+        failures.push({ name: `${from}/${to}`, reason: q?.error ?? '沒有回應' });
         continue;
       }
       const rate: FxRate = {
@@ -108,11 +113,18 @@ export async function refreshQuotes(): Promise<void> {
     setTable('fxRates', [...fxRates.values()]);
     setSync({
       refreshing: false,
-      errors,
-      lastSuccessAt: errors.length < items.size ? new Date().toISOString() : sync.lastSuccessAt,
+      failures,
+      errors: failures.map((f) => `${f.name}: ${f.reason}`),
+      lastSuccessAt: failures.length < items.size ? new Date().toISOString() : sync.lastSuccessAt,
     });
   } catch (err) {
-    setSync({ refreshing: false, errors: [err instanceof Error ? err.message : String(err)] });
+    const reason = err instanceof Error ? err.message : String(err);
+    // The whole request failed: every quote asked for is out of date.
+    setSync({
+      refreshing: false,
+      errors: [reason],
+      failures: [...items.values()].map((i) => ({ name: i.symbol, reason })),
+    });
   }
 }
 
